@@ -1,0 +1,22 @@
+[package]
+name = "font-kit"
+version = "0.1.0"
+authors = ["Patrick Walton <pcwalton@mimiga.net>"]
+
+[dependencies]
+bitflags = "1.0"
+euclid = "0.17"
+log = "0.4"
+lyon_path = "0.10"
+
+[dependencies.cocoa]
+path = "/Users/pcwalton/Source/core-foundation-rs/cocoa"
+
+[dependencies.core-foundation]
+path = "/Users/pcwalton/Source/core-foundation-rs/core-foundation"
+
+[dependencies.core-graphics]
+path = "/Users/pcwalton/Source/core-foundation-rs/core-graphics"
+
+[dependencies.core-text]
+path = "/Users/pcwalton/Source/core-foundation-rs/core-text"
