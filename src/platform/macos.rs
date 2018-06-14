@@ -25,8 +25,10 @@ use core_text::font_descriptor::{kCTFontMonoSpaceTrait, kCTFontVerticalTrait};
 use core_text;
 use euclid::{Point2D, Rect, Size2D, Vector2D};
 use lyon_path::builder::PathBuilder;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::f32;
 use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
@@ -38,8 +40,9 @@ use set::Set;
 
 const ITALIC_SLANT: f64 = 1.0 / 15.0;
 
-static FONT_WEIGHT_MAPPINGS: [f32; 11] =
-    [-1.0, -0.7, -0.5, -0.23, 0.0, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0];
+static FONT_WEIGHT_MAPPING: [f32; 9] = [-0.7, -0.5, -0.23, 0.0, 0.2, 0.3, 0.4, 0.6, 0.8];
+static FONT_STRETCH_MAPPING: [f32; 9] =
+    [50.0, 62.5, 75.0, 87.5, 100.0, 112.5, 125.0, 150.0, 200.0];
 
 pub type NativeFont = CTFont;
 
@@ -104,8 +107,7 @@ impl Font {
         flags.set(Flags::ITALIC, all_traits.normalized_slant() > 0.0);
 
         let weight = core_text_to_css_font_weight(all_traits.normalized_weight() as f32);
-        let stretch = core_text_font_width_to_css_stretchiness(all_traits.normalized_width() as
-                                                               f32);
+        let stretch = core_text_width_to_css_stretchiness(all_traits.normalized_width() as f32);
 
         Descriptor {
             postscript_name: self.core_text_font.postscript_name(),
@@ -269,20 +271,13 @@ impl Query {
                 CFMutableDictionary::new();
 
             if self.fields.contains(QueryFields::WEIGHT) {
-                /*let weight = css_to_core_text_font_weight(self.descriptor.weight);
+                let weight = css_to_core_text_font_weight(self.descriptor.weight);
                 core_text_traits.set(CFString::new("NSCTFontWeightTrait"),
-                                     CFNumber::from(weight).as_CFType());*/
-                //let weight = css_to_core_text_font_weight(self.descriptor.weight);
-                let weight = self.descriptor.weight;
-                core_text_traits.set(CFString::new("CTFontCSSWeightAttribute"),
                                      CFNumber::from(weight).as_CFType());
             }
             if self.fields.contains(QueryFields::STRETCH) {
-                /*let width = css_stretchiness_to_core_text_font_width(self.descriptor.stretch);
+                let width = css_stretchiness_to_core_text_width(self.descriptor.stretch);
                 core_text_traits.set(CFString::new("NSCTFontProportionTrait"),
-                                     CFNumber::from(width).as_CFType());*/
-                let width = self.descriptor.stretch;
-                core_text_traits.set(CFString::new("CTFontCSSWidthAttribute"),
                                      CFNumber::from(width).as_CFType());
             }
             if self.fields.contains(QueryFields::ITALIC) {
@@ -327,40 +322,40 @@ impl CGPointExt for CGPoint {
     }
 }
 
-fn css_to_core_text_font_weight(mut css_weight: f32) -> f32 {
-    
-    css_weight = clamp(css_weight, 100.0, 900.0) - 400.0;
-    let factor = if css_weight <= 0.0 {
-        1.0 / 400.0
-    } else {
-        1.0 / 500.0
+fn piecewise_linear_lookup(index: f32, mapping: &[f32]) -> f32 {
+    let lower_value = mapping[f32::floor(index) as usize];
+    let upper_value = mapping[f32::ceil(index) as usize];
+    lerp(lower_value, upper_value, f32::fract(index))
+}
+
+fn piecewise_linear_find_index(query_value: f32, mapping: &[f32]) -> f32 {
+    let upper_index = match mapping.binary_search_by(|value| {
+        value.partial_cmp(&query_value).unwrap_or(Ordering::Less)
+    }) {
+        Ok(index) => return index as f32,
+        Err(upper_index) => upper_index,
     };
-    factor * css_weight
+    let lower_index = upper_index - 1;
+    let (upper_value, lower_value) = (mapping[upper_index], mapping[lower_index]);
+    let t = (query_value - lower_value) / (upper_value - lower_value);
+    lower_index as f32 + t
+}
+
+fn css_to_core_text_font_weight(css_weight: f32) -> f32 {
+    piecewise_linear_lookup(f32::max(100.0, css_weight) / 100.0 - 1.0, &FONT_WEIGHT_MAPPING)
 }
 
 fn core_text_to_css_font_weight(core_text_weight: f32) -> f32 {
-    let factor = if core_text_weight <= 0.0 {
-        300.0
-    } else {
-        500.0
-    };
-    factor * core_text_weight + 400.0
+    piecewise_linear_find_index(core_text_weight, &FONT_WEIGHT_MAPPING) * 100.0 + 100.0
 }
 
-fn css_stretchiness_to_core_text_font_width(css_stretchiness: f32) -> f32 {
-    let mut core_text_font_width = clamp(css_stretchiness, 0.5, 2.0) - 1.0;
-    if core_text_font_width < 0.0 {
-        core_text_font_width *= 2.0
-    }
-    core_text_font_width
+fn css_stretchiness_to_core_text_width(css_stretchiness: f32) -> f32 {
+    let css_stretchiness = clamp(css_stretchiness, 50.0, 200.0);
+    0.25 * piecewise_linear_find_index(css_stretchiness, &FONT_STRETCH_MAPPING) - 1.0
 }
 
-fn core_text_font_width_to_css_stretchiness(core_text_font_width: f32) -> f32 {
-    let mut css_stretchiness = core_text_font_width;
-    if css_stretchiness < 0.0 {
-        css_stretchiness *= 0.5
-    }
-    css_stretchiness + 1.0
+fn core_text_width_to_css_stretchiness(core_text_width: f32) -> f32 {
+    piecewise_linear_lookup((core_text_width + 1.0) * 4.0, &FONT_STRETCH_MAPPING)
 }
 
 fn clamp(x: f32, min: f32, max: f32) -> f32 {
@@ -373,6 +368,64 @@ fn clamp(x: f32, min: f32, max: f32) -> f32 {
     }
 }
 
+fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    a + (b - a) * t
+}
+
+// ⌈x/y⌉
+fn divceil(x: usize, y: usize) -> usize {
+    (x + y - 1) / y
+}
+
 fn symbolic_trait_fields() -> QueryFields {
     QueryFields::MONOSPACE | QueryFields::VERTICAL
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_css_to_core_text_font_weight() {
+        // Exact matches
+        assert_eq!(super::css_to_core_text_font_weight(100.0), -0.7);
+        assert_eq!(super::css_to_core_text_font_weight(400.0), 0.0);
+        assert_eq!(super::css_to_core_text_font_weight(700.0), 0.4);
+        assert_eq!(super::css_to_core_text_font_weight(900.0), 0.8);
+
+        // Linear interpolation
+        assert_eq!(super::css_to_core_text_font_weight(450.0), 0.1);
+    }
+
+    #[test]
+    fn test_core_text_to_css_font_weight() {
+        // Exact matches
+        assert_eq!(super::core_text_to_css_font_weight(-0.7), 100.0);
+        assert_eq!(super::core_text_to_css_font_weight(0.0), 400.0);
+        assert_eq!(super::core_text_to_css_font_weight(0.4), 700.0);
+        assert_eq!(super::core_text_to_css_font_weight(0.8), 900.0);
+
+        // Linear interpolation
+        assert_eq!(super::core_text_to_css_font_weight(0.1), 450.0);
+    }
+
+    #[test]
+    fn test_css_to_core_text_font_stretch() {
+        // Exact matches
+        assert_eq!(super::css_stretchiness_to_core_text_width(100.0), 0.0);
+        assert_eq!(super::css_stretchiness_to_core_text_width(50.0), -1.0);
+        assert_eq!(super::css_stretchiness_to_core_text_width(200.0), 1.0);
+
+        // Linear interpolation
+        assert_eq!(super::css_stretchiness_to_core_text_width(170.0), 0.85);
+    }
+
+    #[test]
+    fn test_core_text_to_css_font_stretch() {
+        // Exact matches
+        assert_eq!(super::core_text_width_to_css_stretchiness(0.0), 100.0);
+        assert_eq!(super::core_text_width_to_css_stretchiness(-1.0), 50.0);
+        assert_eq!(super::core_text_width_to_css_stretchiness(1.0), 200.0);
+
+        // Linear interpolation
+        assert_eq!(super::core_text_width_to_css_stretchiness(0.85), 170.0);
+    }
 }
