@@ -10,6 +10,7 @@
 
 extern crate euclid;
 extern crate lyon_path;
+extern crate memmap;
 
 #[macro_use]
 extern crate bitflags;

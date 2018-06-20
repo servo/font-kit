@@ -20,11 +20,12 @@ use core_graphics::path::CGPathElementType;
 use core_text::font::CTFont;
 use core_text::font_collection;
 use core_text::font_descriptor::{self, CTFontDescriptor, SymbolicTraitAccessors, TraitAccessors};
-use core_text::font_descriptor::{kCTFontDefaultOrientation, kCTFontItalicTrait};
-use core_text::font_descriptor::{kCTFontMonoSpaceTrait, kCTFontVerticalTrait};
+use core_text::font_descriptor::{kCTFontDefaultOrientation, kCTFontMonoSpaceTrait};
+use core_text::font_descriptor::{kCTFontVerticalTrait};
 use core_text;
 use euclid::{Point2D, Rect, Size2D, Vector2D};
 use lyon_path::builder::PathBuilder;
+use memmap::Mmap;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -49,7 +50,7 @@ pub type NativeFont = CTFont;
 #[derive(Clone)]
 pub struct Font {
     core_text_font: CTFont,
-    font_data: Option<Arc<Vec<u8>>>,
+    font_data: FontData,
 }
 
 impl Font {
@@ -59,23 +60,30 @@ impl Font {
         let core_text_font = core_text::font::new_from_CGFont(&core_graphics_font, 16.0);
         Ok(Font {
             core_text_font,
-            font_data: Some(font_data),
+            font_data: FontData::Memory(font_data),
         })
     }
 
+    pub fn from_file(mut file: File) -> Result<Font, ()> {
+        let mut font_data = vec![];
+        try!(file.read_to_end(&mut font_data).map_err(drop));
+        Font::from_bytes(Arc::new(font_data))
+    }
+
     pub fn from_native_font(core_text_font: NativeFont) -> Font {
-        let mut font_data = None;
+        let mut font_data = FontData::Unavailable;
         match core_text_font.url() {
             None => warn!("No URL found for Core Text font!"),
             Some(url) => {
                 match url.to_path() {
                     Some(path) => {
                         match File::open(path) {
-                            Ok(mut file) => {
-                                let mut buffer = vec![];
-                                match file.read_to_end(&mut buffer) {
-                                    Err(_) => warn!("Could not read Core Text font from disk!"),
-                                    Ok(_) => font_data = Some(Arc::new(buffer)),
+                            Ok(ref file) => {
+                                unsafe {
+                                    match Mmap::map(file) {
+                                        Ok(mmap) => font_data = FontData::File(Arc::new(mmap)),
+                                        Err(_) => warn!("Could not map file for Core Text font!"),
+                                    }
                                 }
                             }
                             Err(_) => warn!("Could not open file for Core Text font!"),
@@ -205,8 +213,20 @@ impl Font {
     }
 
     #[inline]
-    pub fn font_data(&self) -> Option<&[u8]> {
-        self.font_data.as_ref().map(|font_data| &***font_data)
+    pub fn font_data_available(&self) -> bool {
+        match self.font_data {
+            FontData::Unavailable => false,
+            FontData::File(_) | FontData::Memory(_) => true,
+        }
+    }
+
+    #[inline]
+    pub fn font_data(&self) -> &[u8] {
+        match self.font_data {
+            FontData::Unavailable => panic!("Font data unavailable!"),
+            FontData::File(ref mmap) => &***mmap,
+            FontData::Memory(ref data) => &***data,
+        }
     }
 
     #[inline]
@@ -311,6 +331,13 @@ impl Query {
     }
 }
 
+#[derive(Clone)]
+enum FontData {
+    Unavailable,
+    Memory(Arc<Vec<u8>>),
+    File(Arc<Mmap>),
+}
+
 trait CGPointExt {
     fn to_euclid_point(&self) -> Point2D<f32>;
 }
@@ -370,11 +397,6 @@ fn clamp(x: f32, min: f32, max: f32) -> f32 {
 
 fn lerp(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
-}
-
-// ⌈x/y⌉
-fn divceil(x: usize, y: usize) -> usize {
-    (x + y - 1) / y
 }
 
 fn symbolic_trait_fields() -> QueryFields {

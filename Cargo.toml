@@ -8,6 +8,7 @@ bitflags = "1.0"
 euclid = "0.17"
 log = "0.4"
 lyon_path = "0.10"
+memmap = "0.6"
 
 [dependencies.cocoa]
 path = "/Users/pcwalton/Source/core-foundation-rs/cocoa"
