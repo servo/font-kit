@@ -18,6 +18,12 @@ pub struct Set {
 }
 
 impl Set {
+    pub fn new() -> Set {
+        Set {
+            families: vec![],
+        }
+    }
+
     pub fn from_families<I>(families: I) -> Set where I: Iterator<Item = Family> {
         Set {
             families: families.collect(),
@@ -26,5 +32,9 @@ impl Set {
 
     pub fn families(&self) -> &[Family] {
         &self.families
+    }
+
+    pub fn push(&mut self, family: Family) {
+        self.families.push(family)
     }
 }

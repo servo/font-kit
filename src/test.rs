@@ -123,7 +123,10 @@ pub fn get_glyph_outline() {
 
 #[test]
 pub fn get_glyph_typographic_bounds() {
-    let fonts = Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME).lookup();
+    let fonts = Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
+                            .weight(WEIGHT_NORMAL)
+                            .italic(false)
+                            .lookup();
     let font = &fonts.families()[0].fonts()[0];
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
     assert_eq!(font.typographic_bounds(glyph),
@@ -132,7 +135,10 @@ pub fn get_glyph_typographic_bounds() {
 
 #[test]
 pub fn get_glyph_advance_and_origin() {
-    let fonts = Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME).lookup();
+    let fonts = Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
+                            .weight(WEIGHT_NORMAL)
+                            .italic(false)
+                            .lookup();
     let font = &fonts.families()[0].fonts()[0];
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
     assert_eq!(font.advance(glyph), Vector2D::new(1139.0, 0.0));
@@ -141,7 +147,10 @@ pub fn get_glyph_advance_and_origin() {
 
 #[test]
 pub fn get_font_metrics() {
-    let fonts = Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME).lookup();
+    let fonts = Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
+                            .weight(WEIGHT_NORMAL)
+                            .italic(false)
+                            .lookup();
     let font = &fonts.families()[0].fonts()[0];
     let metrics = font.metrics();
     assert_eq!(metrics.units_per_em, 2048);
@@ -150,7 +159,6 @@ pub fn get_font_metrics() {
     assert_eq!(metrics.leading, 67.0);
     assert_eq!(metrics.underline_position, -217.0);
     assert_eq!(metrics.underline_thickness, 150.0);
-    assert_eq!(metrics.slant_angle, 0.0);
     assert_eq!(metrics.cap_height, 1467.0);
     assert_eq!(metrics.x_height, 1062.0);
 }
@@ -165,7 +173,7 @@ pub fn get_font_descriptor() {
     assert_eq!(descriptor.family_name, "Arial");
     assert_eq!(descriptor.style_name, "Regular");
     assert_eq!(descriptor.weight, 400.0);
-    assert_eq!(descriptor.stretch, 100.0);
+    assert_eq!(descriptor.stretch, 1.0);
     assert_eq!(descriptor.flags, Flags::empty());
 }
 
@@ -173,8 +181,7 @@ pub fn get_font_descriptor() {
 pub fn get_font_data() {
     let fonts = Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME).lookup();
     let font = &fonts.families()[0].fonts()[0];
-    assert!(font.font_data_available());
-    let data = font.font_data();
+    let data = font.font_data().unwrap();
     let magic = &data[0..4];
     assert!(magic == &[0, 1, 0, 0] || magic == b"OTTO");
 }

@@ -10,14 +10,20 @@ log = "0.4"
 lyon_path = "0.10"
 memmap = "0.6"
 
-[dependencies.cocoa]
-path = "/Users/pcwalton/Source/core-foundation-rs/cocoa"
+[target.'cfg(target_family = "windows")'.dependencies]
+winapi = "0.2"
 
-[dependencies.core-foundation]
-path = "/Users/pcwalton/Source/core-foundation-rs/core-foundation"
+[target.'cfg(target_family = "windows")'.dependencies.dwrote]
+path = "../dwrote-rs"
 
-[dependencies.core-graphics]
-path = "/Users/pcwalton/Source/core-foundation-rs/core-graphics"
+# [target.'cfg(target_os = "macos")'.dependencies.cocoa]
+# path = "/Users/pcwalton/Source/core-foundation-rs/cocoa"
 
-[dependencies.core-text]
-path = "/Users/pcwalton/Source/core-foundation-rs/core-text"
+# [target.'cfg(target_os = "macos")'.dependencies.core-foundation]
+# path = "/Users/pcwalton/Source/core-foundation-rs/core-foundation"
+
+# [target.'cfg(target_os = "macos")'.dependencies.core-graphics]
+# path = "/Users/pcwalton/Source/core-foundation-rs/core-graphics"
+
+# [target.'cfg(target_os = "macos")'.dependencies.core-text]
+# path = "/Users/pcwalton/Source/core-foundation-rs/core-text"

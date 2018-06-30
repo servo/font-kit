@@ -19,6 +19,13 @@ pub struct Family {
 
 impl Family {
     #[inline]
+    pub fn new() -> Family {
+        Family {
+            fonts: vec![],
+        }
+    }
+
+    #[inline]
     pub fn from_fonts<I>(fonts: I) -> Family where I: Iterator<Item = Font> {
         Family {
             fonts: fonts.collect(),
@@ -34,5 +41,10 @@ impl Family {
     #[inline]
     pub fn fonts(&self) -> &[Font] {
         &self.fonts
+    }
+
+    #[inline]
+    pub fn push(&mut self, font: Font) {
+        self.fonts.push(font)
     }
 }

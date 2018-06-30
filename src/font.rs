@@ -26,7 +26,6 @@ pub struct Metrics {
     pub leading: f32,
     pub underline_position: f32,
     pub underline_thickness: f32,
-    pub slant_angle: f32,
     pub cap_height: f32,
     pub x_height: f32,
 }

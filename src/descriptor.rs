@@ -8,6 +8,19 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+// Mapping from `usWidthClass` values to CSS `font-stretch` values.
+pub const FONT_STRETCH_MAPPING: [f32; 9] = [
+    STRETCH_ULTRA_CONDENSED,
+    STRETCH_EXTRA_CONDENSED,
+    STRETCH_CONDENSED,
+    STRETCH_SEMI_CONDENSED,
+    STRETCH_NORMAL,
+    STRETCH_SEMI_EXPANDED,
+    STRETCH_EXPANDED,
+    STRETCH_EXTRA_EXPANDED,
+    STRETCH_ULTRA_EXPANDED,
+];
+
 pub const WEIGHT_THIN: f32 = 100.0;
 pub const WEIGHT_EXTRA_LIGHT: f32 = 200.0;
 pub const WEIGHT_LIGHT: f32 = 300.0;

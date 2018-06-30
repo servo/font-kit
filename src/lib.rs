@@ -17,6 +17,10 @@ extern crate bitflags;
 #[macro_use]
 extern crate log;
 
+#[cfg(target_family = "windows")]
+extern crate dwrote;
+#[cfg(target_family = "windows")]
+extern crate winapi;
 #[cfg(target_os = "macos")]
 extern crate cocoa;
 #[cfg(target_os = "macos")]
@@ -26,7 +30,11 @@ extern crate core_graphics;
 #[cfg(target_os = "macos")]
 extern crate core_text;
 
-#[cfg_attr(target_os = "macos", path = "platform/macos.rs")]
+#[cfg(target_family = "windows")]
+#[path = "platform/windows.rs"]
+mod platform;
+#[cfg(target_os = "macos")]
+#[path = "platform/macos.rs"]
 mod platform;
 
 pub mod descriptor;

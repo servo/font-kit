@@ -32,9 +32,11 @@ use std::collections::hash_map::Entry;
 use std::f32;
 use std::fs::File;
 use std::io::Read;
+use std::marker::PhantomData;
+use std::ops::Deref;
 use std::sync::Arc;
 
-use descriptor::{Descriptor, Flags, Query, QueryFields};
+use descriptor::{Descriptor, Flags, FONT_STRETCH_MAPPING, Query, QueryFields};
 use family::Family;
 use font::Metrics;
 use set::Set;
@@ -42,8 +44,6 @@ use set::Set;
 const ITALIC_SLANT: f64 = 1.0 / 15.0;
 
 static FONT_WEIGHT_MAPPING: [f32; 9] = [-0.7, -0.5, -0.23, 0.0, 0.2, 0.3, 0.4, 0.6, 0.8];
-static FONT_STRETCH_MAPPING: [f32; 9] =
-    [50.0, 62.5, 75.0, 87.5, 100.0, 112.5, 125.0, 150.0, 200.0];
 
 pub type NativeFont = CTFont;
 
@@ -206,26 +206,17 @@ impl Font {
                                  units_per_point) as f32,
             underline_thickness: (self.core_text_font.underline_thickness() *
                                   units_per_point) as f32,
-            slant_angle: (self.core_text_font.slant_angle() * units_per_point) as f32,
             cap_height: (self.core_text_font.cap_height() * units_per_point) as f32,
             x_height: (self.core_text_font.x_height() * units_per_point) as f32,
         }
     }
 
     #[inline]
-    pub fn font_data_available(&self) -> bool {
+    pub fn font_data(&self) -> Option<FontData> {
         match self.font_data {
             FontData::Unavailable => false,
-            FontData::File(_) | FontData::Memory(_) => true,
-        }
-    }
-
-    #[inline]
-    pub fn font_data(&self) -> &[u8] {
-        match self.font_data {
-            FontData::Unavailable => panic!("Font data unavailable!"),
-            FontData::File(ref mmap) => &***mmap,
-            FontData::Memory(ref data) => &***data,
+            FontData::File(_) | FontData::Memory(_) => Some(self.font_data.clone()),
+            FontData::Unused(_) => unreachable!(),
         }
     }
 
@@ -332,10 +323,23 @@ impl Query {
 }
 
 #[derive(Clone)]
-enum FontData {
+pub enum FontData<'a> {
     Unavailable,
     Memory(Arc<Vec<u8>>),
     File(Arc<Mmap>),
+    Unused(PhantomData<'a>),
+}
+
+impl<'a> Deref for FontData<'a> {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
+        match self.font_data {
+            FontData::Unavailable => panic!("Font data unavailable!"),
+            FontData::File(ref mmap) => &***mmap,
+            FontData::Memory(ref data) => &***data,
+            FontData::Unused(_) => unreachable!(),
+        }
+    }
 }
 
 trait CGPointExt {
@@ -382,7 +386,7 @@ fn css_stretchiness_to_core_text_width(css_stretchiness: f32) -> f32 {
 }
 
 fn core_text_width_to_css_stretchiness(core_text_width: f32) -> f32 {
-    piecewise_linear_lookup((core_text_width + 1.0) * 4.0, &FONT_STRETCH_MAPPING)
+    piecewise_linear_lookup((core_text_width + 1.0) * 4.0, &FONT_STRETCH_MAPPING) * 2.0
 }
 
 fn clamp(x: f32, min: f32, max: f32) -> f32 {
