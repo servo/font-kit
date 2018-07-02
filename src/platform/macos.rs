@@ -50,7 +50,7 @@ pub type NativeFont = CTFont;
 #[derive(Clone)]
 pub struct Font {
     core_text_font: CTFont,
-    font_data: FontData,
+    font_data: FontData<'static>,
 }
 
 impl Font {
@@ -214,7 +214,7 @@ impl Font {
     #[inline]
     pub fn font_data(&self) -> Option<FontData> {
         match self.font_data {
-            FontData::Unavailable => false,
+            FontData::Unavailable => None,
             FontData::File(_) | FontData::Memory(_) => Some(self.font_data.clone()),
             FontData::Unused(_) => unreachable!(),
         }
@@ -327,13 +327,13 @@ pub enum FontData<'a> {
     Unavailable,
     Memory(Arc<Vec<u8>>),
     File(Arc<Mmap>),
-    Unused(PhantomData<'a>),
+    Unused(PhantomData<&'a u8>),
 }
 
 impl<'a> Deref for FontData<'a> {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        match self.font_data {
+        match *self {
             FontData::Unavailable => panic!("Font data unavailable!"),
             FontData::File(ref mmap) => &***mmap,
             FontData::Memory(ref data) => &***data,
@@ -381,12 +381,12 @@ fn core_text_to_css_font_weight(core_text_weight: f32) -> f32 {
 }
 
 fn css_stretchiness_to_core_text_width(css_stretchiness: f32) -> f32 {
-    let css_stretchiness = clamp(css_stretchiness, 50.0, 200.0);
+    let css_stretchiness = clamp(css_stretchiness, 0.5, 2.0);
     0.25 * piecewise_linear_find_index(css_stretchiness, &FONT_STRETCH_MAPPING) - 1.0
 }
 
 fn core_text_width_to_css_stretchiness(core_text_width: f32) -> f32 {
-    piecewise_linear_lookup((core_text_width + 1.0) * 4.0, &FONT_STRETCH_MAPPING) * 2.0
+    piecewise_linear_lookup((core_text_width + 1.0) * 4.0, &FONT_STRETCH_MAPPING)
 }
 
 fn clamp(x: f32, min: f32, max: f32) -> f32 {
@@ -436,22 +436,22 @@ mod test {
     #[test]
     fn test_css_to_core_text_font_stretch() {
         // Exact matches
-        assert_eq!(super::css_stretchiness_to_core_text_width(100.0), 0.0);
-        assert_eq!(super::css_stretchiness_to_core_text_width(50.0), -1.0);
-        assert_eq!(super::css_stretchiness_to_core_text_width(200.0), 1.0);
+        assert_eq!(super::css_stretchiness_to_core_text_width(1.0), 0.0);
+        assert_eq!(super::css_stretchiness_to_core_text_width(0.5), -1.0);
+        assert_eq!(super::css_stretchiness_to_core_text_width(2.0), 1.0);
 
         // Linear interpolation
-        assert_eq!(super::css_stretchiness_to_core_text_width(170.0), 0.85);
+        assert_eq!(super::css_stretchiness_to_core_text_width(1.7), 0.85);
     }
 
     #[test]
     fn test_core_text_to_css_font_stretch() {
         // Exact matches
-        assert_eq!(super::core_text_width_to_css_stretchiness(0.0), 100.0);
-        assert_eq!(super::core_text_width_to_css_stretchiness(-1.0), 50.0);
-        assert_eq!(super::core_text_width_to_css_stretchiness(1.0), 200.0);
+        assert_eq!(super::core_text_width_to_css_stretchiness(0.0), 1.0);
+        assert_eq!(super::core_text_width_to_css_stretchiness(-1.0), 0.5);
+        assert_eq!(super::core_text_width_to_css_stretchiness(1.0), 2.0);
 
         // Linear interpolation
-        assert_eq!(super::core_text_width_to_css_stretchiness(0.85), 170.0);
+        assert_eq!(super::core_text_width_to_css_stretchiness(0.85), 1.7);
     }
 }

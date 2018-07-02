@@ -16,14 +16,14 @@ winapi = "0.2"
 [target.'cfg(target_family = "windows")'.dependencies.dwrote]
 path = "../dwrote-rs"
 
-# [target.'cfg(target_os = "macos")'.dependencies.cocoa]
-# path = "/Users/pcwalton/Source/core-foundation-rs/cocoa"
+[target.'cfg(target_os = "macos")'.dependencies.cocoa]
+path = "../core-foundation-rs/cocoa"
 
-# [target.'cfg(target_os = "macos")'.dependencies.core-foundation]
-# path = "/Users/pcwalton/Source/core-foundation-rs/core-foundation"
+[target.'cfg(target_os = "macos")'.dependencies.core-foundation]
+path = "../core-foundation-rs/core-foundation"
 
-# [target.'cfg(target_os = "macos")'.dependencies.core-graphics]
-# path = "/Users/pcwalton/Source/core-foundation-rs/core-graphics"
+[target.'cfg(target_os = "macos")'.dependencies.core-graphics]
+path = "../core-foundation-rs/core-graphics"
 
-# [target.'cfg(target_os = "macos")'.dependencies.core-text]
-# path = "/Users/pcwalton/Source/core-foundation-rs/core-text"
+[target.'cfg(target_os = "macos")'.dependencies.core-text]
+path = "../core-foundation-rs/core-text"
