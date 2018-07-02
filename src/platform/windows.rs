@@ -56,7 +56,7 @@ impl Font {
     }
 
     // TODO(pcwalton)
-    pub fn from_native_font(dwrite_font_face: NativeFont) -> Font {
+    pub unsafe fn from_native_font(dwrite_font_face: NativeFont) -> Font {
         Font {
             dwrite_font_face,
             cached_data: Mutex::new(None),

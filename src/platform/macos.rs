@@ -70,7 +70,7 @@ impl Font {
         Font::from_bytes(Arc::new(font_data))
     }
 
-    pub fn from_native_font(core_text_font: NativeFont) -> Font {
+    pub unsafe fn from_native_font(core_text_font: NativeFont) -> Font {
         let mut font_data = FontData::Unavailable;
         match core_text_font.url() {
             None => warn!("No URL found for Core Text font!"),

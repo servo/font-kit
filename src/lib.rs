@@ -29,12 +29,21 @@ extern crate core_foundation;
 extern crate core_graphics;
 #[cfg(target_os = "macos")]
 extern crate core_text;
+#[cfg(all(target_family = "unix", any(not(target_os = "macos"), feature = "backend-fontconfig")))]
+extern crate fontconfig;
+#[cfg(all(target_family = "unix", any(not(target_os = "macos"), feature = "backend-freetype")))]
+extern crate freetype;
 
 #[cfg(target_family = "windows")]
 #[path = "platform/windows.rs"]
 mod platform;
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "backend-fontconfig")))]
 #[path = "platform/macos.rs"]
+mod platform;
+#[cfg(all(target_family = "unix", any(not(target_os = "macos"),
+                                      any(feature = "backend-fontconfig",
+                                          feature = "backend-freetype"))))]
+#[path = "platform/unix.rs"]
 mod platform;
 
 pub mod descriptor;
