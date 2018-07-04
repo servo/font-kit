@@ -165,7 +165,10 @@ pub fn get_font_metrics() {
 
 #[test]
 pub fn get_font_descriptor() {
-    let fonts = Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME).lookup();
+    let fonts = Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
+                            .weight(WEIGHT_NORMAL)
+                            .italic(false)
+                            .lookup();
     let font = &fonts.families()[0].fonts()[0];
     let descriptor = font.descriptor();
     assert_eq!(descriptor.postscript_name, SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME);

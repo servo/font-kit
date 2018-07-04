@@ -72,6 +72,7 @@ impl Font {
         if dwrite_style_is_italic(dwrite_font.style()) {
             flags.insert(Flags::ITALIC)
         }
+
         // TODO(pcwalton): Monospace, once we have a `winapi` upgrade.
         // FIXME(pcwalton): How do we identify vertical fonts?
 

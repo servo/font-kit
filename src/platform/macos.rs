@@ -79,11 +79,9 @@ impl Font {
                     Some(path) => {
                         match File::open(path) {
                             Ok(ref file) => {
-                                unsafe {
-                                    match Mmap::map(file) {
-                                        Ok(mmap) => font_data = FontData::File(Arc::new(mmap)),
-                                        Err(_) => warn!("Could not map file for Core Text font!"),
-                                    }
+                                match Mmap::map(file) {
+                                    Ok(mmap) => font_data = FontData::File(Arc::new(mmap)),
+                                    Err(_) => warn!("Could not map file for Core Text font!"),
                                 }
                             }
                             Err(_) => warn!("Could not open file for Core Text font!"),
@@ -238,15 +236,17 @@ impl Query {
         let mut families = HashMap::new();
         if let Some(descriptors) = collection.get_descriptors() {
             for index in 0..descriptors.len() {
-                let descriptor = (*descriptors.get(index).unwrap()).clone();
-                let core_text_font = core_text::font::new_from_descriptor(&descriptor, 12.0);
-                let family_name = core_text_font.family_name();
-                let font = Font::from_native_font(core_text_font);
-                match families.entry(family_name) {
-                    Entry::Vacant(entry) => {
-                        entry.insert(vec![font]);
+                unsafe {
+                    let descriptor = (*descriptors.get(index).unwrap()).clone();
+                    let core_text_font = core_text::font::new_from_descriptor(&descriptor, 12.0);
+                    let family_name = core_text_font.family_name();
+                    let font = Font::from_native_font(core_text_font);
+                    match families.entry(family_name) {
+                        Entry::Vacant(entry) => {
+                            entry.insert(vec![font]);
+                        }
+                        Entry::Occupied(mut entry) => entry.get_mut().push(font),
                     }
-                    Entry::Occupied(mut entry) => entry.get_mut().push(font),
                 }
             }
         }
