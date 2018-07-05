@@ -147,8 +147,8 @@ impl Font {
         Metrics {
             units_per_em: dwrite_metrics.designUnitsPerEm as u32,
             ascent: dwrite_metrics.ascent as f32,
-            descent: dwrite_metrics.descent as f32,
-            leading: dwrite_metrics.lineGap as f32,
+            descent: -dwrite_metrics.descent as f32,
+            line_gap: dwrite_metrics.lineGap as f32,
             cap_height: dwrite_metrics.capHeight as f32,
             x_height: dwrite_metrics.xHeight as f32,
             underline_position: dwrite_metrics.underlinePosition as f32,

@@ -102,7 +102,10 @@ pub fn get_glyph_for_char() {
 #[test]
 pub fn get_glyph_outline() {
     let mut path_builder = Path::builder();
-    let fonts = Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME).lookup();
+    let fonts = Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
+                            .weight(WEIGHT_NORMAL)
+                            .italic(false)
+                            .lookup();
     let font = &fonts.families()[0].fonts()[0];
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
     font.outline(glyph, &mut path_builder).unwrap();
@@ -155,8 +158,8 @@ pub fn get_font_metrics() {
     let metrics = font.metrics();
     assert_eq!(metrics.units_per_em, 2048);
     assert_eq!(metrics.ascent, 1854.0);
-    assert_eq!(metrics.descent, 434.0);
-    assert_eq!(metrics.leading, 67.0);
+    assert_eq!(metrics.descent, -434.0);
+    assert_eq!(metrics.line_gap, 67.0);
     assert_eq!(metrics.underline_position, -217.0);
     assert_eq!(metrics.underline_thickness, 150.0);
     assert_eq!(metrics.cap_height, 1467.0);

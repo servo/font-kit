@@ -15,13 +15,18 @@
 //!
 //! On macOS and Windows, the Cargo feature `backend-freetype` can be used to opt into this support
 //! for lookup. This enables support for retrieving hinted outlines.
+//!
+//! TODO(pcwalton): Move FreeType out of this module, since it's usable on Windows as well.
 
-use euclid::{Point2D, Rect, Vector2D};
+use arrayvec::ArrayVec;
+use byteorder::{BigEndian, ReadBytesExt};
+use euclid::{Point2D, Rect, Size2D, Vector2D};
 use lyon_path::builder::PathBuilder;
 use memmap::Mmap;
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::fs::File;
+use std::io::Cursor;
 use std::iter;
 use std::marker::PhantomData;
 use std::mem;
@@ -32,23 +37,33 @@ use std::slice;
 use std::sync::Arc;
 
 #[cfg(any(not(target_os = "macos"), feature = "backend-fontconfig"))]
-use fontconfig::fontconfig::{FcBool, FcConfig, FcConfigGetFonts, FcConfigSubstitute, FcDefaultSubstitute, FcFontList};
+use fontconfig::fontconfig::{FcBool, FcConfig, FcConfigGetFonts, FcConfigSubstitute};
 #[cfg(any(not(target_os = "macos"), feature = "backend-fontconfig"))]
-use fontconfig::fontconfig::{FcInitLoadConfigAndFonts, FcMatchPattern, FcObjectSet, FcObjectSetAdd, FcObjectSetCreate, FcObjectSetDestroy, FcPattern, FcPatternAddInteger, FcPatternAddString};
+use fontconfig::fontconfig::{FcDefaultSubstitute, FcFontList, FcInitLoadConfigAndFonts};
 #[cfg(any(not(target_os = "macos"), feature = "backend-fontconfig"))]
-use fontconfig::fontconfig::{FcPatternCreate, FcPatternDestroy, FcPatternGetString, FcResultMatch, FcResultNoMatch};
+use fontconfig::fontconfig::{FcMatchPattern, FcObjectSet, FcObjectSetAdd, FcObjectSetCreate};
 #[cfg(any(not(target_os = "macos"), feature = "backend-fontconfig"))]
-use fontconfig::fontconfig::{FcSetSystem, FcType, FcTypeString};
+use fontconfig::fontconfig::{FcObjectSetDestroy, FcPattern, FcPatternAddInteger};
+#[cfg(any(not(target_os = "macos"), feature = "backend-fontconfig"))]
+use fontconfig::fontconfig::{FcPatternAddString, FcPatternCreate, FcPatternDestroy};
+#[cfg(any(not(target_os = "macos"), feature = "backend-fontconfig"))]
+use fontconfig::fontconfig::{FcPatternGetString, FcResultMatch, FcResultNoMatch, FcSetSystem};
+#[cfg(any(not(target_os = "macos"), feature = "backend-fontconfig"))]
+use fontconfig::fontconfig::{FcType, FcTypeString};
 #[cfg(any(not(target_os = "macos"), feature = "backend-freetype"))]
-use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Encoding, FT_Error, FT_FACE_FLAG_FIXED_WIDTH, FT_FACE_FLAG_VERTICAL, FT_Face, FT_Get_Char_Index};
+use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Encoding, FT_Error, FT_FACE_FLAG_FIXED_WIDTH};
+#[cfg(any(not(target_os = "macos"), feature = "backend-freetype"))]
+use freetype::freetype::{FT_FACE_FLAG_VERTICAL, FT_Face, FT_Get_Char_Index};
 #[cfg(any(not(target_os = "macos"), feature = "backend-freetype"))]
 use freetype::freetype::{FT_Get_Postscript_Name, FT_Get_Sfnt_Table, FT_Init_FreeType};
 #[cfg(any(not(target_os = "macos"), feature = "backend-freetype"))]
-use freetype::freetype::{FT_LOAD_NO_HINTING, FT_Long, FT_Library, FT_Load_Glyph};
+use freetype::freetype::{FT_LOAD_DEFAULT, FT_LOAD_NO_AUTOHINT, FT_LOAD_NO_HINTING, FT_Long};
 #[cfg(any(not(target_os = "macos"), feature = "backend-freetype"))]
-use freetype::freetype::{FT_New_Memory_Face, FT_Reference_Face, FT_Select_Charmap, FT_Sfnt_Tag};
+use freetype::freetype::{FT_Library, FT_Load_Glyph, FT_New_Memory_Face, FT_Reference_Face};
 #[cfg(any(not(target_os = "macos"), feature = "backend-freetype"))]
-use freetype::freetype::{FT_STYLE_FLAG_ITALIC, FT_UInt, FT_ULong, FT_UShort};
+use freetype::freetype::{FT_Select_Charmap, FT_Set_Char_Size, FT_Sfnt_Tag, FT_STYLE_FLAG_ITALIC};
+#[cfg(any(not(target_os = "macos"), feature = "backend-freetype"))]
+use freetype::freetype::{FT_UInt, FT_ULong, FT_UShort, FT_Vector};
 #[cfg(any(not(target_os = "macos"), feature = "backend-freetype"))]
 use freetype::tt_os2::TT_OS2;
 
@@ -75,6 +90,9 @@ const FC_WIDTH: &'static [u8] = b"width\0";
 const FC_FILE: &'static [u8] = b"file\0";
 const FC_FULLNAME: &'static [u8] = b"fullname\0";
 const FC_POSTSCRIPT_NAME: &'static [u8] = b"postscriptname\0";
+
+const FT_POINT_TAG_ON_CURVE: c_char = 0x01;
+const FT_POINT_TAG_CUBIC_CONTROL: c_char = 0x02;
 
 #[cfg(any(not(target_os = "macos"), feature = "backend-freetype"))]
 thread_local! {
@@ -203,11 +221,11 @@ impl Font {
 
             let mut flags = Flags::empty();
             flags.set(Flags::ITALIC,
-                      ((*self.freetype_face).style_flags | (FT_STYLE_FLAG_ITALIC as i64)) != 0);
+                      ((*self.freetype_face).style_flags & (FT_STYLE_FLAG_ITALIC as i64)) != 0);
             flags.set(Flags::MONOSPACE,
-                      (*self.freetype_face).face_flags | (FT_FACE_FLAG_FIXED_WIDTH as i64) != 0);
+                      (*self.freetype_face).face_flags & (FT_FACE_FLAG_FIXED_WIDTH as i64) != 0);
             flags.set(Flags::VERTICAL,
-                      (*self.freetype_face).face_flags | (FT_FACE_FLAG_VERTICAL as i64) != 0);
+                      (*self.freetype_face).face_flags & (FT_FACE_FLAG_VERTICAL as i64) != 0);
 
             Descriptor {
                 postscript_name,
@@ -229,18 +247,92 @@ impl Font {
 
     pub fn outline<B>(&self, glyph_id: u32, path_builder: &mut B) -> Result<(), ()>
                       where B: PathBuilder {
-        unimplemented!()
+        unsafe {
+            assert_eq!(FT_Load_Glyph(self.freetype_face,
+                                     glyph_id,
+                                     (FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING) as i32),
+                       0);
+
+            let outline = &(*(*self.freetype_face).glyph).outline;
+            let contours = slice::from_raw_parts((*outline).contours,
+                                                 (*outline).n_contours as usize);
+            let point_positions = slice::from_raw_parts((*outline).points,
+                                                        (*outline).n_points as usize);
+            let point_tags = slice::from_raw_parts((*outline).tags, (*outline).n_points as usize);
+
+            let mut current_point_index = 0;
+            for &last_point_index_in_contour in contours {
+                let last_point_index_in_contour = last_point_index_in_contour as usize;
+                let (point, _) = get_point(&mut current_point_index,
+                                           point_positions,
+                                           point_tags,
+                                           last_point_index_in_contour);
+                path_builder.move_to(point);
+                while current_point_index <= last_point_index_in_contour {
+                    let (point0, tag) = get_point(&mut current_point_index,
+                                                  point_positions,
+                                                  point_tags,
+                                                  last_point_index_in_contour);
+                    if (tag & FT_POINT_TAG_ON_CURVE) != 0 {
+                        path_builder.line_to(point0)
+                    } else {
+                        let (point1, _) = get_point(&mut current_point_index,
+                                                    point_positions,
+                                                    point_tags,
+                                                    last_point_index_in_contour);
+                        if (tag & FT_POINT_TAG_CUBIC_CONTROL) != 0 {
+                            let (point2, _) = get_point(&mut current_point_index,
+                                                        point_positions,
+                                                        point_tags,
+                                                        last_point_index_in_contour);
+                            path_builder.cubic_bezier_to(point0, point1, point2)
+                        } else {
+                            path_builder.quadratic_bezier_to(point0, point1)
+                        }
+                    }
+                }
+                path_builder.close();
+            }
+        }
+        return Ok(());
+
+        fn get_point(current_point_index: &mut usize,
+                     point_positions: &[FT_Vector],
+                     point_tags: &[c_char],
+                     last_point_index_in_contour: usize)
+                     -> (Point2D<f32>, c_char) {
+            assert!(*current_point_index <= last_point_index_in_contour);
+            let point_position = point_positions[*current_point_index];
+            let point_tag = point_tags[*current_point_index];
+            *current_point_index += 1;
+            let point_position = Point2D::new(ft_fixed_26_6_to_f32(point_position.x),
+                                              ft_fixed_26_6_to_f32(point_position.y));
+            (point_position, point_tag)
+        }
     }
 
     pub fn typographic_bounds(&self, glyph_id: u32) -> Rect<f32> {
-        unimplemented!()
+        unsafe {
+            assert_eq!(FT_Load_Glyph(self.freetype_face,
+                                     glyph_id,
+                                     (FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING) as i32),
+                       0);
+            let metrics = &(*(*self.freetype_face).glyph).metrics;
+            Rect::new(Point2D::new(ft_fixed_26_6_to_f32(metrics.horiBearingX),
+                                   ft_fixed_26_6_to_f32(metrics.horiBearingY - metrics.height)),
+                      Size2D::new(ft_fixed_26_6_to_f32(metrics.width),
+                                  ft_fixed_26_6_to_f32(metrics.height)))
+        }
     }
 
     pub fn advance(&self, glyph_id: u32) -> Vector2D<f32> {
         unsafe {
-            FT_Load_Glyph(self.freetype_face, glyph_id, FT_LOAD_NO_HINTING as i32);
+            assert_eq!(FT_Load_Glyph(self.freetype_face,
+                                     glyph_id,
+                                     (FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING) as i32),
+                       0);
             let advance = (*(*self.freetype_face).glyph).advance;
-            Vector2D::new(advance.x as f32, advance.y as f32)
+            Vector2D::new(ft_fixed_26_6_to_f32(advance.x), ft_fixed_26_6_to_f32(advance.y))
         }
     }
 
@@ -250,7 +342,23 @@ impl Font {
     }
 
     pub fn metrics(&self) -> Metrics {
-        unimplemented!()
+        let os2_table = self.get_os2_table();
+        unsafe {
+            let ascender = (*self.freetype_face).ascender;
+            let descender = (*self.freetype_face).descender;
+            let underline_position = (*self.freetype_face).underline_position;
+            let underline_thickness = (*self.freetype_face).underline_thickness;
+            Metrics {
+                units_per_em: (*self.freetype_face).units_per_EM as u32,
+                ascent: ascender as f32,
+                descent: descender as f32,
+                line_gap: ((*self.freetype_face).height + descender - ascender) as f32,
+                underline_position: (underline_position + underline_thickness / 2) as f32,
+                underline_thickness: underline_thickness as f32,
+                cap_height: (*os2_table).sCapHeight as f32,
+                x_height: (*os2_table).sxHeight as f32,
+            }
+        }
     }
 
     #[inline]
@@ -263,13 +371,20 @@ impl Font {
 
     fn get_type_1_or_sfnt_name(&self, type_1_id: u32, sfnt_id: u16) -> Option<String> {
         unsafe {
-            let mut buffer = vec![0; 1024];
-            if FT_Get_PS_Font_Value(self.freetype_face,
-                                    type_1_id,
-                                    0,
-                                    buffer.as_mut_ptr() as *mut c_void,
-                                    buffer.len() as i64) == 0 {
-                return String::from_utf8(buffer).ok()
+            let ps_value_size = FT_Get_PS_Font_Value(self.freetype_face,
+                                                     type_1_id,
+                                                     0,
+                                                     ptr::null_mut(),
+                                                     0);
+            if ps_value_size > 0 {
+                let mut buffer = vec![0; ps_value_size as usize];
+                if FT_Get_PS_Font_Value(self.freetype_face,
+                                        type_1_id,
+                                        0,
+                                        buffer.as_mut_ptr() as *mut c_void,
+                                        buffer.len() as i64) == 0 {
+                    return String::from_utf8(buffer).ok()
+                }
             }
 
             let sfnt_name_count = FT_Get_Sfnt_Name_Count(self.freetype_face);
@@ -277,14 +392,19 @@ impl Font {
             for sfnt_name_index in 0..sfnt_name_count {
                 assert_eq!(FT_Get_Sfnt_Name(self.freetype_face, sfnt_name_index, &mut sfnt_name),
                            0);
-                // FIXME(pcwalton): Check encoding, platform, language.
+                // FIXME(pcwalton): Check encoding, platform, language. It isn't always UTF-16…
                 if sfnt_name.name_id != sfnt_id {
                     continue
                 }
-                let sfnt_name_string =
-                    slice::from_raw_parts(sfnt_name.string,
-                                          sfnt_name.string_len as usize).to_owned();
-                if let Ok(result) = String::from_utf8(sfnt_name_string) {
+
+                let mut sfnt_name_bytes = slice::from_raw_parts(sfnt_name.string,
+                                                                sfnt_name.string_len as usize);
+                let mut sfnt_name_string = Vec::with_capacity(sfnt_name_bytes.len() / 2);
+                while !sfnt_name_bytes.is_empty() {
+                    sfnt_name_string.push(sfnt_name_bytes.read_u16::<BigEndian>().unwrap())
+                }
+
+                if let Ok(result) = String::from_utf16(&sfnt_name_string) {
                     return Some(result)
                 }
             }
@@ -460,7 +580,7 @@ impl<'a> Deref for FontData<'a> {
 }
 
 unsafe fn setup_freetype_face(face: FT_Face) {
-    //assert_eq!(FT_Select_Charmap(face, FT_Encoding::FT_ENCODING_UNICODE), 0);
+    assert_eq!(FT_Set_Char_Size(face, ((*face).units_per_EM as i64) << 6, 0, 0, 0), 0);
 }
 
 #[repr(C)]
@@ -485,6 +605,10 @@ unsafe fn fc_pattern_get_string(pattern: *mut FcPattern, object: &'static [u8]) 
         return None
     }
     CStr::from_ptr(string as *const c_char).to_str().ok().map(|string| string.to_owned())
+}
+
+fn ft_fixed_26_6_to_f32(fixed: i64) -> f32 {
+    (fixed as f32) / 64.0
 }
 
 #[cfg(any(not(target_os = "macos"), feature = "backend-fontconfig"))]

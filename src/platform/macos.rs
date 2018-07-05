@@ -198,8 +198,8 @@ impl Font {
         Metrics {
             units_per_em,
             ascent: (self.core_text_font.ascent() * units_per_point) as f32,
-            descent: (self.core_text_font.descent() * units_per_point) as f32,
-            leading: (self.core_text_font.leading() * units_per_point) as f32,
+            descent: (-self.core_text_font.descent() * units_per_point) as f32,
+            line_gap: (self.core_text_font.leading() * units_per_point) as f32,
             underline_position: (self.core_text_font.underline_position() *
                                  units_per_point) as f32,
             underline_thickness: (self.core_text_font.underline_thickness() *
