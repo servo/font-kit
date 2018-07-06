@@ -31,27 +31,29 @@ extern crate core_foundation;
 extern crate core_graphics;
 #[cfg(target_os = "macos")]
 extern crate core_text;
-#[cfg(all(target_family = "unix", any(not(target_os = "macos"), feature = "backend-fontconfig")))]
+#[cfg(any(not(any(target_os = "macos", target_family = "windows")),
+          feature = "source-fontconfig"))]
 extern crate fontconfig;
-#[cfg(all(target_family = "unix", any(not(target_os = "macos"), feature = "backend-freetype")))]
+#[cfg(any(not(any(target_os = "macos", target_family = "windows")), feature = "loader-freetype"))]
 extern crate freetype;
 
-#[cfg(target_family = "windows")]
-#[path = "platform/windows.rs"]
-mod platform;
-#[cfg(all(target_os = "macos", not(feature = "backend-fontconfig")))]
-#[path = "platform/macos.rs"]
-mod platform;
-#[cfg(all(target_family = "unix", any(not(target_os = "macos"),
-                                      any(feature = "backend-fontconfig",
-                                          feature = "backend-freetype"))))]
-#[path = "platform/unix.rs"]
-mod platform;
+#[cfg(all(target_family = "windows", not(feature = "loader-freetype")))]
+#[path = "loaders/directwrite.rs"]
+mod loader;
+#[cfg(all(target_os = "macos", not(feature = "loader-freetype")))]
+#[path = "loaders/core_text.rs"]
+mod loader;
+#[cfg(any(not(any(target_os = "macos", target_family = "windows")), feature = "loader-freetype"))]
+#[path = "loaders/freetype.rs"]
+mod loader;
 
 pub mod descriptor;
 pub mod family;
 pub mod font;
+pub mod sources;
 pub mod set;
 
 #[cfg(test)]
 pub mod test;
+
+mod utils;

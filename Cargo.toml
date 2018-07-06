@@ -4,8 +4,8 @@ version = "0.1.0"
 authors = ["Patrick Walton <pcwalton@mimiga.net>"]
 
 [features]
-backend-fontconfig = ["servo-fontconfig"]
-backend-freetype = ["freetype"]
+loader-freetype = ["freetype"]
+source-fontconfig = ["servo-fontconfig"]
 
 [dependencies]
 arrayvec = "0.4"

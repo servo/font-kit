@@ -10,7 +10,7 @@
 
 use std::fmt::{self, Debug, Formatter};
 
-pub use platform::Font;
+pub use loader::Font;
 
 impl Debug for Font {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), fmt::Error> {
