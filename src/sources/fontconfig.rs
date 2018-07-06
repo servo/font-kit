@@ -16,9 +16,15 @@
 use arrayvec::ArrayVec;
 use byteorder::{BigEndian, ReadBytesExt};
 use euclid::{Point2D, Rect, Size2D, Vector2D};
+use fontconfig::fontconfig::{FcBool, FcConfig, FcConfigGetFonts, FcConfigSubstitute};
+use fontconfig::fontconfig::{FcDefaultSubstitute, FcFontList, FcInitLoadConfigAndFonts};
+use fontconfig::fontconfig::{FcMatchPattern, FcObjectSet, FcObjectSetAdd, FcObjectSetCreate};
+use fontconfig::fontconfig::{FcObjectSetDestroy, FcPattern, FcPatternAddInteger};
+use fontconfig::fontconfig::{FcPatternAddString, FcPatternCreate, FcPatternDestroy};
+use fontconfig::fontconfig::{FcPatternGetString, FcResultMatch, FcResultNoMatch, FcSetSystem};
+use fontconfig::fontconfig::{FcType, FcTypeString};
 use lyon_path::builder::PathBuilder;
 use memmap::Mmap;
-use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::fs::File;
 use std::io::Cursor;
@@ -31,17 +37,9 @@ use std::ptr;
 use std::slice;
 use std::sync::Arc;
 
-use fontconfig::fontconfig::{FcBool, FcConfig, FcConfigGetFonts, FcConfigSubstitute};
-use fontconfig::fontconfig::{FcDefaultSubstitute, FcFontList, FcInitLoadConfigAndFonts};
-use fontconfig::fontconfig::{FcMatchPattern, FcObjectSet, FcObjectSetAdd, FcObjectSetCreate};
-use fontconfig::fontconfig::{FcObjectSetDestroy, FcPattern, FcPatternAddInteger};
-use fontconfig::fontconfig::{FcPatternAddString, FcPatternCreate, FcPatternDestroy};
-use fontconfig::fontconfig::{FcPatternGetString, FcResultMatch, FcResultNoMatch, FcSetSystem};
-use fontconfig::fontconfig::{FcType, FcTypeString};
-
 use descriptor::{Descriptor, FONT_STRETCH_MAPPING, Flags, Query, QueryFields};
 use family::Family;
-use font::Metrics;
+use font::{Font, Metrics};
 use set::Set;
 
 const PS_DICT_FULL_NAME: u32 = 38;
@@ -82,29 +80,28 @@ impl Source {
     pub fn select(&self, query: &Query) -> Set {
         unsafe {
             let mut pattern = FcPatternObject::new();
-            if self.fields.contains(QueryFields::POSTSCRIPT_NAME) {
-                pattern.push_string(FC_POSTSCRIPT_NAME,
-                                    self.descriptor.postscript_name.clone());
+            if query.fields.contains(QueryFields::POSTSCRIPT_NAME) {
+                pattern.push_string(FC_POSTSCRIPT_NAME, query.descriptor.postscript_name.clone());
             }
-            if self.fields.contains(QueryFields::DISPLAY_NAME) {
-                pattern.push_string(FC_FULLNAME, self.descriptor.display_name.clone());
+            if query.fields.contains(QueryFields::DISPLAY_NAME) {
+                pattern.push_string(FC_FULLNAME, query.descriptor.display_name.clone());
             }
-            if self.fields.contains(QueryFields::FAMILY_NAME) {
-                pattern.push_string(FC_FAMILY, self.descriptor.family_name.clone());
+            if query.fields.contains(QueryFields::FAMILY_NAME) {
+                pattern.push_string(FC_FAMILY, query.descriptor.family_name.clone());
             }
-            if self.fields.contains(QueryFields::STYLE_NAME) {
-                pattern.push_string(FC_STYLE, self.descriptor.style_name.clone());
+            if query.fields.contains(QueryFields::STYLE_NAME) {
+                pattern.push_string(FC_STYLE, query.descriptor.style_name.clone());
             }
-            if self.fields.contains(QueryFields::WEIGHT) {
-                let weight = FcWeightFromOpenType(self.descriptor.weight as i32);
+            if query.fields.contains(QueryFields::WEIGHT) {
+                let weight = FcWeightFromOpenType(query.descriptor.weight as i32);
                 pattern.push_int(FC_WEIGHT, weight)
             }
-            if self.fields.contains(QueryFields::STRETCH) {
-                pattern.push_int(FC_WIDTH, (self.descriptor.stretch * 100.0) as i32)
+            if query.fields.contains(QueryFields::STRETCH) {
+                pattern.push_int(FC_WIDTH, (query.descriptor.stretch * 100.0) as i32)
             }
-            if self.fields.contains(QueryFields::ITALIC) {
+            if query.fields.contains(QueryFields::ITALIC) {
                 // FIXME(pcwalton): Really we want >=0 here. How do we request that?
-                let slant = if self.descriptor.flags.contains(Flags::ITALIC) {
+                let slant = if query.descriptor.flags.contains(Flags::ITALIC) {
                     100
                 } else {
                     0
@@ -117,13 +114,13 @@ impl Source {
             object_set.push_string(FC_FAMILY);
             object_set.push_string(FC_FILE);
 
-            let font_set = FcFontList(*fontconfig, pattern.pattern, object_set.object_set);
+            let font_set = FcFontList(self.fontconfig, pattern.pattern, object_set.object_set);
             assert!(!font_set.is_null());
 
             let font_patterns = slice::from_raw_parts((*font_set).fonts,
                                                         (*font_set).nfont as usize);
 
-            let mut results = HashMap::new();
+            let mut result_fonts = vec![];
             for font_pattern in font_patterns {
                 let family_name = match fc_pattern_get_string(*font_pattern, FC_FAMILY) {
                     None => continue,
@@ -141,15 +138,9 @@ impl Source {
                     Err(_) => continue,
                     Ok(font) => font,
                 };
-                let mut family = results.entry(family_name).or_insert_with(|| Family::new());
-                family.push(font)
+                result_fonts.push(font)
             }
-
-            let mut result_set = Set::new();
-            for (_, family) in results.into_iter() {
-                result_set.push(family)
-            }
-            result_set
+            Set::from_fonts(result_fonts.into_iter())
         }
     }
 }
@@ -235,20 +226,6 @@ impl<'a> Deref for FontData<'a> {
     }
 }
 
-unsafe fn setup_freetype_face(face: FT_Face) {
-    assert_eq!(FT_Set_Char_Size(face, ((*face).units_per_EM as i64) << 6, 0, 0, 0), 0);
-}
-
-#[repr(C)]
-struct FT_SfntName {
-    platform_id: FT_UShort,
-    encoding_id: FT_UShort,
-    language_id: FT_UShort,
-    name_id: FT_UShort,
-    string: *mut FT_Byte,
-    string_len: FT_UInt,
-}
-
 unsafe fn fc_pattern_get_string(pattern: *mut FcPattern, object: &'static [u8]) -> Option<String> {
     let mut string = ptr::null_mut();
     if FcPatternGetString(pattern,
@@ -267,19 +244,6 @@ fn ft_fixed_26_6_to_f32(fixed: i64) -> f32 {
     (fixed as f32) / 64.0
 }
 
-#[cfg(any(not(target_os = "macos"), feature = "backend-fontconfig"))]
 extern "C" {
     fn FcWeightFromOpenType(fc_weight: c_int) -> c_int;
-}
-
-#[cfg(any(not(target_os = "macos"), feature = "backend-freetype"))]
-extern "C" {
-    fn FT_Get_PS_Font_Value(face: FT_Face,
-                            key: u32,
-                            idx: FT_UInt,
-                            value: *mut c_void,
-                            value_len: FT_Long)
-                            -> FT_Long;
-    fn FT_Get_Sfnt_Name(face: FT_Face, idx: FT_UInt, aname: *mut FT_SfntName) -> FT_Error;
-    fn FT_Get_Sfnt_Name_Count(face: FT_Face) -> FT_UInt;
 }

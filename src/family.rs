@@ -10,6 +10,7 @@
 
 use std::iter;
 
+use descriptor::Query;
 use font::Font;
 
 #[derive(Debug)]
@@ -46,5 +47,15 @@ impl Family {
     #[inline]
     pub fn push(&mut self, font: Font) {
         self.fonts.push(font)
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.fonts.is_empty()
+    }
+
+    #[inline]
+    pub fn filter(&mut self, query: &Query) {
+        self.fonts.retain(|font| font.descriptor().matches(query))
     }
 }

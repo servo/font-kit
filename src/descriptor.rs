@@ -46,6 +46,8 @@ pub struct Descriptor {
     /// PostScript name of the font.
     pub postscript_name: String,
     /// Display name of the font.
+    ///
+    /// FIXME(pcwalton): Rename to "full name".
     pub display_name: String,
     /// Name of the font family.
     pub family_name: String,
@@ -63,6 +65,50 @@ impl Descriptor {
     #[inline]
     pub fn new() -> Descriptor {
         Descriptor::default()
+    }
+
+    /// Returns true if this descriptor matches the given query and false otherwise.
+    pub fn matches(&self, query: &Query) -> bool {
+        if query.fields.contains(QueryFields::POSTSCRIPT_NAME) &&
+                self.postscript_name != query.descriptor.postscript_name {
+            return false
+        }
+        if query.fields.contains(QueryFields::DISPLAY_NAME) &&
+                self.display_name != query.descriptor.display_name {
+            return false
+        }
+        if query.fields.contains(QueryFields::FAMILY_NAME) &&
+                self.family_name != query.descriptor.family_name {
+            return false
+        }
+        if query.fields.contains(QueryFields::STYLE_NAME) &&
+                self.style_name != query.descriptor.style_name {
+            return false
+        }
+        if query.fields.contains(QueryFields::WEIGHT) &&
+                self.weight != query.descriptor.weight {
+            return false
+        }
+        if query.fields.contains(QueryFields::STRETCH) &&
+                self.stretch != query.descriptor.stretch {
+            return false
+        }
+        if query.fields.contains(QueryFields::ITALIC) &&
+                self.flags.contains(Flags::ITALIC) !=
+                query.descriptor.flags.contains(Flags::ITALIC) {
+            return false
+        }
+        if query.fields.contains(QueryFields::MONOSPACE) &&
+                self.flags.contains(Flags::MONOSPACE) !=
+                query.descriptor.flags.contains(Flags::MONOSPACE) {
+            return false
+        }
+        if query.fields.contains(QueryFields::VERTICAL) &&
+                self.flags.contains(Flags::VERTICAL) !=
+                query.descriptor.flags.contains(Flags::VERTICAL) {
+            return false
+        }
+        true
     }
 }
 

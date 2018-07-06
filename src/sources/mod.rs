@@ -8,11 +8,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "loader-fontconfig-default")))]
 pub use sources::core_text as default;
-#[cfg(target_family = "windows")]
+#[cfg(all(target_family = "windows", not(feature = "loader-fontconfig-default")))]
 pub use sources::directwrite as default;
-#[cfg(not(any(target_os = "macos", target_family = "windows")))]
+#[cfg(any(not(any(target_os = "macos", target_family = "windows")),
+          feature = "loader-fontconfig-default"))]
 pub use sources::fontconfig as default;
 
 #[cfg(target_os = "macos")]

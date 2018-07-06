@@ -10,7 +10,11 @@
 
 //! A collection of fonts.
 
+use std::collections::HashMap;
+
+use descriptor::Query;
 use family::Family;
+use font::Font;
 
 #[derive(Debug)]
 pub struct Set {
@@ -30,11 +34,29 @@ impl Set {
         }
     }
 
+    /// Creates a set from a group of fonts. The fonts are automatically sorted into families.
+    pub fn from_fonts<I>(fonts: I) -> Set where I: Iterator<Item = Font> {
+        let mut families = HashMap::new();
+        for font in fonts {
+            families.entry(font.descriptor().family_name)
+                    .or_insert_with(|| Family::new())
+                    .push(font)
+        }
+        Set::from_families(families.into_iter().map(|(_, family)| family))
+    }
+
     pub fn families(&self) -> &[Family] {
         &self.families
     }
 
     pub fn push(&mut self, family: Family) {
         self.families.push(family)
+    }
+
+    pub fn filter(&mut self, query: &Query) {
+        for family in &mut self.families {
+            family.filter(query)
+        }
+        self.families.retain(|family| !family.is_empty())
     }
 }

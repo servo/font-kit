@@ -18,12 +18,9 @@ use core_text::font_descriptor::{self, CTFontDescriptor, kCTFontMonoSpaceTrait};
 use core_text::font_descriptor::{kCTFontVerticalTrait};
 use core_text;
 use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::collections::hash_map::Entry;
 use std::f32;
 
 use descriptor::{Flags, FONT_STRETCH_MAPPING, Query, QueryFields};
-use family::Family;
 use font::Font;
 use set::Set;
 use utils;
@@ -48,27 +45,17 @@ impl Source {
             font_collection::new_from_descriptors(&CFArray::from_CFTypes(&[descriptor]))
         };
 
-        let mut families = HashMap::new();
+        let mut fonts = vec![];
         if let Some(descriptors) = collection.get_descriptors() {
             for index in 0..descriptors.len() {
                 unsafe {
                     let descriptor = (*descriptors.get(index).unwrap()).clone();
                     let core_text_font = core_text::font::new_from_descriptor(&descriptor, 12.0);
-                    let family_name = core_text_font.family_name();
-                    let font = Font::from_core_text_font(core_text_font);
-                    match families.entry(family_name) {
-                        Entry::Vacant(entry) => {
-                            entry.insert(vec![font]);
-                        }
-                        Entry::Occupied(mut entry) => entry.get_mut().push(font),
-                    }
+                    fonts.push(Font::from_core_text_font(core_text_font));
                 }
             }
         }
-
-        Set::from_families(families.into_iter().map(|(_, fonts)| {
-            Family::from_fonts(fonts.into_iter())
-        }))
+        Set::from_fonts(fonts.into_iter())
     }
 }
 
