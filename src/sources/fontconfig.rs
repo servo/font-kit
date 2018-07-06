@@ -10,8 +10,9 @@
 
 //! Support for generic Unix systems via fontconfig.
 //!
-//! On macOS, the Cargo feature `loader-fontconfig` can be used to opt into this support for font
-//! lookup.
+//! On macOS and Windows, the Cargo feature `source-fontconfig` can be used to opt into fontconfig
+//! support. To prefer it over the native font source (only if you know what you're doing), use the
+//! `source-fontconfig-default` feature.
 
 use arrayvec::ArrayVec;
 use byteorder::{BigEndian, ReadBytesExt};
