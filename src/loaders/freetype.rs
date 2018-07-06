@@ -28,6 +28,7 @@ use freetype::tt_os2::TT_OS2;
 use lyon_path::builder::PathBuilder;
 use memmap::Mmap;
 use std::ffi::CStr;
+use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
 use std::iter;
 use std::marker::PhantomData;
@@ -42,7 +43,7 @@ use std::sync::Arc;
 use core_text::font::CTFont;
 
 use descriptor::{Descriptor, FONT_STRETCH_MAPPING, Flags};
-use font::Metrics;
+use font::{Face, Metrics};
 
 const PS_DICT_FULL_NAME: u32 = 38;
 const TT_NAME_ID_FULL_NAME: u16 = 4;
@@ -65,28 +66,6 @@ pub type NativeFont = FT_Face;
 pub struct Font {
     freetype_face: FT_Face,
     font_data: FontData<'static>,
-}
-
-impl Clone for Font {
-    fn clone(&self) -> Font {
-        unsafe {
-            assert_eq!(FT_Reference_Face(self.freetype_face), 0);
-            Font {
-                freetype_face: self.freetype_face,
-                font_data: self.font_data.clone(),
-            }
-        }
-    }
-}
-
-impl Drop for Font {
-    fn drop(&mut self) {
-        unsafe {
-            if !self.freetype_face.is_null() {
-                assert_eq!(FT_Done_Face(self.freetype_face), 0);
-            }
-        }
-    }
 }
 
 impl Font {
@@ -369,6 +348,95 @@ impl Font {
         unsafe {
             FT_Get_Sfnt_Table(self.freetype_face, FT_Sfnt_Tag::FT_SFNT_OS2) as *const TT_OS2
         }
+    }
+}
+
+impl Clone for Font {
+    fn clone(&self) -> Font {
+        unsafe {
+            assert_eq!(FT_Reference_Face(self.freetype_face), 0);
+            Font {
+                freetype_face: self.freetype_face,
+                font_data: self.font_data.clone(),
+            }
+        }
+    }
+}
+
+impl Drop for Font {
+    fn drop(&mut self) {
+        unsafe {
+            if !self.freetype_face.is_null() {
+                assert_eq!(FT_Done_Face(self.freetype_face), 0);
+            }
+        }
+    }
+}
+
+impl Debug for Font {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), fmt::Error> {
+        self.descriptor().fmt(fmt)
+    }
+}
+
+impl Face for Font {
+    type NativeFont = NativeFont;
+
+    #[inline]
+    fn from_bytes(font_data: Arc<Vec<u8>>) -> Result<Self, ()> {
+        Font::from_bytes(font_data)
+    }
+
+    #[inline]
+    fn from_file(file: File) -> Result<Font, ()> {
+        Font::from_file(file)
+    }
+
+    #[inline]
+    unsafe fn from_native_font(native_font: Self::NativeFont) -> Self {
+        Font::from_native_font(native_font)
+    }
+
+    #[cfg(target_os = "macos")]
+    #[inline]
+    unsafe fn from_core_text_font(core_text_font: CTFont) -> Font {
+        Font::from_core_text_font(core_text_font)
+    }
+
+    #[inline]
+    fn descriptor(&self) -> Descriptor {
+        self.descriptor()
+    }
+
+    #[inline]
+    fn glyph_for_char(&self, character: char) -> Option<u32> {
+        self.glyph_for_char(character)
+    }
+
+    #[inline]
+    fn outline<B>(&self, glyph_id: u32, path_builder: &mut B) -> Result<(), ()>
+                  where B: PathBuilder {
+        self.outline(glyph_id, path_builder)
+    }
+
+    #[inline]
+    fn typographic_bounds(&self, glyph_id: u32) -> Rect<f32> {
+        self.typographic_bounds(glyph_id)
+    }
+
+    #[inline]
+    fn advance(&self, glyph_id: u32) -> Vector2D<f32> {
+        self.advance(glyph_id)
+    }
+
+    #[inline]
+    fn origin(&self, origin: u32) -> Point2D<f32> {
+        self.origin(origin)
+    }
+
+    #[inline]
+    fn metrics(&self) -> Metrics {
+        self.metrics()
     }
 }
 

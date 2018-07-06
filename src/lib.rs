@@ -37,19 +37,10 @@ extern crate fontconfig;
 #[cfg(any(not(any(target_os = "macos", target_family = "windows")), feature = "loader-freetype"))]
 extern crate freetype;
 
-#[cfg(all(target_family = "windows", not(feature = "loader-freetype")))]
-#[path = "loaders/directwrite.rs"]
-mod loader;
-#[cfg(all(target_os = "macos", not(feature = "loader-freetype")))]
-#[path = "loaders/core_text.rs"]
-mod loader;
-#[cfg(any(not(any(target_os = "macos", target_family = "windows")), feature = "loader-freetype"))]
-#[path = "loaders/freetype.rs"]
-mod loader;
-
 pub mod descriptor;
 pub mod family;
 pub mod font;
+pub mod loaders;
 pub mod sources;
 pub mod set;
 

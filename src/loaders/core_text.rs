@@ -20,6 +20,7 @@ use euclid::{Point2D, Rect, Size2D, Vector2D};
 use lyon_path::builder::PathBuilder;
 use memmap::Mmap;
 use std::f32;
+use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
 use std::io::Read;
 use std::marker::PhantomData;
@@ -27,7 +28,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use descriptor::{Descriptor, Flags, FONT_STRETCH_MAPPING};
-use font::Metrics;
+use font::{Face, Metrics};
 use sources;
 
 pub type NativeFont = CTFont;
@@ -210,6 +211,73 @@ impl Font {
     #[inline]
     fn units_per_point(&self) -> f64 {
         (self.core_text_font.units_per_em() as f64) / self.core_text_font.pt_size()
+    }
+}
+
+impl Face for Font {
+    type NativeFont = NativeFont;
+
+    #[inline]
+    fn from_bytes(font_data: Arc<Vec<u8>>) -> Result<Self, ()> {
+        Font::from_bytes(font_data)
+    }
+
+    #[inline]
+    fn from_file(file: File) -> Result<Font, ()> {
+        Font::from_file(file)
+    }
+
+    #[inline]
+    unsafe fn from_native_font(native_font: Self::NativeFont) -> Self {
+        Font::from_native_font(native_font)
+    }
+
+    #[cfg(target_os = "macos")]
+    #[inline]
+    unsafe fn from_core_text_font(core_text_font: CTFont) -> Font {
+        Font::from_core_text_font(core_text_font)
+    }
+
+    #[inline]
+    fn descriptor(&self) -> Descriptor {
+        self.descriptor()
+    }
+
+    #[inline]
+    fn glyph_for_char(&self, character: char) -> Option<u32> {
+        self.glyph_for_char(character)
+    }
+
+    #[inline]
+    fn outline<B>(&self, glyph_id: u32, path_builder: &mut B) -> Result<(), ()>
+                  where B: PathBuilder {
+        self.outline(glyph_id, path_builder)
+    }
+
+    #[inline]
+    fn typographic_bounds(&self, glyph_id: u32) -> Rect<f32> {
+        self.typographic_bounds(glyph_id)
+    }
+
+    #[inline]
+    fn advance(&self, glyph_id: u32) -> Vector2D<f32> {
+        self.advance(glyph_id)
+    }
+
+    #[inline]
+    fn origin(&self, origin: u32) -> Point2D<f32> {
+        self.origin(origin)
+    }
+
+    #[inline]
+    fn metrics(&self) -> Metrics {
+        self.metrics()
+    }
+}
+
+impl Debug for Font {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), fmt::Error> {
+        self.descriptor().fmt(fmt)
     }
 }
 

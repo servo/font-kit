@@ -27,7 +27,7 @@ use winapi::dwrite::DWRITE_FONT_SIMULATIONS;
 
 use descriptor::{Descriptor, Flags, FONT_STRETCH_MAPPING, Query, QueryFields};
 use family::Family;
-use font::Metrics;
+use font::{Face, Metrics};
 use set::Set;
 
 // TODO(pcwalton)
@@ -183,6 +183,67 @@ impl Clone for Font {
             dwrite_font_face: self.dwrite_font_face.clone(),
             cached_data: Mutex::new((*self.cached_data.lock().unwrap()).clone())
         }
+    }
+}
+
+impl Debug for Font {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), fmt::Error> {
+        self.descriptor().fmt(fmt)
+    }
+}
+
+impl Face for Font {
+    type NativeFont = NativeFont;
+
+    #[inline]
+    fn from_bytes(font_data: Arc<Vec<u8>>) -> Result<Self, ()> {
+        Font::from_bytes(font_data)
+    }
+
+    #[inline]
+    fn from_file(file: File) -> Result<Font, ()> {
+        Font::from_file(file)
+    }
+
+    #[inline]
+    unsafe fn from_native_font(native_font: Self::NativeFont) -> Self {
+        Font::from_native_font(native_font)
+    }
+
+    #[inline]
+    fn descriptor(&self) -> Descriptor {
+        self.descriptor()
+    }
+
+    #[inline]
+    fn glyph_for_char(&self, character: char) -> Option<u32> {
+        self.glyph_for_char(character)
+    }
+
+    #[inline]
+    fn outline<B>(&self, glyph_id: u32, path_builder: &mut B) -> Result<(), ()>
+                  where B: PathBuilder {
+        self.outline(glyph_id, path_builder)
+    }
+
+    #[inline]
+    fn typographic_bounds(&self, glyph_id: u32) -> Rect<f32> {
+        self.typographic_bounds(glyph_id)
+    }
+
+    #[inline]
+    fn advance(&self, glyph_id: u32) -> Vector2D<f32> {
+        self.advance(glyph_id)
+    }
+
+    #[inline]
+    fn origin(&self, origin: u32) -> Point2D<f32> {
+        self.origin(origin)
+    }
+
+    #[inline]
+    fn metrics(&self) -> Metrics {
+        self.metrics()
     }
 }
 

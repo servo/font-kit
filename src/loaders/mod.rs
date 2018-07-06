@@ -1,4 +1,4 @@
-// font-kit/src/sources/mod.rs
+// font-kit/src/loaders/mod.rs
 //
 // Copyright © 2018 The Pathfinder Project Developers.
 //
@@ -9,16 +9,16 @@
 // except according to those terms.
 
 #[cfg(all(target_os = "macos", not(feature = "loader-freetype-default")))]
-pub use sources::core_text as default;
+pub use loaders::core_text as default;
 #[cfg(all(target_family = "windows", not(feature = "loader-freetype-default")))]
-pub use sources::directwrite as default;
+pub use loaders::directwrite as default;
 #[cfg(any(not(any(target_os = "macos", target_family = "windows")),
           feature = "loader-freetype-default"))]
-pub use sources::fontconfig as default;
+pub use loaders::freetype as default;
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos"))]
 pub mod core_text;
-#[cfg(target_family = "windows")]
+#[cfg(all(target_family = "windows"))]
 pub mod directwrite;
 #[cfg(any(not(any(target_os = "macos", target_family = "windows")), feature = "loader-freetype"))]
-pub mod fontconfig;
+pub mod freetype;

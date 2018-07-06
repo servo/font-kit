@@ -14,28 +14,28 @@ use std::collections::HashMap;
 
 use descriptor::Query;
 use family::Family;
-use font::Font;
+use font::{Face, Font};
 
 #[derive(Debug)]
-pub struct Set {
-    families: Vec<Family>,
+pub struct Set<F = Font> where F: Face {
+    families: Vec<Family<F>>,
 }
 
-impl Set {
-    pub fn new() -> Set {
+impl<F> Set<F> where F: Face {
+    pub fn new() -> Set<F> {
         Set {
             families: vec![],
         }
     }
 
-    pub fn from_families<I>(families: I) -> Set where I: Iterator<Item = Family> {
+    pub fn from_families<I>(families: I) -> Set<F> where I: Iterator<Item = Family<F>> {
         Set {
             families: families.collect(),
         }
     }
 
     /// Creates a set from a group of fonts. The fonts are automatically sorted into families.
-    pub fn from_fonts<I>(fonts: I) -> Set where I: Iterator<Item = Font> {
+    pub fn from_fonts<I>(fonts: I) -> Set<F> where I: Iterator<Item = F> {
         let mut families = HashMap::new();
         for font in fonts {
             families.entry(font.descriptor().family_name)
@@ -45,11 +45,11 @@ impl Set {
         Set::from_families(families.into_iter().map(|(_, family)| family))
     }
 
-    pub fn families(&self) -> &[Family] {
+    pub fn families(&self) -> &[Family<F>] {
         &self.families
     }
 
-    pub fn push(&mut self, family: Family) {
+    pub fn push(&mut self, family: Family<F>) {
         self.families.push(family)
     }
 

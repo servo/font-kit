@@ -11,41 +11,41 @@
 use std::iter;
 
 use descriptor::Query;
-use font::Font;
+use font::{Face, Font};
 
 #[derive(Debug)]
-pub struct Family {
-    pub fonts: Vec<Font>,
+pub struct Family<F = Font> where F: Face {
+    pub fonts: Vec<F>,
 }
 
-impl Family {
+impl<F> Family<F> where F: Face {
     #[inline]
-    pub fn new() -> Family {
+    pub fn new() -> Family<F> {
         Family {
             fonts: vec![],
         }
     }
 
     #[inline]
-    pub fn from_fonts<I>(fonts: I) -> Family where I: Iterator<Item = Font> {
+    pub fn from_fonts<I>(fonts: I) -> Family<F> where I: Iterator<Item = F> {
         Family {
-            fonts: fonts.collect(),
+            fonts: fonts.collect::<Vec<F>>(),
         }
     }
 
     /// A convenience method to create a family with a single font.
     #[inline]
-    pub fn from_font(font: Font) -> Family {
+    pub fn from_font(font: F) -> Family<F> {
         Family::from_fonts(iter::once(font))
     }
 
     #[inline]
-    pub fn fonts(&self) -> &[Font] {
+    pub fn fonts(&self) -> &[F] {
         &self.fonts
     }
 
     #[inline]
-    pub fn push(&mut self, font: Font) {
+    pub fn push(&mut self, font: F) {
         self.fonts.push(font)
     }
 

@@ -5,6 +5,7 @@ authors = ["Patrick Walton <pcwalton@mimiga.net>"]
 
 [features]
 loader-freetype = ["freetype"]
+loader-freetype-default = ["loader-freetype"]
 source-fontconfig = ["servo-fontconfig"]
 source-fontconfig-default = ["source-fontconfig"]
 

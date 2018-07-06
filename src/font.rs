@@ -8,14 +8,34 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::fmt::{self, Debug, Formatter};
+use euclid::{Point2D, Rect, Vector2D};
+use lyon_path::builder::PathBuilder;
+use std::fs::File;
+use std::sync::Arc;
 
-pub use loader::Font;
+#[cfg(target_os = "macos")]
+use core_text::font::CTFont;
 
-impl Debug for Font {
-    fn fmt(&self, fmt: &mut Formatter) -> Result<(), fmt::Error> {
-        self.descriptor().fmt(fmt)
-    }
+use descriptor::Descriptor;
+
+pub use loaders::default::Font;
+
+pub trait Face: Sized {
+    type NativeFont;
+    // TODO(pcwalton): Allow the font index to be selected.
+    fn from_bytes(font_data: Arc<Vec<u8>>) -> Result<Self, ()>;
+    fn from_file(file: File) -> Result<Self, ()>;
+    unsafe fn from_native_font(native_font: Self::NativeFont) -> Self;
+    #[cfg(target_os = "macos")]
+    unsafe fn from_core_text_font(core_text_font: CTFont) -> Self;
+    fn descriptor(&self) -> Descriptor;
+    fn glyph_for_char(&self, character: char) -> Option<u32>;
+    fn outline<B>(&self, glyph_id: u32, path_builder: &mut B) -> Result<(), ()>
+                  where B: PathBuilder;
+    fn typographic_bounds(&self, glyph_id: u32) -> Rect<f32>;
+    fn advance(&self, glyph_id: u32) -> Vector2D<f32>;
+    fn origin(&self, _: u32) -> Point2D<f32>;
+    fn metrics(&self) -> Metrics;
 }
 
 /// Various metrics that apply to the entire font.
