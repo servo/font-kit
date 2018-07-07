@@ -8,6 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use byteorder::{BigEndian, ReadBytesExt};
 use core_graphics::data_provider::CGDataProvider;
 use core_graphics::font::CGFont;
 use core_graphics::geometry::{CG_AFFINE_TRANSFORM_IDENTITY, CG_ZERO_SIZE, CGPoint};
@@ -31,6 +32,9 @@ use std::sync::Arc;
 use descriptor::{Descriptor, Flags, FONT_STRETCH_MAPPING};
 use font::{Face, Metrics, Type};
 use sources;
+use utils;
+
+const TTC_TAG: [u8; 4] = [b't', b't', b'c', b'f'];
 
 pub type NativeFont = CTFont;
 
@@ -41,10 +45,12 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Font, ()> {
+    pub fn from_bytes(mut font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Font, ()> {
         // Sadly, there's no API to load OpenType collections on macOS, I don't believe…
-        if font_index != 0 {
-            return Err(())
+        if font_is_collection(&**font_data) {
+            let mut new_font_data = (*font_data).clone();
+            try!(unpack_otc_font(&mut new_font_data, font_index));
+            font_data = Arc::new(new_font_data);
         }
 
         let data_provider = CGDataProvider::from_buffer(font_data.clone());
@@ -100,9 +106,10 @@ impl Font {
         }
     }
 
-    // FIXME(pcwalton): This should use ad-hoc methods to determine whether this is actually a
-    // TrueType or OpenType collection…
     pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<Type, ()> {
+        if let Ok(font_count) = read_number_of_fonts_from_otc_header(&font_data) {
+            return Ok(Type::Collection(font_count))
+        }
         let data_provider = CGDataProvider::from_buffer(font_data);
         match CGFont::from_data_provider(data_provider) {
             Ok(_) => Ok(Type::Single),
@@ -359,6 +366,40 @@ fn core_text_to_css_font_weight(core_text_weight: f32) -> f32 {
 fn core_text_width_to_css_stretchiness(core_text_width: f32) -> f32 {
     sources::core_text::piecewise_linear_lookup((core_text_width + 1.0) * 4.0,
                                                 &FONT_STRETCH_MAPPING)
+}
+
+fn font_is_collection(header: &[u8]) -> bool {
+    header.len() >= 4 && header[0..4] == TTC_TAG
+}
+
+fn read_number_of_fonts_from_otc_header(header: &[u8]) -> Result<u32, ()> {
+    if !font_is_collection(header) {
+        return Err(())
+    }
+    (&header[8..]).read_u32::<BigEndian>().map_err(drop)
+}
+
+// Unpacks an OTC font "in-place".
+fn unpack_otc_font(data: &mut [u8], font_index: u32) -> Result<(), ()> {
+    if font_index >= try!(read_number_of_fonts_from_otc_header(data)) {
+        return Err(())
+    }
+
+    let offset_table_pos_pos = 12 + 4 * font_index as usize;
+    let offset_table_pos = try!((&data[offset_table_pos_pos..]).read_u32::<BigEndian>()
+                                                               .map_err(drop)) as usize;
+    debug_assert!(utils::SFNT_VERSIONS.iter().any(|version| {
+        data[offset_table_pos..(offset_table_pos + 4)] == *version
+    }));
+    let num_tables = try!((&data[(offset_table_pos + 4)..]).read_u16::<BigEndian>().map_err(drop));
+
+    // Must copy forward in order to avoid problems with overlapping memory.
+    let offset_table_and_table_record_size = 12 + (num_tables as usize) * 16;
+    for offset in 0..offset_table_and_table_record_size {
+        data[offset] = data[offset_table_pos + offset]
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

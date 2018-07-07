@@ -20,6 +20,7 @@ use descriptor::{WEIGHT_NORMAL, WEIGHT_BOLD, Flags, Query};
 use font::{Font, Type};
 use sources::default::Source;
 use sources::fs;
+use utils;
 
 // TODO(pcwalton): Change this to DejaVu or whatever on Linux.
 static SANS_SERIF_FONT_FAMILY_NAME: &'static str = "Arial";
@@ -76,8 +77,7 @@ pub fn lookup_all_fonts_in_a_family() {
 
 #[test]
 pub fn lookup_all_fonts_in_a_family_in_system_font_directories() {
-    // FIXME(pcwalton): Fix TTC loading on macOS and switch back to Arial.
-    let fonts = fs::Source::new().select(&Query::new().family_name("Verdana"));
+    let fonts = fs::Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME));
     assert_eq!(fonts.families().len(), 1);
     let family = &fonts.families()[0];
     assert!(family.fonts().len() > 0);
@@ -207,6 +207,5 @@ pub fn get_font_data() {
     let fonts = Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME));
     let font = &fonts.families()[0].fonts()[0];
     let data = font.font_data().unwrap();
-    let magic = &data[0..4];
-    assert!(magic == &[0, 1, 0, 0] || magic == b"OTTO");
+    debug_assert!(utils::SFNT_VERSIONS.iter().any(|version| data[0..4] == *version));
 }
