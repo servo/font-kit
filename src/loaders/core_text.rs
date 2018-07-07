@@ -40,7 +40,12 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn from_bytes(font_data: Arc<Vec<u8>>) -> Result<Font, ()> {
+    pub fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Font, ()> {
+        // Sadly, there's no API to load OpenType collections on macOS, I don't believe…
+        if font_index != 0 {
+            return Err(())
+        }
+
         let data_provider = CGDataProvider::from_buffer(font_data.clone());
         let core_graphics_font = try!(CGFont::from_data_provider(data_provider).map_err(drop));
         let core_text_font = core_text::font::new_from_CGFont(&core_graphics_font, 16.0);
@@ -50,10 +55,10 @@ impl Font {
         })
     }
 
-    pub fn from_file(mut file: File) -> Result<Font, ()> {
+    pub fn from_file(mut file: File, font_index: u32) -> Result<Font, ()> {
         let mut font_data = vec![];
         try!(file.read_to_end(&mut font_data).map_err(drop));
-        Font::from_bytes(Arc::new(font_data))
+        Font::from_bytes(Arc::new(font_data), font_index)
     }
 
     pub unsafe fn from_native_font(core_text_font: NativeFont) -> Font {
@@ -218,13 +223,13 @@ impl Face for Font {
     type NativeFont = NativeFont;
 
     #[inline]
-    fn from_bytes(font_data: Arc<Vec<u8>>) -> Result<Self, ()> {
-        Font::from_bytes(font_data)
+    fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Self, ()> {
+        Font::from_bytes(font_data, font_index)
     }
 
     #[inline]
-    fn from_file(file: File) -> Result<Font, ()> {
-        Font::from_file(file)
+    fn from_file(file: File, font_index: u32) -> Result<Font, ()> {
+        Font::from_file(file, font_index)
     }
 
     #[inline]

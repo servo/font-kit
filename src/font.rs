@@ -23,10 +23,9 @@ pub use loaders::default::Font;
 pub trait Face: Sized {
     type NativeFont;
 
-    // TODO(pcwalton): Allow the font index to be selected.
-    fn from_bytes(font_data: Arc<Vec<u8>>) -> Result<Self, ()>;
+    fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Self, ()>;
 
-    fn from_file(file: File) -> Result<Self, ()>;
+    fn from_file(file: File, font_index: u32) -> Result<Self, ()>;
 
     unsafe fn from_native_font(native_font: Self::NativeFont) -> Self;
 

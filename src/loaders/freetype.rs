@@ -69,15 +69,14 @@ pub struct Font {
 }
 
 impl Font {
-    // TODO(pcwalton): Allow the font index to be selected.
-    pub fn from_bytes(font_data: Arc<Vec<u8>>) -> Result<Font, ()> {
+    pub fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Font, ()> {
         FREETYPE_LIBRARY.with(|freetype_library| {
             unsafe {
                 let mut freetype_face = ptr::null_mut();
                 assert_eq!(FT_New_Memory_Face(*freetype_library,
                                               (*font_data).as_ptr(),
                                               font_data.len() as i64,
-                                              0,
+                                              font_index as FT_Long,
                                               &mut freetype_face),
                            0);
                 setup_freetype_face(freetype_face);
@@ -89,7 +88,7 @@ impl Font {
         })
     }
 
-    pub fn from_file(file: File) -> Result<Font, ()> {
+    pub fn from_file(file: File, font_index: u32) -> Result<Font, ()> {
         unsafe {
             let mmap = try!(Mmap::map(&file).map_err(drop));
             FREETYPE_LIBRARY.with(|freetype_library| {
@@ -97,7 +96,7 @@ impl Font {
                 assert_eq!(FT_New_Memory_Face(*freetype_library,
                                               (*mmap).as_ptr(),
                                               mmap.len() as i64,
-                                              0,
+                                              font_index as FT_Long,
                                               &mut freetype_face),
                            0);
                 setup_freetype_face(freetype_face);
@@ -126,13 +125,15 @@ impl Font {
             }
         }
 
-        Font::from_bytes(Arc::new(font_data)).unwrap()
+        Font::from_bytes(Arc::new(font_data), (*freetype_face).face_index as u32).unwrap()
     }
 
     #[cfg(target_os = "macos")]
     pub unsafe fn from_core_text_font(core_text_font: CTFont) -> Font {
+        // FIXME(pcwalton): How do we deal with collections? I guess we have to find which font in
+        // the collection matches?
         let path = core_text_font.url().unwrap().to_path().unwrap();
-        Font::from_file(File::open(path).unwrap()).unwrap()
+        Font::from_file(File::open(path).unwrap(), 0).unwrap()
     }
 
     pub fn descriptor(&self) -> Descriptor {
@@ -383,13 +384,13 @@ impl Face for Font {
     type NativeFont = NativeFont;
 
     #[inline]
-    fn from_bytes(font_data: Arc<Vec<u8>>) -> Result<Self, ()> {
-        Font::from_bytes(font_data)
+    fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Self, ()> {
+        Font::from_bytes(font_data, font_index)
     }
 
     #[inline]
-    fn from_file(file: File) -> Result<Font, ()> {
-        Font::from_file(file)
+    fn from_file(file: File, font_index: u32) -> Result<Font, ()> {
+        Font::from_file(file, font_index)
     }
 
     #[inline]

@@ -30,7 +30,6 @@ use family::Family;
 use font::{Face, Metrics};
 use set::Set;
 
-// TODO(pcwalton)
 pub type NativeFont = DWriteFontFace;
 
 pub struct Font {
@@ -39,20 +38,19 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn from_bytes(font_data: Arc<Vec<u8>>) -> Result<Font, ()> {
+    pub fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Font, ()> {
         let font_file = try!(DWriteFontFile::new_from_data(&**font_data).ok_or(()));
-        // TODO(pcwalton): Support grabbing other faces from a single TrueType collection.
-        let face = font_file.create_face(0, DWRITE_FONT_SIMULATIONS(0));
+        let face = font_file.create_face(font_index, DWRITE_FONT_SIMULATIONS(0));
         Ok(Font {
             dwrite_font_face: face,
             cached_data: Mutex::new(Some(font_data)),
         })
     }
 
-    pub fn from_file(mut file: File) -> Result<Font, ()> {
+    pub fn from_file(mut file: File, font_index: u32) -> Result<Font, ()> {
         let mut font_data = vec![];
         try!(file.read_to_end(&mut font_data).map_err(drop));
-        Font::from_bytes(Arc::new(font_data))
+        Font::from_bytes(Arc::new(font_data), font_index)
     }
 
     // TODO(pcwalton)
@@ -196,13 +194,13 @@ impl Face for Font {
     type NativeFont = NativeFont;
 
     #[inline]
-    fn from_bytes(font_data: Arc<Vec<u8>>) -> Result<Self, ()> {
-        Font::from_bytes(font_data)
+    fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Self, ()> {
+        Font::from_bytes(font_data, font_index)
     }
 
     #[inline]
-    fn from_file(file: File) -> Result<Font, ()> {
-        Font::from_file(file)
+    fn from_file(file: File, font_index: u32) -> Result<Font, ()> {
+        Font::from_file(file, font_index)
     }
 
     #[inline]

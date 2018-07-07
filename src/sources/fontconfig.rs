@@ -22,8 +22,8 @@ use fontconfig::fontconfig::{FcDefaultSubstitute, FcFontList, FcInitLoadConfigAn
 use fontconfig::fontconfig::{FcMatchPattern, FcObjectSet, FcObjectSetAdd, FcObjectSetCreate};
 use fontconfig::fontconfig::{FcObjectSetDestroy, FcPattern, FcPatternAddInteger};
 use fontconfig::fontconfig::{FcPatternAddString, FcPatternCreate, FcPatternDestroy};
-use fontconfig::fontconfig::{FcPatternGetString, FcResultMatch, FcResultNoMatch, FcSetSystem};
-use fontconfig::fontconfig::{FcType, FcTypeString};
+use fontconfig::fontconfig::{FcPatternGetInteger, FcPatternGetString, FcResultMatch};
+use fontconfig::fontconfig::{FcResultNoMatch, FcSetSystem, FcType, FcTypeString};
 use lyon_path::builder::PathBuilder;
 use memmap::Mmap;
 use std::ffi::{CStr, CString};
@@ -59,6 +59,7 @@ const FC_SLANT: &'static [u8] = b"slant\0";
 const FC_WEIGHT: &'static [u8] = b"weight\0";
 const FC_WIDTH: &'static [u8] = b"width\0";
 const FC_FILE: &'static [u8] = b"file\0";
+const FC_INDEX: &'static [u8] = b"index\0";
 const FC_FULLNAME: &'static [u8] = b"fullname\0";
 const FC_POSTSCRIPT_NAME: &'static [u8] = b"postscriptname\0";
 
@@ -110,10 +111,11 @@ impl Source {
                 pattern.push_int(FC_SLANT, slant);
             }
 
-            // We want the file path and the family name for grouping.
+            // We want the file path, the font index, and the family name for grouping.
             let mut object_set = FcObjectSetObject::new();
             object_set.push_string(FC_FAMILY);
             object_set.push_string(FC_FILE);
+            object_set.push_string(FC_INDEX);
 
             let font_set = FcFontList(self.fontconfig, pattern.pattern, object_set.object_set);
             assert!(!font_set.is_null());
@@ -131,11 +133,15 @@ impl Source {
                     None => continue,
                     Some(font_path) => font_path,
                 };
+                let font_index = match fc_pattern_get_integer(*font_pattern, FC_INDEX) {
+                    None => continue,
+                    Some(font_index) => font_index,
+                };
                 let file = match File::open(font_path) {
                     Err(_) => continue,
                     Ok(file) => file,
                 };
-                let font = match Font::from_file(file) {
+                let font = match Font::from_file(file, font_index as u32) {
                     Err(_) => continue,
                     Ok(font) => font,
                 };
@@ -239,6 +245,17 @@ unsafe fn fc_pattern_get_string(pattern: *mut FcPattern, object: &'static [u8]) 
         return None
     }
     CStr::from_ptr(string as *const c_char).to_str().ok().map(|string| string.to_owned())
+}
+
+unsafe fn fc_pattern_get_integer(pattern: *mut FcPattern, object: &'static [u8]) -> Option<i32> {
+    let mut integer = 0;
+    if FcPatternGetInteger(pattern,
+                           object.as_ptr() as *const c_char,
+                           0,
+                           &mut integer) != FcResultMatch {
+        return None
+    }
+    Some(integer)
 }
 
 fn ft_fixed_26_6_to_f32(fixed: i64) -> f32 {

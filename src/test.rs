@@ -76,7 +76,7 @@ pub fn lookup_all_fonts_in_a_family() {
 #[test]
 pub fn load_font_from_file() {
     let file = File::open(TEST_FONT_FILE_PATH).unwrap();
-    let font = Font::from_file(file).unwrap();
+    let font = Font::from_file(file, 0).unwrap();
     assert_eq!(font.descriptor().postscript_name, TEST_FONT_POSTSCRIPT_NAME);
 }
 
@@ -85,7 +85,7 @@ pub fn load_font_from_memory() {
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
     let mut font_data = vec![];
     file.read_to_end(&mut font_data).unwrap();
-    let font = Font::from_bytes(Arc::new(font_data)).unwrap();
+    let font = Font::from_bytes(Arc::new(font_data), 0).unwrap();
     assert_eq!(font.descriptor().postscript_name, TEST_FONT_POSTSCRIPT_NAME);
 }
 
