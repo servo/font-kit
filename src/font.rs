@@ -48,6 +48,13 @@ pub trait Face: Sized {
     fn metrics(&self) -> Metrics;
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Type {
+    Unsupported,
+    Single,
+    Collection(u32),
+}
+
 /// Various metrics that apply to the entire font.
 ///
 /// For OpenType fonts, these mostly come from the `OS/2` table.

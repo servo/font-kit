@@ -28,7 +28,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use descriptor::{Descriptor, Flags, FONT_STRETCH_MAPPING};
-use font::{Face, Metrics};
+use font::{Face, Metrics, Type};
 use sources;
 
 pub type NativeFont = CTFont;
@@ -90,6 +90,25 @@ impl Font {
         Font {
             core_text_font,
             font_data,
+        }
+    }
+
+    // FIXME(pcwalton): This should use ad-hoc methods to determine whether this is actually a
+    // TrueType or OpenType collection…
+    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Type {
+        let data_provider = CGDataProvider::from_buffer(font_data);
+        match CGFont::from_data_provider(data_provider) {
+            Ok(_) => Type::Single,
+            Err(_) => Type::Unsupported,
+        }
+    }
+
+    pub fn analyze_file(mut file: File) -> Type {
+        let mut font_data = vec![];
+        if file.read_to_end(&mut font_data).is_err() {
+            Type::Unsupported
+        } else {
+            Font::analyze_bytes(Arc::new(font_data))
         }
     }
 

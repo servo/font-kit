@@ -17,7 +17,7 @@ use std::io::Read;
 use std::sync::Arc;
 
 use descriptor::{WEIGHT_NORMAL, WEIGHT_BOLD, Flags, Query};
-use font::Font;
+use font::{Font, Type};
 use sources::default::Source;
 
 // TODO(pcwalton): Change this to DejaVu or whatever on Linux.
@@ -87,6 +87,20 @@ pub fn load_font_from_memory() {
     file.read_to_end(&mut font_data).unwrap();
     let font = Font::from_bytes(Arc::new(font_data), 0).unwrap();
     assert_eq!(font.descriptor().postscript_name, TEST_FONT_POSTSCRIPT_NAME);
+}
+
+#[test]
+pub fn analyze_file() {
+    let file = File::open(TEST_FONT_FILE_PATH).unwrap();
+    assert_eq!(Font::analyze_file(file), Type::Single);
+}
+
+#[test]
+pub fn analyze_bytes() {
+    let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
+    let mut font_data = vec![];
+    file.read_to_end(&mut font_data).unwrap();
+    assert_eq!(Font::analyze_bytes(Arc::new(font_data)), Type::Single);
 }
 
 #[test]

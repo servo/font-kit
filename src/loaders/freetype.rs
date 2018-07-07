@@ -43,7 +43,7 @@ use std::sync::Arc;
 use core_text::font::CTFont;
 
 use descriptor::{Descriptor, FONT_STRETCH_MAPPING, Flags};
-use font::{Face, Metrics};
+use font::{Face, Metrics, Type};
 
 const PS_DICT_FULL_NAME: u32 = 38;
 const TT_NAME_ID_FULL_NAME: u16 = 4;
@@ -134,6 +134,52 @@ impl Font {
         // the collection matches?
         let path = core_text_font.url().unwrap().to_path().unwrap();
         Font::from_file(File::open(path).unwrap(), 0).unwrap()
+    }
+
+    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Type {
+        FREETYPE_LIBRARY.with(|freetype_library| {
+            unsafe {
+                let mut freetype_face = ptr::null_mut();
+                if FT_New_Memory_Face(*freetype_library,
+                                      (*font_data).as_ptr(),
+                                      font_data.len() as i64,
+                                      0,
+                                      &mut freetype_face) != 0 {
+                    return Type::Unsupported
+                }
+                let font_type = match (*freetype_face).num_faces {
+                    1 => Type::Single,
+                    num_faces => Type::Collection(num_faces as u32),
+                };
+                FT_Done_Face(freetype_face);
+                font_type
+            }
+        })
+    }
+
+    pub fn analyze_file(file: File) -> Type {
+        FREETYPE_LIBRARY.with(|freetype_library| {
+            unsafe {
+                let mmap = match Mmap::map(&file) {
+                    Ok(mmap) => mmap,
+                    Err(_) => return Type::Unsupported,
+                };
+                let mut freetype_face = ptr::null_mut();
+                if FT_New_Memory_Face(*freetype_library,
+                                      (*mmap).as_ptr(),
+                                      mmap.len() as i64,
+                                      0,
+                                      &mut freetype_face) != 0 {
+                    return Type::Unsupported
+                }
+                let font_type = match (*freetype_face).num_faces {
+                    1 => Type::Single,
+                    num_faces => Type::Collection(num_faces as u32),
+                };
+                FT_Done_Face(freetype_face);
+                font_type
+            }
+        })
     }
 
     pub fn descriptor(&self) -> Descriptor {
