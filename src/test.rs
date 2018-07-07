@@ -19,6 +19,7 @@ use std::sync::Arc;
 use descriptor::{WEIGHT_NORMAL, WEIGHT_BOLD, Flags, Query};
 use font::{Font, Type};
 use sources::default::Source;
+use sources::fs;
 
 // TODO(pcwalton): Change this to DejaVu or whatever on Linux.
 static SANS_SERIF_FONT_FAMILY_NAME: &'static str = "Arial";
@@ -74,9 +75,18 @@ pub fn lookup_all_fonts_in_a_family() {
 }
 
 #[test]
+pub fn lookup_all_fonts_in_a_family_in_system_font_directories() {
+    // FIXME(pcwalton): Fix TTC loading on macOS and switch back to Arial.
+    let fonts = fs::Source::new().select(&Query::new().family_name("Verdana"));
+    assert_eq!(fonts.families().len(), 1);
+    let family = &fonts.families()[0];
+    assert!(family.fonts().len() > 0);
+}
+
+#[test]
 pub fn load_font_from_file() {
-    let file = File::open(TEST_FONT_FILE_PATH).unwrap();
-    let font = Font::from_file(file, 0).unwrap();
+    let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
+    let font = Font::from_file(&mut file, 0).unwrap();
     assert_eq!(font.descriptor().postscript_name, TEST_FONT_POSTSCRIPT_NAME);
 }
 
@@ -91,8 +101,8 @@ pub fn load_font_from_memory() {
 
 #[test]
 pub fn analyze_file() {
-    let file = File::open(TEST_FONT_FILE_PATH).unwrap();
-    assert_eq!(Font::analyze_file(file), Type::Single);
+    let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
+    assert_eq!(Font::analyze_file(&mut file).unwrap(), Type::Single);
 }
 
 #[test]
@@ -100,7 +110,7 @@ pub fn analyze_bytes() {
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
     let mut font_data = vec![];
     file.read_to_end(&mut font_data).unwrap();
-    assert_eq!(Font::analyze_bytes(Arc::new(font_data)), Type::Single);
+    assert_eq!(Font::analyze_bytes(Arc::new(font_data)).unwrap(), Type::Single);
 }
 
 #[test]

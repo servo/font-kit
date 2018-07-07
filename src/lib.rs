@@ -13,6 +13,7 @@ extern crate byteorder;
 extern crate euclid;
 extern crate lyon_path;
 extern crate memmap;
+extern crate walkdir;
 
 #[macro_use]
 extern crate bitflags;

@@ -139,6 +139,9 @@ pub(crate) fn piecewise_linear_find_index(query_value: f32, mapping: &[f32]) -> 
         Ok(index) => return index as f32,
         Err(upper_index) => upper_index,
     };
+    if upper_index == 0 {
+        return upper_index as f32
+    }
     let lower_index = upper_index - 1;
     let (upper_value, lower_value) = (mapping[upper_index], mapping[lower_index]);
     let t = (query_value - lower_value) / (upper_value - lower_value);

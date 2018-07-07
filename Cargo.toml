@@ -17,6 +17,7 @@ euclid = "0.17"
 log = "0.4"
 lyon_path = "0.10"
 memmap = "0.6"
+walkdir = "2.1"
 
 [dependencies.freetype]
 path = "../rust-freetype"
@@ -32,14 +33,14 @@ winapi = "0.2"
 [target.'cfg(target_family = "windows")'.dependencies.dwrote]
 path = "../dwrote-rs"
 
-# [target.'cfg(target_os = "macos")'.dependencies.cocoa]
-# path = "../core-foundation-rs/cocoa"
+[target.'cfg(target_os = "macos")'.dependencies.cocoa]
+path = "../core-foundation-rs/cocoa"
 
-# [target.'cfg(target_os = "macos")'.dependencies.core-foundation]
-# path = "../core-foundation-rs/core-foundation"
+[target.'cfg(target_os = "macos")'.dependencies.core-foundation]
+path = "../core-foundation-rs/core-foundation"
 
-# [target.'cfg(target_os = "macos")'.dependencies.core-graphics]
-# path = "../core-foundation-rs/core-graphics"
+[target.'cfg(target_os = "macos")'.dependencies.core-graphics]
+path = "../core-foundation-rs/core-graphics"
 
-# [target.'cfg(target_os = "macos")'.dependencies.core-text]
-# path = "../core-foundation-rs/core-text"
+[target.'cfg(target_os = "macos")'.dependencies.core-text]
+path = "../core-foundation-rs/core-text"

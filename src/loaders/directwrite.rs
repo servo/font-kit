@@ -48,6 +48,11 @@ impl Font {
         Font::from_bytes(Arc::new(font_data), font_index)
     }
 
+    #[inline]
+    pub fn from_path<P>(path: P) -> Result<Font, ()> where P: AsRef<Path> {
+        <Face as Font>::from_path(path)
+    }
+
     // TODO(pcwalton)
     pub unsafe fn from_native_font(dwrite_font_face: NativeFont) -> Font {
         Font {
@@ -70,6 +75,11 @@ impl Font {
             Err(_) => Type::Unsupported,
             Ok(_) => Font::analyze_bytes(Arc::new(font_data)),
         }
+    }
+
+    #[inline]
+    pub fn analyze_path<P>(path: P) -> Type where P: AsRef<Path> {
+        <Face as Self>::analyze_path(path)
     }
 
     // TODO(pcwalton)

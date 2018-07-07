@@ -11,6 +11,7 @@
 use euclid::{Point2D, Rect, Vector2D};
 use lyon_path::builder::PathBuilder;
 use std::fs::File;
+use std::path::Path;
 use std::sync::Arc;
 
 #[cfg(target_os = "macos")]
@@ -25,12 +26,23 @@ pub trait Face: Sized {
 
     fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Self, ()>;
 
-    fn from_file(file: File, font_index: u32) -> Result<Self, ()>;
+    fn from_file(file: &mut File, font_index: u32) -> Result<Self, ()>;
+
+    fn from_path<P>(path: P, font_index: u32) -> Result<Self, ()> where P: AsRef<Path> {
+        Face::from_file(&mut try!(File::open(path).map_err(drop)), font_index)
+    }
 
     unsafe fn from_native_font(native_font: Self::NativeFont) -> Self;
 
     #[cfg(target_os = "macos")]
     unsafe fn from_core_text_font(core_text_font: CTFont) -> Self;
+
+    fn analyze_file(file: &mut File) -> Result<Type, ()>;
+
+    #[inline]
+    fn analyze_path<P>(path: P) -> Result<Type, ()> where P: AsRef<Path> {
+        <Self as Face>::analyze_file(&mut try!(File::open(path).map_err(drop)))
+    }
 
     fn descriptor(&self) -> Descriptor;
 
@@ -50,7 +62,6 @@ pub trait Face: Sized {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Type {
-    Unsupported,
     Single,
     Collection(u32),
 }

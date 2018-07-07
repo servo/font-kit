@@ -22,9 +22,10 @@ use memmap::Mmap;
 use std::f32;
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Seek, SeekFrom};
 use std::marker::PhantomData;
 use std::ops::Deref;
+use std::path::Path;
 use std::sync::Arc;
 
 use descriptor::{Descriptor, Flags, FONT_STRETCH_MAPPING};
@@ -55,10 +56,16 @@ impl Font {
         })
     }
 
-    pub fn from_file(mut file: File, font_index: u32) -> Result<Font, ()> {
+    pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, ()> {
         let mut font_data = vec![];
+        try!(file.seek(SeekFrom::Start(0)).map_err(drop));
         try!(file.read_to_end(&mut font_data).map_err(drop));
         Font::from_bytes(Arc::new(font_data), font_index)
+    }
+
+    #[inline]
+    pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, ()> where P: AsRef<Path> {
+        <Font as Face>::from_path(path, font_index)
     }
 
     pub unsafe fn from_native_font(core_text_font: NativeFont) -> Font {
@@ -95,21 +102,24 @@ impl Font {
 
     // FIXME(pcwalton): This should use ad-hoc methods to determine whether this is actually a
     // TrueType or OpenType collection…
-    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Type {
+    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<Type, ()> {
         let data_provider = CGDataProvider::from_buffer(font_data);
         match CGFont::from_data_provider(data_provider) {
-            Ok(_) => Type::Single,
-            Err(_) => Type::Unsupported,
+            Ok(_) => Ok(Type::Single),
+            Err(_) => Err(()),
         }
     }
 
-    pub fn analyze_file(mut file: File) -> Type {
+    pub fn analyze_file(file: &mut File) -> Result<Type, ()> {
         let mut font_data = vec![];
-        if file.read_to_end(&mut font_data).is_err() {
-            Type::Unsupported
-        } else {
-            Font::analyze_bytes(Arc::new(font_data))
-        }
+        try!(file.seek(SeekFrom::Start(0)).map_err(drop));
+        try!(file.read_to_end(&mut font_data).map_err(drop));
+        Font::analyze_bytes(Arc::new(font_data))
+    }
+
+    #[inline]
+    pub fn analyze_path<P>(path: P) -> Result<Type, ()> where P: AsRef<Path> {
+        <Self as Face>::analyze_path(path)
     }
 
     #[inline]
@@ -247,7 +257,7 @@ impl Face for Font {
     }
 
     #[inline]
-    fn from_file(file: File, font_index: u32) -> Result<Font, ()> {
+    fn from_file(file: &mut File, font_index: u32) -> Result<Font, ()> {
         Font::from_file(file, font_index)
     }
 
@@ -260,6 +270,10 @@ impl Face for Font {
     #[inline]
     unsafe fn from_core_text_font(core_text_font: CTFont) -> Font {
         Font::from_core_text_font(core_text_font)
+    }
+
+    fn analyze_file(file: &mut File) -> Result<Type, ()> {
+        Font::analyze_file(file)
     }
 
     #[inline]

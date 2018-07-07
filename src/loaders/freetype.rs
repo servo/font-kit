@@ -35,6 +35,7 @@ use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
 use std::os::raw::{c_char, c_void};
+use std::path::Path;
 use std::ptr;
 use std::slice;
 use std::sync::Arc;
@@ -88,7 +89,7 @@ impl Font {
         })
     }
 
-    pub fn from_file(file: File, font_index: u32) -> Result<Font, ()> {
+    pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, ()> {
         unsafe {
             let mmap = try!(Mmap::map(&file).map_err(drop));
             FREETYPE_LIBRARY.with(|freetype_library| {
@@ -106,6 +107,12 @@ impl Font {
                 })
             })
         }
+    }
+
+    #[inline]
+    pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, ()> where P: AsRef<Path> {
+        // TODO(pcwalton): Perhaps use the native FreeType support for opening paths?
+        <Font as Face>::from_path(path, font_index)
     }
 
     pub unsafe fn from_native_font(freetype_face: NativeFont) -> Font {
@@ -133,10 +140,10 @@ impl Font {
         // FIXME(pcwalton): How do we deal with collections? I guess we have to find which font in
         // the collection matches?
         let path = core_text_font.url().unwrap().to_path().unwrap();
-        Font::from_file(File::open(path).unwrap(), 0).unwrap()
+        Font::from_file(&mut File::open(path).unwrap(), 0).unwrap()
     }
 
-    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Type {
+    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<Type, ()> {
         FREETYPE_LIBRARY.with(|freetype_library| {
             unsafe {
                 let mut freetype_face = ptr::null_mut();
@@ -145,41 +152,43 @@ impl Font {
                                       font_data.len() as i64,
                                       0,
                                       &mut freetype_face) != 0 {
-                    return Type::Unsupported
+                    return Err(())
                 }
                 let font_type = match (*freetype_face).num_faces {
                     1 => Type::Single,
                     num_faces => Type::Collection(num_faces as u32),
                 };
                 FT_Done_Face(freetype_face);
-                font_type
+                Ok(font_type)
             }
         })
     }
 
-    pub fn analyze_file(file: File) -> Type {
+    pub fn analyze_file(file: &mut File) -> Result<Type, ()> {
         FREETYPE_LIBRARY.with(|freetype_library| {
             unsafe {
-                let mmap = match Mmap::map(&file) {
-                    Ok(mmap) => mmap,
-                    Err(_) => return Type::Unsupported,
-                };
+                let mmap = try!(Mmap::map(&file).map_err(drop));
                 let mut freetype_face = ptr::null_mut();
                 if FT_New_Memory_Face(*freetype_library,
                                       (*mmap).as_ptr(),
                                       mmap.len() as i64,
                                       0,
                                       &mut freetype_face) != 0 {
-                    return Type::Unsupported
+                    return Err(())
                 }
                 let font_type = match (*freetype_face).num_faces {
                     1 => Type::Single,
                     num_faces => Type::Collection(num_faces as u32),
                 };
                 FT_Done_Face(freetype_face);
-                font_type
+                Ok(font_type)
             }
         })
+    }
+
+    #[inline]
+    pub fn analyze_path<P>(path: P) -> Result<Type, ()> where P: AsRef<Path> {
+        <Self as Face>::analyze_path(path)
     }
 
     pub fn descriptor(&self) -> Descriptor {
@@ -435,8 +444,12 @@ impl Face for Font {
     }
 
     #[inline]
-    fn from_file(file: File, font_index: u32) -> Result<Font, ()> {
+    fn from_file(file: &mut File, font_index: u32) -> Result<Font, ()> {
         Font::from_file(file, font_index)
+    }
+
+    fn analyze_file(file: &mut File) -> Result<Type, ()> {
+        Font::analyze_file(file)
     }
 
     #[inline]
