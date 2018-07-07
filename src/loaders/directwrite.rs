@@ -1,4 +1,4 @@
-// font-kit/src/platform/windows.rs
+// font-kit/src/loaders/directwrite.rs
 //
 // Copyright © 2018 The Pathfinder Project Developers.
 //
@@ -8,27 +8,22 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use dwrote::Font as DWriteFont;
-use dwrote::FontCollection as DWriteFontCollection;
 use dwrote::FontFace as DWriteFontFace;
 use dwrote::FontFile as DWriteFontFile;
-use dwrote::FontSimulations as DWriteFontSimulations;
 use dwrote::FontStyle as DWriteFontStyle;
 use dwrote::InformationalStringId as DWriteInformationalStringId;
 use dwrote::OutlineBuilder;
 use euclid::{Point2D, Rect, Size2D, Vector2D};
 use lyon_path::PathEvent;
 use lyon_path::builder::PathBuilder;
+use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
 use std::io::Read;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex, MutexGuard};
-use winapi::dwrite::DWRITE_FONT_SIMULATIONS;
 
-use descriptor::{Descriptor, Flags, FONT_STRETCH_MAPPING, Query, QueryFields};
-use family::Family;
-use font::{Face, Metrics};
-use set::Set;
+use descriptor::{Descriptor, Flags, FONT_STRETCH_MAPPING};
+use font::{Face, Metrics, Type};
 
 pub type NativeFont = DWriteFontFace;
 
@@ -40,7 +35,7 @@ pub struct Font {
 impl Font {
     pub fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Font, ()> {
         let font_file = try!(DWriteFontFile::new_from_data(&**font_data).ok_or(()));
-        let face = font_file.create_face(font_index, DWRITE_FONT_SIMULATIONS(0));
+        let face = font_file.create_face(font_index, 0);
         Ok(Font {
             dwrite_font_face: face,
             cached_data: Mutex::new(Some(font_data)),
@@ -58,6 +53,22 @@ impl Font {
         Font {
             dwrite_font_face,
             cached_data: Mutex::new(None),
+        }
+    }
+
+    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Type {
+        match DWriteFontFile::analyze_data(&**font_data) {
+            0 => Type::Unsupported,
+            1 => Type::Single,
+            font_count => Type::Collection(font_count),
+        }
+    }
+
+    pub fn analyze_file(mut file: File) -> Type {
+        let mut font_data = vec![];
+        match file.read_to_end(&mut font_data) {
+            Err(_) => Type::Unsupported,
+            Ok(_) => Font::analyze_bytes(Arc::new(font_data)),
         }
     }
 
@@ -145,7 +156,7 @@ impl Font {
         Metrics {
             units_per_em: dwrite_metrics.designUnitsPerEm as u32,
             ascent: dwrite_metrics.ascent as f32,
-            descent: -dwrite_metrics.descent as f32,
+            descent: -(dwrite_metrics.descent as f32),
             line_gap: dwrite_metrics.lineGap as f32,
             cap_height: dwrite_metrics.capHeight as f32,
             x_height: dwrite_metrics.xHeight as f32,
@@ -242,81 +253,6 @@ impl Face for Font {
     #[inline]
     fn metrics(&self) -> Metrics {
         self.metrics()
-    }
-}
-
-impl Query {
-    pub fn lookup(&self) -> Set {
-        let system_font_collection = DWriteFontCollection::system();
-        let mut set = Set::new();
-        for dwrite_family in system_font_collection.families_iter() {
-            let mut family = Family::new();
-            for font_index in 0..dwrite_family.get_font_count() {
-                let dwrite_font = dwrite_family.get_font(font_index);
-                if self.matches_dwrite_font(&dwrite_font) {
-                    family.push(Font::from_native_font(dwrite_font.create_font_face()))
-                }
-            }
-            if !family.fonts().is_empty() {
-                set.push(family)
-            }
-        }
-        set
-    }
-
-    fn matches_dwrite_font(&self, dwrite_font: &DWriteFont) -> bool {
-        if dwrite_font.simulations() != DWriteFontSimulations::None {
-            return false
-        }
-
-        if self.fields.contains(QueryFields::POSTSCRIPT_NAME) &&
-                !self.matches_informational_string(dwrite_font,
-                                                   &self.descriptor.postscript_name,
-                                                   DWriteInformationalStringId::PostscriptName) {
-            return false
-        }
-        if self.fields.contains(QueryFields::DISPLAY_NAME) &&
-                !self.matches_informational_string(dwrite_font,
-                                                   &self.descriptor.display_name,
-                                                   DWriteInformationalStringId::FullName) {
-            return false
-        }
-        if self.fields.contains(QueryFields::FAMILY_NAME) &&
-                dwrite_font.family_name() != self.descriptor.family_name {
-            return false
-        }
-        if self.fields.contains(QueryFields::STYLE_NAME) &&
-                style_name_for_dwrite_style(dwrite_font.style()) != self.descriptor.style_name {
-            return false
-        }
-        if self.fields.contains(QueryFields::WEIGHT) &&
-                dwrite_font.weight() as u32 as f32 != self.descriptor.weight {
-            return false
-        }
-        if self.fields.contains(QueryFields::STRETCH) &&
-                FONT_STRETCH_MAPPING[(dwrite_font.stretch() as usize) - 1] !=
-                self.descriptor.stretch {
-            return false
-        }
-        if self.fields.contains(QueryFields::ITALIC) &&
-                dwrite_style_is_italic(dwrite_font.style()) !=
-                self.descriptor.flags.contains(Flags::ITALIC) {
-            return false
-        }
-        // TODO(pcwalton): Monospace, once we have a `winapi` upgrade.
-        // FIXME(pcwalton): How do we identify vertical fonts?
-        true
-    }
-
-    fn matches_informational_string(&self,
-                                    dwrite_font: &DWriteFont,
-                                    query_name: &str,
-                                    id: DWriteInformationalStringId)
-                                    -> bool {
-        match dwrite_font.informational_string(id) {
-            None => false,
-            Some(name) => name == query_name,
-        }
     }
 }
 
