@@ -20,13 +20,15 @@ use euclid::{Point2D, Rect, Size2D, Vector2D};
 use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_FACE_FLAG_FIXED_WIDTH};
 use freetype::freetype::{FT_FACE_FLAG_VERTICAL, FT_Face, FT_Get_Char_Index};
 use freetype::freetype::{FT_Get_Postscript_Name, FT_Get_Sfnt_Table, FT_Init_FreeType};
-use freetype::freetype::{FT_LOAD_DEFAULT, FT_LOAD_NO_HINTING, FT_Long};
-use freetype::freetype::{FT_Library, FT_Load_Glyph, FT_New_Memory_Face, FT_Reference_Face};
-use freetype::freetype::{FT_Set_Char_Size, FT_Sfnt_Tag, FT_STYLE_FLAG_ITALIC};
-use freetype::freetype::{FT_UInt, FT_ULong, FT_UShort, FT_Vector};
+use freetype::freetype::{FT_LOAD_DEFAULT, FT_LOAD_NO_HINTING};
+use freetype::freetype::{FT_Library, FT_Load_Glyph};
+use freetype::freetype::{FT_Long, FT_New_Memory_Face, FT_Reference_Face, FT_Set_Char_Size};
+use freetype::freetype::{FT_Sfnt_Tag, FT_STYLE_FLAG_ITALIC, FT_UInt, FT_ULong, FT_UShort};
+use freetype::freetype::{FT_Vector};
 use freetype::tt_os2::TT_OS2;
 use lyon_path::builder::PathBuilder;
 use memmap::Mmap;
+use std::f32;
 use std::ffi::CStr;
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
@@ -43,14 +45,24 @@ use std::sync::Arc;
 #[cfg(target_os = "macos")]
 use core_text::font::CTFont;
 
-use descriptor::{Descriptor, FONT_STRETCH_MAPPING, Flags};
-use font::{Face, Metrics, Type};
+use descriptor::{Descriptor, FONT_STRETCH_MAPPING, Flags, STRETCH_NORMAL, WEIGHT_NORMAL};
+use font::{Face, HintingOptions, Metrics, Type};
 
 const PS_DICT_FULL_NAME: u32 = 38;
 const TT_NAME_ID_FULL_NAME: u16 = 4;
 
+const TT_PLATFORM_APPLE_UNICODE: u16 = 0;
+
 const FT_POINT_TAG_ON_CURVE: c_char = 0x01;
 const FT_POINT_TAG_CUBIC_CONTROL: c_char = 0x02;
+
+const FT_RENDER_MODE_NORMAL: u32 = 0;
+const FT_RENDER_MODE_LIGHT: u32 = 1;
+const FT_RENDER_MODE_LCD: u32 = 3;
+
+const FT_LOAD_TARGET_LIGHT: u32 = (FT_RENDER_MODE_LIGHT & 15) << 16;
+const FT_LOAD_TARGET_LCD: u32 = (FT_RENDER_MODE_LCD & 15) << 16;
+const FT_LOAD_TARGET_NORMAL: u32 = (FT_RENDER_MODE_NORMAL & 15) << 16;
 
 thread_local! {
     static FREETYPE_LIBRARY: FT_Library = {
@@ -214,13 +226,25 @@ impl Font {
             flags.set(Flags::VERTICAL,
                       (*self.freetype_face).face_flags & (FT_FACE_FLAG_VERTICAL as i64) != 0);
 
+            // FIXME(pcwalton): Get these from somewhere else if the OS/2 table isn't present?
+            let stretch = match os2_table {
+                Some(os2_table) if (*os2_table).usWidthClass > 0 => {
+                    FONT_STRETCH_MAPPING[((*os2_table).usWidthClass as usize) - 1]
+                }
+                _ => STRETCH_NORMAL,
+            };
+            let weight = match os2_table {
+                None => WEIGHT_NORMAL,
+                Some(os2_table) => (*os2_table).usWeightClass as u32 as f32,
+            };
+
             Descriptor {
                 postscript_name,
                 display_name,
                 family_name,
                 style_name,
-                stretch: FONT_STRETCH_MAPPING[((*os2_table).usWidthClass as usize) - 1],
-                weight: (*os2_table).usWeightClass as u32 as f32,
+                stretch,
+                weight,
                 flags,
             }
         }
@@ -232,13 +256,29 @@ impl Font {
         }
     }
 
-    pub fn outline<B>(&self, glyph_id: u32, path_builder: &mut B) -> Result<(), ()>
+    pub fn outline<B>(&self, glyph_id: u32, hinting: HintingOptions, path_builder: &mut B)
+                      -> Result<(), ()>
                       where B: PathBuilder {
         unsafe {
-            assert_eq!(FT_Load_Glyph(self.freetype_face,
-                                     glyph_id,
-                                     (FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING) as i32),
-                       0);
+            let load_flags = match hinting {
+                HintingOptions::None => FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING,
+                HintingOptions::Vertical(_) => FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT,
+                HintingOptions::VerticalSubpixel(_) => FT_LOAD_DEFAULT | FT_LOAD_TARGET_LCD,
+                HintingOptions::Full(_) => FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL,
+            };
+
+            let units_per_em = (*self.freetype_face).units_per_EM;
+            let grid_fitting_size = hinting.grid_fitting_size();
+            if let Some(size) = grid_fitting_size {
+                assert_eq!(FT_Set_Char_Size(self.freetype_face,
+                                            f32_to_ft_fixed_26_6(size),
+                                            0,
+                                            0,
+                                            0),
+                           0);
+            }
+
+            assert_eq!(FT_Load_Glyph(self.freetype_face, glyph_id, load_flags as i32), 0);
 
             let outline = &(*(*self.freetype_face).glyph).outline;
             let contours = slice::from_raw_parts((*outline).contours,
@@ -253,25 +293,33 @@ impl Font {
                 let (point, _) = get_point(&mut current_point_index,
                                            point_positions,
                                            point_tags,
-                                           last_point_index_in_contour);
+                                           last_point_index_in_contour,
+                                           grid_fitting_size,
+                                           units_per_em);
                 path_builder.move_to(point);
                 while current_point_index <= last_point_index_in_contour {
                     let (point0, tag) = get_point(&mut current_point_index,
                                                   point_positions,
                                                   point_tags,
-                                                  last_point_index_in_contour);
+                                                  last_point_index_in_contour,
+                                                  grid_fitting_size,
+                                                  units_per_em);
                     if (tag & FT_POINT_TAG_ON_CURVE) != 0 {
                         path_builder.line_to(point0)
                     } else {
                         let (point1, _) = get_point(&mut current_point_index,
                                                     point_positions,
                                                     point_tags,
-                                                    last_point_index_in_contour);
+                                                    last_point_index_in_contour,
+                                                    grid_fitting_size,
+                                                    units_per_em);
                         if (tag & FT_POINT_TAG_CUBIC_CONTROL) != 0 {
                             let (point2, _) = get_point(&mut current_point_index,
                                                         point_positions,
                                                         point_tags,
-                                                        last_point_index_in_contour);
+                                                        last_point_index_in_contour,
+                                                        grid_fitting_size,
+                                                        units_per_em);
                             path_builder.cubic_bezier_to(point0, point1, point2)
                         } else {
                             path_builder.quadratic_bezier_to(point0, point1)
@@ -280,20 +328,31 @@ impl Font {
                 }
                 path_builder.close();
             }
+
+            if hinting.grid_fitting_size().is_some() {
+                reset_freetype_face_char_size((*self).freetype_face)
+            }
         }
         return Ok(());
 
         fn get_point(current_point_index: &mut usize,
                      point_positions: &[FT_Vector],
                      point_tags: &[c_char],
-                     last_point_index_in_contour: usize)
+                     last_point_index_in_contour: usize,
+                     grid_fitting_size: Option<f32>,
+                     units_per_em: u16)
                      -> (Point2D<f32>, c_char) {
             assert!(*current_point_index <= last_point_index_in_contour);
             let point_position = point_positions[*current_point_index];
             let point_tag = point_tags[*current_point_index];
             *current_point_index += 1;
-            let point_position = Point2D::new(ft_fixed_26_6_to_f32(point_position.x),
-                                              ft_fixed_26_6_to_f32(point_position.y));
+
+            let mut point_position = Point2D::new(ft_fixed_26_6_to_f32(point_position.x),
+                                                  ft_fixed_26_6_to_f32(point_position.y));
+            if let Some(grid_fitting_size) = grid_fitting_size {
+                point_position *= (units_per_em as f32) / grid_fitting_size
+            }
+
             (point_position, point_tag)
         }
     }
@@ -342,8 +401,8 @@ impl Font {
                 line_gap: ((*self.freetype_face).height + descender - ascender) as f32,
                 underline_position: (underline_position + underline_thickness / 2) as f32,
                 underline_thickness: underline_thickness as f32,
-                cap_height: (*os2_table).sCapHeight as f32,
-                x_height: (*os2_table).sxHeight as f32,
+                cap_height: os2_table.map(|table| (*table).sCapHeight as f32).unwrap_or(0.0),
+                x_height: os2_table.map(|table| (*table).sxHeight as f32).unwrap_or(0.0),
             }
         }
     }
@@ -379,20 +438,27 @@ impl Font {
             for sfnt_name_index in 0..sfnt_name_count {
                 assert_eq!(FT_Get_Sfnt_Name(self.freetype_face, sfnt_name_index, &mut sfnt_name),
                            0);
-                // FIXME(pcwalton): Check encoding, platform, language. It isn't always UTF-16…
                 if sfnt_name.name_id != sfnt_id {
                     continue
                 }
 
-                let mut sfnt_name_bytes = slice::from_raw_parts(sfnt_name.string,
-                                                                sfnt_name.string_len as usize);
-                let mut sfnt_name_string = Vec::with_capacity(sfnt_name_bytes.len() / 2);
-                while !sfnt_name_bytes.is_empty() {
-                    sfnt_name_string.push(sfnt_name_bytes.read_u16::<BigEndian>().unwrap())
-                }
-
-                if let Ok(result) = String::from_utf16(&sfnt_name_string) {
-                    return Some(result)
+                match (sfnt_name.platform_id, sfnt_name.encoding_id) {
+                    (TT_PLATFORM_APPLE_UNICODE, _) => {
+                        let mut sfnt_name_bytes =
+                            slice::from_raw_parts(sfnt_name.string, sfnt_name.string_len as usize);
+                        let mut sfnt_name_string = Vec::with_capacity(sfnt_name_bytes.len() / 2);
+                        while !sfnt_name_bytes.is_empty() {
+                            sfnt_name_string.push(sfnt_name_bytes.read_u16::<BigEndian>().unwrap())
+                        }
+                        if let Ok(result) = String::from_utf16(&sfnt_name_string) {
+                            return Some(result)
+                        }
+                    }
+                    (platform_id, _) => {
+                        warn!("get_type_1_or_sfnt_name(): found invalid platform ID {}",
+                              platform_id);
+                        // TODO(pcwalton)
+                    }
                 }
             }
 
@@ -400,9 +466,14 @@ impl Font {
         }
     }
 
-    fn get_os2_table(&self) -> *const TT_OS2 {
+    fn get_os2_table(&self) -> Option<*const TT_OS2> {
         unsafe {
-            FT_Get_Sfnt_Table(self.freetype_face, FT_Sfnt_Tag::FT_SFNT_OS2) as *const TT_OS2
+            let table = FT_Get_Sfnt_Table(self.freetype_face, FT_Sfnt_Tag::FT_SFNT_OS2);
+            if table.is_null() {
+                None
+            } else {
+                Some(table as *const TT_OS2)
+            }
         }
     }
 }
@@ -474,9 +545,10 @@ impl Face for Font {
     }
 
     #[inline]
-    fn outline<B>(&self, glyph_id: u32, path_builder: &mut B) -> Result<(), ()>
+    fn outline<B>(&self, glyph_id: u32, hinting_mode: HintingOptions, path_builder: &mut B)
+                  -> Result<(), ()>
                   where B: PathBuilder {
-        self.outline(glyph_id, path_builder)
+        self.outline(glyph_id, hinting_mode, path_builder)
     }
 
     #[inline]
@@ -519,7 +591,15 @@ impl<'a> Deref for FontData<'a> {
 }
 
 unsafe fn setup_freetype_face(face: FT_Face) {
-    assert_eq!(FT_Set_Char_Size(face, ((*face).units_per_EM as i64) << 6, 0, 0, 0), 0);
+    reset_freetype_face_char_size(face);
+}
+
+unsafe fn reset_freetype_face_char_size(face: FT_Face) {
+    // Apple Color Emoji has 0 units per em. Whee!
+    let units_per_em = (*face).units_per_EM as i64;
+    if units_per_em > 0 {
+        assert_eq!(FT_Set_Char_Size(face, ((*face).units_per_EM as i64) << 6, 0, 0, 0), 0);
+    }
 }
 
 #[repr(C)]
@@ -534,6 +614,10 @@ struct FT_SfntName {
 
 fn ft_fixed_26_6_to_f32(fixed: i64) -> f32 {
     (fixed as f32) / 64.0
+}
+
+fn f32_to_ft_fixed_26_6(float: f32) -> i64 {
+    f32::round(float * 64.0) as i64
 }
 
 extern "C" {

@@ -17,7 +17,7 @@ use std::io::Read;
 use std::sync::Arc;
 
 use descriptor::{WEIGHT_NORMAL, WEIGHT_BOLD, Flags, Query};
-use font::{Font, Type};
+use font::{Font, HintingOptions, Type};
 use sources::default::Source;
 use sources::fs;
 use utils;
@@ -131,7 +131,7 @@ pub fn get_glyph_outline() {
                                                   .italic(false));
     let font = &fonts.families()[0].fonts()[0];
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
-    font.outline(glyph, &mut path_builder).unwrap();
+    font.outline(glyph, HintingOptions::None, &mut path_builder).unwrap();
     let path = path_builder.build();
 
     let mut events = path.into_iter();
@@ -143,6 +143,30 @@ pub fn get_glyph_outline() {
     assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(136.0, 0.0))));
     assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(136.0, 1062.0))));
     assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(316.0, 1062.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(316.0, 0.0))));
+    assert_eq!(events.next(), Some(PathEvent::Close));
+}
+
+#[test]
+pub fn get_vertically_hinted_glyph_outline() {
+    let mut path_builder = Path::builder();
+    let fonts = Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
+                                                  .weight(WEIGHT_NORMAL)
+                                                  .italic(false));
+    let font = &fonts.families()[0].fonts()[0];
+    let glyph = font.glyph_for_char('i').expect("No glyph for char!");
+    font.outline(glyph, HintingOptions::Vertical(16.0), &mut path_builder).unwrap();
+    let path = path_builder.build();
+
+    let mut events = path.into_iter();
+    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(136.0, 1316.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(136.0, 1536.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(316.0, 1536.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(316.0, 1316.0))));
+    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(136.0, 0.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(136.0, 1152.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(316.0, 1152.0))));
     assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(316.0, 0.0))));
     assert_eq!(events.next(), Some(PathEvent::Close));
 }

@@ -30,7 +30,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use descriptor::{Descriptor, Flags, FONT_STRETCH_MAPPING};
-use font::{Face, Metrics, Type};
+use font::{Face, HintingOptions, Metrics, Type};
 use sources;
 use utils;
 
@@ -166,7 +166,8 @@ impl Font {
         }
     }
 
-    pub fn outline<B>(&self, glyph_id: u32, path_builder: &mut B) -> Result<(), ()>
+    pub fn outline<B>(&self, glyph_id: u32, _: HintingOptions, path_builder: &mut B)
+                      -> Result<(), ()>
                       where B: PathBuilder {
         let path = try!(self.core_text_font.create_path_for_glyph(glyph_id as u16,
                                                                   &CG_AFFINE_TRANSFORM_IDENTITY));
@@ -294,9 +295,10 @@ impl Face for Font {
     }
 
     #[inline]
-    fn outline<B>(&self, glyph_id: u32, path_builder: &mut B) -> Result<(), ()>
+    fn outline<B>(&self, glyph_id: u32, hinting_mode: HintingOptions, path_builder: &mut B)
+                  -> Result<(), ()>
                   where B: PathBuilder {
-        self.outline(glyph_id, path_builder)
+        self.outline(glyph_id, hinting_mode, path_builder)
     }
 
     #[inline]

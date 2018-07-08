@@ -137,11 +137,11 @@ impl Source {
                     None => continue,
                     Some(font_index) => font_index,
                 };
-                let file = match File::open(font_path) {
+                let mut file = match File::open(font_path) {
                     Err(_) => continue,
                     Ok(file) => file,
                 };
-                let font = match Font::from_file(file, font_index as u32) {
+                let font = match Font::from_file(&mut file, font_index as u32) {
                     Err(_) => continue,
                     Ok(font) => font,
                 };
