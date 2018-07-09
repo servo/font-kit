@@ -172,6 +172,30 @@ pub fn get_vertically_hinted_glyph_outline() {
 }
 
 #[test]
+pub fn get_fully_hinted_glyph_outline() {
+    let mut path_builder = Path::builder();
+    let fonts = Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
+                                                  .weight(WEIGHT_NORMAL)
+                                                  .italic(false));
+    let font = &fonts.families()[0].fonts()[0];
+    let glyph = font.glyph_for_char('i').expect("No glyph for char!");
+    font.outline(glyph, HintingOptions::Full(10.0), &mut path_builder).unwrap();
+    let path = path_builder.build();
+
+    let mut events = path.into_iter();
+    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(137.6, 1228.8))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(137.6, 1433.6))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(316.80002, 1433.6))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(316.80002, 1228.8))));
+    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(137.6, 0.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(137.6, 1024.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(316.80002, 1024.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(316.80002, 0.0))));
+    assert_eq!(events.next(), Some(PathEvent::Close));
+}
+
+#[test]
 pub fn get_glyph_typographic_bounds() {
     let fonts = Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
                                                   .weight(WEIGHT_NORMAL)
