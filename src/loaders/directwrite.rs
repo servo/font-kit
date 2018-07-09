@@ -18,12 +18,13 @@ use lyon_path::PathEvent;
 use lyon_path::builder::PathBuilder;
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Seek, SeekFrom};
 use std::ops::Deref;
+use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use descriptor::{Descriptor, Flags, FONT_STRETCH_MAPPING};
-use font::{Face, Metrics, Type};
+use font::{Face, HintingOptions, Metrics, Type};
 
 pub type NativeFont = DWriteFontFace;
 
@@ -42,15 +43,16 @@ impl Font {
         })
     }
 
-    pub fn from_file(mut file: File, font_index: u32) -> Result<Font, ()> {
+    pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, ()> {
         let mut font_data = vec![];
+        try!(file.seek(SeekFrom::Start(0)).map_err(drop));
         try!(file.read_to_end(&mut font_data).map_err(drop));
         Font::from_bytes(Arc::new(font_data), font_index)
     }
 
     #[inline]
-    pub fn from_path<P>(path: P) -> Result<Font, ()> where P: AsRef<Path> {
-        <Face as Font>::from_path(path)
+    pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, ()> where P: AsRef<Path> {
+        <Font as Face>::from_path(path, font_index)
     }
 
     // TODO(pcwalton)
@@ -61,25 +63,26 @@ impl Font {
         }
     }
 
-    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Type {
+    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<Type, ()> {
         match DWriteFontFile::analyze_data(&**font_data) {
-            0 => Type::Unsupported,
-            1 => Type::Single,
-            font_count => Type::Collection(font_count),
+            0 => Err(()),
+            1 => Ok(Type::Single),
+            font_count => Ok(Type::Collection(font_count)),
         }
     }
 
-    pub fn analyze_file(mut file: File) -> Type {
+    pub fn analyze_file(file: &mut File) -> Result<Type, ()> {
         let mut font_data = vec![];
+        try!(file.seek(SeekFrom::Start(0)).map_err(drop));
         match file.read_to_end(&mut font_data) {
-            Err(_) => Type::Unsupported,
+            Err(_) => Err(()),
             Ok(_) => Font::analyze_bytes(Arc::new(font_data)),
         }
     }
 
     #[inline]
-    pub fn analyze_path<P>(path: P) -> Type where P: AsRef<Path> {
-        <Face as Self>::analyze_path(path)
+    pub fn analyze_path<P>(path: P) -> Result<Type, ()> where P: AsRef<Path> {
+        <Self as Face>::analyze_path(path)
     }
 
     // TODO(pcwalton)
@@ -115,7 +118,8 @@ impl Font {
         self.dwrite_font_face.get_glyph_indices(&chars).into_iter().next().map(|g| g as u32)
     }
 
-    pub fn outline<B>(&self, glyph_id: u32, path_builder: &mut B) -> Result<(), ()>
+    pub fn outline<B>(&self, glyph_id: u32, _: HintingOptions, path_builder: &mut B)
+                      -> Result<(), ()>
                       where B: PathBuilder {
         let outline_buffer = OutlineBuffer::new();
         self.dwrite_font_face.get_glyph_run_outline(self.metrics().units_per_em as f32,
@@ -220,13 +224,18 @@ impl Face for Font {
     }
 
     #[inline]
-    fn from_file(file: File, font_index: u32) -> Result<Font, ()> {
+    fn from_file(file: &mut File, font_index: u32) -> Result<Font, ()> {
         Font::from_file(file, font_index)
     }
 
     #[inline]
     unsafe fn from_native_font(native_font: Self::NativeFont) -> Self {
         Font::from_native_font(native_font)
+    }
+
+    #[inline]
+    fn analyze_file(file: &mut File) -> Result<Type, ()> {
+        Font::analyze_file(file)
     }
 
     #[inline]
@@ -240,9 +249,10 @@ impl Face for Font {
     }
 
     #[inline]
-    fn outline<B>(&self, glyph_id: u32, path_builder: &mut B) -> Result<(), ()>
+    fn outline<B>(&self, glyph_id: u32, hinting: HintingOptions, path_builder: &mut B)
+                  -> Result<(), ()>
                   where B: PathBuilder {
-        self.outline(glyph_id, path_builder)
+        self.outline(glyph_id, hinting, path_builder)
     }
 
     #[inline]

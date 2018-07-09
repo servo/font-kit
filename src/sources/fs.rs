@@ -12,15 +12,20 @@
 //!
 //! This is the native source on Android.
 
-use std::env;
 use std::fs::File;
 use std::path::PathBuf;
 use walkdir::WalkDir;
 
+#[cfg(target_os = "macos")]
+use std::env;
 #[cfg(target_family = "windows")]
-use winapi::shared::minwindef::UINT;
+use std::ffi::OsString;
 #[cfg(target_family = "windows")]
-use winapi::um::winbase;
+use std::os::windows::ffi::OsStringExt;
+#[cfg(target_family = "windows")]
+use winapi::shared::minwindef::{MAX_PATH, UINT};
+#[cfg(target_family = "windows")]
+use winapi::um::sysinfoapi;
 
 use descriptor::Query;
 use font::{Face, Type};
@@ -91,11 +96,11 @@ fn default_font_directories() -> Vec<PathBuf> {
 fn default_font_directories() -> Vec<PathBuf> {
     unsafe {
         let mut buffer = vec![0; MAX_PATH];
-        let len = winbase::GetWindowsDirectory(buffer.as_mut_ptr(), vec.len() as UINT) != 0;
+        let len = sysinfoapi::GetWindowsDirectoryW(buffer.as_mut_ptr(), buffer.len() as UINT);
         assert!(len != 0);
-        buffer.truncate(len);
+        buffer.truncate(len as usize);
 
-        let mut path = PathBuf::from(buffer);
+        let mut path = PathBuf::from(OsString::from_wide(&buffer));
         path.push("Fonts");
         vec![path]
     }
