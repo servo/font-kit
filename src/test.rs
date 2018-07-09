@@ -75,6 +75,8 @@ pub fn lookup_all_fonts_in_a_family() {
     assert!(family.fonts().len() > 2);
 }
 
+// Ignored because the `fs` backend is *slow*.
+#[ignore]
 #[test]
 pub fn lookup_all_fonts_in_a_family_in_system_font_directories() {
     let fonts = fs::Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME));
@@ -147,6 +149,9 @@ pub fn get_glyph_outline() {
     assert_eq!(events.next(), Some(PathEvent::Close));
 }
 
+// Right now, only FreeType can do hinting.
+#[cfg(any(not(any(target_os = "macos", target_family = "windows")),
+          feature = "loader-freetype-default"))]
 #[test]
 pub fn get_vertically_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
@@ -171,6 +176,9 @@ pub fn get_vertically_hinted_glyph_outline() {
     assert_eq!(events.next(), Some(PathEvent::Close));
 }
 
+// Right now, only FreeType can do hinting.
+#[cfg(any(not(any(target_os = "macos", target_family = "windows")),
+          feature = "loader-freetype-default"))]
 #[test]
 pub fn get_fully_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
