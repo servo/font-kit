@@ -38,7 +38,7 @@ use std::ptr;
 use std::slice;
 use std::sync::Arc;
 
-use descriptor::{Descriptor, FONT_STRETCH_MAPPING, Flags, Query, QueryFields};
+use descriptor::{Descriptor, FONT_STRETCH_MAPPING, Flags, Query, QueryFields, Style};
 use family::Family;
 use font::{Font, Metrics};
 use set::Set;
@@ -65,6 +65,10 @@ const FC_POSTSCRIPT_NAME: &'static [u8] = b"postscriptname\0";
 
 const FT_POINT_TAG_ON_CURVE: c_char = 0x01;
 const FT_POINT_TAG_CUBIC_CONTROL: c_char = 0x02;
+
+const FT_SLANT_ROMAN: i32 = 0;
+const FT_SLANT_ITALIC: i32 = 100;
+const FT_SLANT_OBLIQUE: i32 = 110;
 
 pub struct Source {
     fontconfig: *mut FcConfig,
@@ -101,12 +105,11 @@ impl Source {
             if query.fields.contains(QueryFields::STRETCH) {
                 pattern.push_int(FC_WIDTH, (query.descriptor.stretch * 100.0) as i32)
             }
-            if query.fields.contains(QueryFields::ITALIC) {
-                // FIXME(pcwalton): Really we want >=0 here. How do we request that?
-                let slant = if query.descriptor.flags.contains(Flags::ITALIC) {
-                    100
-                } else {
-                    0
+            if query.fields.contains(QueryFields::STYLE) {
+                let slant = match query.descriptor.style {
+                    Style::Normal => FT_SLANT_ROMAN,
+                    Style::Italic => FT_SLANT_ITALIC,
+                    Style::Oblique => FT_SLANT_OBLIQUE,
                 };
                 pattern.push_int(FC_SLANT, slant);
             }

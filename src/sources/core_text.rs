@@ -14,13 +14,13 @@ use core_foundation::dictionary::CFMutableDictionary;
 use core_foundation::number::CFNumber;
 use core_foundation::string::CFString;
 use core_text::font_collection;
-use core_text::font_descriptor::{self, CTFontDescriptor, kCTFontMonoSpaceTrait};
-use core_text::font_descriptor::{kCTFontVerticalTrait};
+use core_text::font_descriptor::{self, CTFontDescriptor, kCTFontItalicTrait};
+use core_text::font_descriptor::{kCTFontMonoSpaceTrait, kCTFontVerticalTrait};
 use core_text;
 use std::cmp::Ordering;
 use std::f32;
 
-use descriptor::{Flags, FONT_STRETCH_MAPPING, Query, QueryFields};
+use descriptor::{Flags, FONT_STRETCH_MAPPING, Query, QueryFields, Style};
 use font::Font;
 use set::Set;
 use utils;
@@ -81,10 +81,18 @@ impl Query {
         }
 
         if self.fields.intersects(QueryFields::WEIGHT | QueryFields::STRETCH |
-                                  QueryFields::ITALIC | symbolic_trait_fields()) {
+                                  symbolic_trait_fields()) {
             let mut core_text_traits: CFMutableDictionary<CFString, CFType> =
                 CFMutableDictionary::new();
 
+            if self.fields.contains(QueryFields::STYLE) {
+                let slant = match self.descriptor.style {
+                    Style::Normal => 0.0,
+                    Style::Italic | Style::Oblique => ITALIC_SLANT,
+                };
+                core_text_traits.set(CFString::new("NSCTFontSlantTrait"),
+                                     CFNumber::from(slant).as_CFType());
+            }
             if self.fields.contains(QueryFields::WEIGHT) {
                 let weight = css_to_core_text_font_weight(self.descriptor.weight);
                 core_text_traits.set(CFString::new("NSCTFontWeightTrait"),
@@ -94,15 +102,6 @@ impl Query {
                 let width = css_stretchiness_to_core_text_width(self.descriptor.stretch);
                 core_text_traits.set(CFString::new("NSCTFontProportionTrait"),
                                      CFNumber::from(width).as_CFType());
-            }
-            if self.fields.contains(QueryFields::ITALIC) {
-                let slant = if self.descriptor.flags.contains(Flags::ITALIC) {
-                    ITALIC_SLANT
-                } else {
-                    0.0
-                };
-                core_text_traits.set(CFString::new("NSCTFontSlantTrait"),
-                                     CFNumber::from(slant).as_CFType());
             }
 
             if self.fields.intersects(symbolic_trait_fields()) {
@@ -114,6 +113,10 @@ impl Query {
                 if self.fields.contains(QueryFields::VERTICAL) &&
                         self.descriptor.flags.contains(Flags::VERTICAL) {
                     symbolic_traits |= kCTFontVerticalTrait
+                }
+                if self.fields.contains(QueryFields::STYLE) &&
+                        self.descriptor.style == Style::Italic {
+                    symbolic_traits |= kCTFontItalicTrait
                 }
                 core_text_traits.set(CFString::new("NSCTFontSymbolicTrait"),
                                     CFNumber::from(symbolic_traits as i64).as_CFType());
@@ -158,7 +161,7 @@ fn css_stretchiness_to_core_text_width(css_stretchiness: f32) -> f32 {
 }
 
 fn symbolic_trait_fields() -> QueryFields {
-    QueryFields::MONOSPACE | QueryFields::VERTICAL
+    QueryFields::STYLE | QueryFields::MONOSPACE | QueryFields::VERTICAL
 }
 
 #[cfg(test)]

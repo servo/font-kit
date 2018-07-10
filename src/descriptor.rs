@@ -53,6 +53,8 @@ pub struct Descriptor {
     pub family_name: String,
     /// Designer's description of the font's style.
     pub style_name: String,
+    /// The font style, as defined in CSS.
+    pub style: Style,
     /// The font weight, as defined in CSS.
     pub weight: f32,
     /// The font stretchiness, as defined in CSS.
@@ -85,17 +87,14 @@ impl Descriptor {
                 self.style_name != query.descriptor.style_name {
             return false
         }
-        if query.fields.contains(QueryFields::WEIGHT) &&
-                self.weight != query.descriptor.weight {
+        if query.fields.contains(QueryFields::STYLE) && self.style != query.descriptor.style {
+            return false
+        }
+        if query.fields.contains(QueryFields::WEIGHT) && self.weight != query.descriptor.weight {
             return false
         }
         if query.fields.contains(QueryFields::STRETCH) &&
                 self.stretch != query.descriptor.stretch {
-            return false
-        }
-        if query.fields.contains(QueryFields::ITALIC) &&
-                self.flags.contains(Flags::ITALIC) !=
-                query.descriptor.flags.contains(Flags::ITALIC) {
             return false
         }
         if query.fields.contains(QueryFields::MONOSPACE) &&
@@ -112,12 +111,24 @@ impl Descriptor {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum Style {
+    Normal,
+    Italic,
+    Oblique,
+}
+
+impl Default for Style {
+    fn default() -> Style {
+        Style::Normal
+    }
+}
+
 bitflags! {
     #[derive(Default)]
     pub struct Flags: u8 {
-        const ITALIC = 0x01;
-        const MONOSPACE = 0x02;
-        const VERTICAL = 0x04;
+        const MONOSPACE = 0x01;
+        const VERTICAL = 0x02;
     }
 }
 
@@ -167,6 +178,13 @@ impl Query {
     }
 
     #[inline]
+    pub fn style(&mut self, style: Style) -> &mut Query {
+        self.descriptor.style = style;
+        self.fields |= QueryFields::STYLE;
+        self
+    }
+
+    #[inline]
     pub fn weight(&mut self, weight: f32) -> &mut Query {
         self.descriptor.weight = weight;
         self.fields |= QueryFields::WEIGHT;
@@ -177,13 +195,6 @@ impl Query {
     pub fn stretch(&mut self, stretch: f32) -> &mut Query {
         self.descriptor.stretch = stretch;
         self.fields |= QueryFields::STRETCH;
-        self
-    }
-
-    #[inline]
-    pub fn italic(&mut self, italic: bool) -> &mut Query {
-        self.descriptor.flags.set(Flags::ITALIC, italic);
-        self.fields |= QueryFields::ITALIC;
         self
     }
 
@@ -209,9 +220,9 @@ bitflags! {
         const DISPLAY_NAME = 0x002;
         const FAMILY_NAME = 0x004;
         const STYLE_NAME = 0x008;
-        const WEIGHT = 0x010;
-        const STRETCH = 0x020;
-        const ITALIC = 0x040;
+        const STYLE = 0x010;
+        const WEIGHT = 0x020;
+        const STRETCH = 0x040;
         const MONOSPACE = 0x080;
         const VERTICAL = 0x100;
     }

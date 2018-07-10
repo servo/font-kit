@@ -16,7 +16,7 @@ use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
 
-use descriptor::{WEIGHT_NORMAL, WEIGHT_BOLD, Flags, Query};
+use descriptor::{WEIGHT_NORMAL, WEIGHT_BOLD, Flags, Query, Style};
 use font::{Font, HintingOptions, Type};
 use sources::default::Source;
 use sources::fs;
@@ -35,7 +35,7 @@ static TEST_FONT_POSTSCRIPT_NAME: &'static str = "EBGaramond12-Regular";
 pub fn lookup_single_regular_font() {
     let fonts = Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
                                                   .weight(WEIGHT_NORMAL)
-                                                  .italic(false));
+                                                  .style(Style::Normal));
     assert_eq!(fonts.families().len(), 1);
     let family = &fonts.families()[0];
     assert_eq!(family.fonts().len(), 1);
@@ -47,7 +47,7 @@ pub fn lookup_single_regular_font() {
 pub fn lookup_single_bold_font() {
     let fonts = Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
                                                   .weight(WEIGHT_BOLD)
-                                                  .italic(false));
+                                                  .style(Style::Normal));
     assert_eq!(fonts.families().len(), 1);
     let family = &fonts.families()[0];
     assert_eq!(family.fonts().len(), 1);
@@ -59,7 +59,7 @@ pub fn lookup_single_bold_font() {
 pub fn lookup_single_italic_font() {
     let fonts = Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
                                                   .weight(WEIGHT_NORMAL)
-                                                  .italic(true));
+                                                  .style(Style::Italic));
     assert_eq!(fonts.families().len(), 1);
     let family = &fonts.families()[0];
     assert_eq!(family.fonts().len(), 1);
@@ -119,7 +119,7 @@ pub fn analyze_bytes() {
 pub fn get_glyph_for_char() {
     let fonts = Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
                                                   .weight(WEIGHT_NORMAL)
-                                                  .italic(false));
+                                                  .style(Style::Normal));
     let font = &fonts.families()[0].fonts()[0];
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
     assert_eq!(glyph, 68);
@@ -130,7 +130,7 @@ pub fn get_glyph_outline() {
     let mut path_builder = Path::builder();
     let fonts = Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
                                                   .weight(WEIGHT_NORMAL)
-                                                  .italic(false));
+                                                  .style(Style::Normal));
     let font = &fonts.families()[0].fonts()[0];
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
     font.outline(glyph, HintingOptions::None, &mut path_builder).unwrap();
@@ -157,7 +157,7 @@ pub fn get_vertically_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
     let fonts = Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
                                                   .weight(WEIGHT_NORMAL)
-                                                  .italic(false));
+                                                  .style(Style::Normal));
     let font = &fonts.families()[0].fonts()[0];
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
     font.outline(glyph, HintingOptions::Vertical(16.0), &mut path_builder).unwrap();
@@ -184,7 +184,7 @@ pub fn get_fully_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
     let fonts = Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
                                                   .weight(WEIGHT_NORMAL)
-                                                  .italic(false));
+                                                  .style(Style::Normal));
     let font = &fonts.families()[0].fonts()[0];
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
     font.outline(glyph, HintingOptions::Full(10.0), &mut path_builder).unwrap();
@@ -207,7 +207,7 @@ pub fn get_fully_hinted_glyph_outline() {
 pub fn get_glyph_typographic_bounds() {
     let fonts = Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
                                                   .weight(WEIGHT_NORMAL)
-                                                  .italic(false));
+                                                  .style(Style::Normal));
     let font = &fonts.families()[0].fonts()[0];
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
     assert_eq!(font.typographic_bounds(glyph),
@@ -218,7 +218,7 @@ pub fn get_glyph_typographic_bounds() {
 pub fn get_glyph_advance_and_origin() {
     let fonts = Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
                                                   .weight(WEIGHT_NORMAL)
-                                                  .italic(false));
+                                                  .style(Style::Normal));
     let font = &fonts.families()[0].fonts()[0];
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
     assert_eq!(font.advance(glyph), Vector2D::new(1139.0, 0.0));
@@ -229,7 +229,7 @@ pub fn get_glyph_advance_and_origin() {
 pub fn get_font_metrics() {
     let fonts = Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
                                                   .weight(WEIGHT_NORMAL)
-                                                  .italic(false));
+                                                  .style(Style::Normal));
     let font = &fonts.families()[0].fonts()[0];
     let metrics = font.metrics();
     assert_eq!(metrics.units_per_em, 2048);
@@ -246,7 +246,7 @@ pub fn get_font_metrics() {
 pub fn get_font_descriptor() {
     let fonts = Source::new().select(&Query::new().family_name(SANS_SERIF_FONT_FAMILY_NAME)
                                                   .weight(WEIGHT_NORMAL)
-                                                  .italic(false));
+                                                  .style(Style::Normal));
     let font = &fonts.families()[0].fonts()[0];
     let descriptor = font.descriptor();
     assert_eq!(descriptor.postscript_name, SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME);

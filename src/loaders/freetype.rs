@@ -45,7 +45,7 @@ use std::sync::Arc;
 #[cfg(target_os = "macos")]
 use core_text::font::CTFont;
 
-use descriptor::{Descriptor, FONT_STRETCH_MAPPING, Flags, STRETCH_NORMAL, WEIGHT_NORMAL};
+use descriptor::{Descriptor, FONT_STRETCH_MAPPING, Flags, STRETCH_NORMAL, Style, WEIGHT_NORMAL};
 use font::{Face, HintingOptions, Metrics, Type};
 
 const PS_DICT_FULL_NAME: u32 = 38;
@@ -63,6 +63,8 @@ const FT_RENDER_MODE_LCD: u32 = 3;
 const FT_LOAD_TARGET_LIGHT: u32 = (FT_RENDER_MODE_LIGHT & 15) << 16;
 const FT_LOAD_TARGET_LCD: u32 = (FT_RENDER_MODE_LCD & 15) << 16;
 const FT_LOAD_TARGET_NORMAL: u32 = (FT_RENDER_MODE_NORMAL & 15) << 16;
+
+const OS2_FS_SELECTION_OBLIQUE: u16 = 1 << 9;
 
 thread_local! {
     static FREETYPE_LIBRARY: FT_Library = {
@@ -219,14 +221,21 @@ impl Font {
             let os2_table = self.get_os2_table();
 
             let mut flags = Flags::empty();
-            flags.set(Flags::ITALIC,
-                      ((*self.freetype_face).style_flags & (FT_STYLE_FLAG_ITALIC as i64)) != 0);
             flags.set(Flags::MONOSPACE,
                       (*self.freetype_face).face_flags & (FT_FACE_FLAG_FIXED_WIDTH as i64) != 0);
             flags.set(Flags::VERTICAL,
                       (*self.freetype_face).face_flags & (FT_FACE_FLAG_VERTICAL as i64) != 0);
 
             // FIXME(pcwalton): Get these from somewhere else if the OS/2 table isn't present?
+            let style = match os2_table {
+                Some(os2_table) if ((*os2_table).fsSelection & OS2_FS_SELECTION_OBLIQUE) != 0 => {
+                    Style::Oblique
+                }
+                _ if ((*self.freetype_face).style_flags & (FT_STYLE_FLAG_ITALIC) as i64) != 0 => {
+                    Style::Italic
+                }
+                _ => Style::Normal,
+            };
             let stretch = match os2_table {
                 Some(os2_table) if (*os2_table).usWidthClass > 0 => {
                     FONT_STRETCH_MAPPING[((*os2_table).usWidthClass as usize) - 1]
@@ -243,6 +252,7 @@ impl Font {
                 display_name,
                 family_name,
                 style_name,
+                style,
                 stretch,
                 weight,
                 flags,

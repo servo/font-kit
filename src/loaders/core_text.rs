@@ -29,7 +29,7 @@ use std::ops::Deref;
 use std::path::Path;
 use std::sync::Arc;
 
-use descriptor::{Descriptor, Flags, FONT_STRETCH_MAPPING};
+use descriptor::{Descriptor, Flags, FONT_STRETCH_MAPPING, Style};
 use font::{Face, HintingOptions, Metrics, Type};
 use sources;
 use utils;
@@ -141,7 +141,14 @@ impl Font {
         let mut flags = Flags::empty();
         flags.set(Flags::MONOSPACE, symbolic_traits.is_monospace());
         flags.set(Flags::VERTICAL, symbolic_traits.is_vertical());
-        flags.set(Flags::ITALIC, all_traits.normalized_slant() > 0.0);
+
+        let style = if symbolic_traits.is_italic() {
+            Style::Italic
+        } else if all_traits.normalized_slant() > 0.0 {
+            Style::Oblique
+        } else {
+            Style::Normal
+        };
 
         let weight = core_text_to_css_font_weight(all_traits.normalized_weight() as f32);
         let stretch = core_text_width_to_css_stretchiness(all_traits.normalized_width() as f32);
@@ -151,6 +158,7 @@ impl Font {
             display_name: self.core_text_font.display_name(),
             family_name: self.core_text_font.family_name(),
             style_name: self.core_text_font.style_name(),
+            style,
             weight,
             stretch,
             flags,
