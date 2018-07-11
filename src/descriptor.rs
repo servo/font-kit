@@ -9,106 +9,104 @@
 // except according to those terms.
 
 // Mapping from `usWidthClass` values to CSS `font-stretch` values.
-pub const FONT_STRETCH_MAPPING: [f32; 9] = [
-    STRETCH_ULTRA_CONDENSED,
-    STRETCH_EXTRA_CONDENSED,
-    STRETCH_CONDENSED,
-    STRETCH_SEMI_CONDENSED,
-    STRETCH_NORMAL,
-    STRETCH_SEMI_EXPANDED,
-    STRETCH_EXPANDED,
-    STRETCH_EXTRA_EXPANDED,
-    STRETCH_ULTRA_EXPANDED,
+pub(crate) const FONT_STRETCH_MAPPING: [f32; 9] = [
+    Stretch::ULTRA_CONDENSED.0,
+    Stretch::EXTRA_CONDENSED.0,
+    Stretch::CONDENSED.0,
+    Stretch::SEMI_CONDENSED.0,
+    Stretch::NORMAL.0,
+    Stretch::SEMI_EXPANDED.0,
+    Stretch::EXPANDED.0,
+    Stretch::EXTRA_EXPANDED.0,
+    Stretch::ULTRA_EXPANDED.0,
 ];
 
-pub const WEIGHT_THIN: f32 = 100.0;
-pub const WEIGHT_EXTRA_LIGHT: f32 = 200.0;
-pub const WEIGHT_LIGHT: f32 = 300.0;
-pub const WEIGHT_NORMAL: f32 = 400.0;
-pub const WEIGHT_MEDIUM: f32 = 500.0;
-pub const WEIGHT_SEMIBOLD: f32 = 600.0;
-pub const WEIGHT_BOLD: f32 = 700.0;
-pub const WEIGHT_EXTRA_BOLD: f32 = 800.0;
-pub const WEIGHT_BLACK: f32 = 900.0;
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Spec {
+    pub families: Vec<FamilySpec>,
+    pub properties: Properties,
+}
 
-pub const STRETCH_ULTRA_CONDENSED: f32 = 0.5;
-pub const STRETCH_EXTRA_CONDENSED: f32 = 0.625;
-pub const STRETCH_CONDENSED: f32 = 0.75;
-pub const STRETCH_SEMI_CONDENSED: f32 = 0.875;
-pub const STRETCH_NORMAL: f32 = 1.0;
-pub const STRETCH_SEMI_EXPANDED: f32 = 1.125;
-pub const STRETCH_EXPANDED: f32 = 1.25;
-pub const STRETCH_EXTRA_EXPANDED: f32 = 1.5;
-pub const STRETCH_ULTRA_EXPANDED: f32 = 2.0;
+impl Spec {
+    #[inline]
+    pub fn new() -> Spec {
+        Spec::default()
+    }
 
-#[derive(Clone, Debug, Default)]
-pub struct Descriptor {
-    /// PostScript name of the font.
-    pub postscript_name: String,
-    /// Display name of the font.
-    ///
-    /// FIXME(pcwalton): Rename to "full name".
-    pub display_name: String,
-    /// Name of the font family.
-    pub family_name: String,
-    /// Designer's description of the font's style.
-    pub style_name: String,
+    #[inline]
+    pub fn family(&mut self, family_name: &str) -> &mut Spec {
+        self.families.push(FamilySpec::Name(family_name.to_owned()));
+        self
+    }
+
+    #[inline]
+    pub fn serif(&mut self) -> &mut Spec {
+        self.families.push(FamilySpec::Serif);
+        self
+    }
+
+    #[inline]
+    pub fn sans_serif(&mut self) -> &mut Spec {
+        self.families.push(FamilySpec::SansSerif);
+        self
+    }
+
+    #[inline]
+    pub fn monospace(&mut self) -> &mut Spec {
+        self.families.push(FamilySpec::Monospace);
+        self
+    }
+
+    #[inline]
+    pub fn cursive(&mut self) -> &mut Spec {
+        self.families.push(FamilySpec::Cursive);
+        self
+    }
+
+    #[inline]
+    pub fn fantasy(&mut self) -> &mut Spec {
+        self.families.push(FamilySpec::Fantasy);
+        self
+    }
+
+    #[inline]
+    pub fn style(&mut self, style: Style) -> &mut Spec {
+        self.properties.style = style;
+        self
+    }
+
+    #[inline]
+    pub fn weight(&mut self, weight: Weight) -> &mut Spec {
+        self.properties.weight = weight;
+        self
+    }
+
+    #[inline]
+    pub fn stretch(&mut self, stretch: Stretch) -> &mut Spec {
+        self.properties.stretch = stretch;
+        self
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Properties {
     /// The font style, as defined in CSS.
     pub style: Style,
     /// The font weight, as defined in CSS.
-    pub weight: f32,
+    pub weight: Weight,
     /// The font stretchiness, as defined in CSS.
-    pub stretch: f32,
-    /// Various flags.
-    pub flags: Flags,
+    pub stretch: Stretch,
 }
 
-impl Descriptor {
-    #[inline]
-    pub fn new() -> Descriptor {
-        Descriptor::default()
-    }
-
-    /// Returns true if this descriptor matches the given query and false otherwise.
-    pub fn matches(&self, query: &Query) -> bool {
-        if query.fields.contains(QueryFields::POSTSCRIPT_NAME) &&
-                self.postscript_name != query.descriptor.postscript_name {
-            return false
-        }
-        if query.fields.contains(QueryFields::DISPLAY_NAME) &&
-                self.display_name != query.descriptor.display_name {
-            return false
-        }
-        if query.fields.contains(QueryFields::FAMILY_NAME) &&
-                self.family_name != query.descriptor.family_name {
-            return false
-        }
-        if query.fields.contains(QueryFields::STYLE_NAME) &&
-                self.style_name != query.descriptor.style_name {
-            return false
-        }
-        if query.fields.contains(QueryFields::STYLE) && self.style != query.descriptor.style {
-            return false
-        }
-        if query.fields.contains(QueryFields::WEIGHT) && self.weight != query.descriptor.weight {
-            return false
-        }
-        if query.fields.contains(QueryFields::STRETCH) &&
-                self.stretch != query.descriptor.stretch {
-            return false
-        }
-        if query.fields.contains(QueryFields::MONOSPACE) &&
-                self.flags.contains(Flags::MONOSPACE) !=
-                query.descriptor.flags.contains(Flags::MONOSPACE) {
-            return false
-        }
-        if query.fields.contains(QueryFields::VERTICAL) &&
-                self.flags.contains(Flags::VERTICAL) !=
-                query.descriptor.flags.contains(Flags::VERTICAL) {
-            return false
-        }
-        true
-    }
+// TODO(pcwalton): `system-ui`, `emoji`, `math`, `fangsong`
+#[derive(Clone, Debug, PartialEq)]
+pub enum FamilySpec {
+    Name(String),
+    Serif,
+    SansSerif,
+    Monospace,
+    Cursive,
+    Fantasy,
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -124,106 +122,47 @@ impl Default for Style {
     }
 }
 
-bitflags! {
-    #[derive(Default)]
-    pub struct Flags: u8 {
-        const MONOSPACE = 0x01;
-        const VERTICAL = 0x02;
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Weight(pub f32);
+
+impl Default for Weight {
+    #[inline]
+    fn default() -> Weight {
+        Weight::NORMAL
     }
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct Query {
-    pub(crate) descriptor: Descriptor,
-    pub(crate) fields: QueryFields,
+impl Weight {
+    pub const THIN: Weight = Weight(100.0);
+    pub const EXTRA_LIGHT: Weight = Weight(200.0);
+    pub const LIGHT: Weight = Weight(300.0);
+    pub const NORMAL: Weight = Weight(400.0);
+    pub const MEDIUM: Weight = Weight(500.0);
+    pub const SEMIBOLD: Weight = Weight(600.0);
+    pub const BOLD: Weight = Weight(700.0);
+    pub const EXTRA_BOLD: Weight = Weight(800.0);
+    pub const BLACK: Weight = Weight(900.0);
 }
 
-impl Query {
-    #[inline]
-    pub fn new() -> Query {
-        Query::default()
-    }
 
-    #[inline]
-    pub fn is_universal(&self) -> bool {
-        self.fields.is_empty()
-    }
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Stretch(pub f32);
 
+impl Default for Stretch {
     #[inline]
-    pub fn postscript_name<'a, 'b>(&'a mut self, name: &'b str) -> &'a mut Query {
-        self.descriptor.postscript_name = name.to_owned();
-        self.fields |= QueryFields::POSTSCRIPT_NAME;
-        self
-    }
-
-    #[inline]
-    pub fn display_name<'a, 'b>(&'a mut self, name: &'b str) -> &'a mut Query {
-        self.descriptor.display_name = name.to_owned();
-        self.fields |= QueryFields::DISPLAY_NAME;
-        self
-    }
-
-    #[inline]
-    pub fn family_name<'a, 'b>(&'a mut self, name: &'b str) -> &'a mut Query {
-        self.descriptor.family_name = name.to_owned();
-        self.fields |= QueryFields::FAMILY_NAME;
-        self
-    }
-
-    #[inline]
-    pub fn style_name<'a, 'b>(&'a mut self, name: &'b str) -> &'a mut Query {
-        self.descriptor.style_name = name.to_owned();
-        self.fields |= QueryFields::STYLE_NAME;
-        self
-    }
-
-    #[inline]
-    pub fn style(&mut self, style: Style) -> &mut Query {
-        self.descriptor.style = style;
-        self.fields |= QueryFields::STYLE;
-        self
-    }
-
-    #[inline]
-    pub fn weight(&mut self, weight: f32) -> &mut Query {
-        self.descriptor.weight = weight;
-        self.fields |= QueryFields::WEIGHT;
-        self
-    }
-
-    #[inline]
-    pub fn stretch(&mut self, stretch: f32) -> &mut Query {
-        self.descriptor.stretch = stretch;
-        self.fields |= QueryFields::STRETCH;
-        self
-    }
-
-    #[inline]
-    pub fn monospace(&mut self, monospace: bool) -> &mut Query {
-        self.descriptor.flags.set(Flags::MONOSPACE, monospace);
-        self.fields |= QueryFields::MONOSPACE;
-        self
-    }
-
-    #[inline]
-    pub fn vertical(&mut self, vertical: bool) -> &mut Query {
-        self.descriptor.flags.set(Flags::VERTICAL, vertical);
-        self.fields |= QueryFields::VERTICAL;
-        self
+    fn default() -> Stretch {
+        Stretch::NORMAL
     }
 }
 
-bitflags! {
-    #[derive(Default)]
-    pub struct QueryFields: u16 {
-        const POSTSCRIPT_NAME = 0x001;
-        const DISPLAY_NAME = 0x002;
-        const FAMILY_NAME = 0x004;
-        const STYLE_NAME = 0x008;
-        const STYLE = 0x010;
-        const WEIGHT = 0x020;
-        const STRETCH = 0x040;
-        const MONOSPACE = 0x080;
-        const VERTICAL = 0x100;
-    }
+impl Stretch {
+    pub const ULTRA_CONDENSED: Stretch = Stretch(0.5);
+    pub const EXTRA_CONDENSED: Stretch = Stretch(0.625);
+    pub const CONDENSED: Stretch = Stretch(0.75);
+    pub const SEMI_CONDENSED: Stretch = Stretch(0.875);
+    pub const NORMAL: Stretch = Stretch(1.0);
+    pub const SEMI_EXPANDED: Stretch = Stretch(1.125);
+    pub const EXPANDED: Stretch = Stretch(1.25);
+    pub const EXTRA_EXPANDED: Stretch = Stretch(1.5);
+    pub const ULTRA_EXPANDED: Stretch = Stretch(2.0);
 }

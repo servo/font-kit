@@ -17,14 +17,12 @@
 
 use byteorder::{BigEndian, ReadBytesExt};
 use euclid::{Point2D, Rect, Size2D, Vector2D};
-use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_FACE_FLAG_FIXED_WIDTH};
-use freetype::freetype::{FT_FACE_FLAG_VERTICAL, FT_Face, FT_Get_Char_Index};
-use freetype::freetype::{FT_Get_Postscript_Name, FT_Get_Sfnt_Table, FT_Init_FreeType};
-use freetype::freetype::{FT_LOAD_DEFAULT, FT_LOAD_NO_HINTING};
-use freetype::freetype::{FT_Library, FT_Load_Glyph};
-use freetype::freetype::{FT_Long, FT_New_Memory_Face, FT_Reference_Face, FT_Set_Char_Size};
-use freetype::freetype::{FT_Sfnt_Tag, FT_STYLE_FLAG_ITALIC, FT_UInt, FT_ULong, FT_UShort};
-use freetype::freetype::{FT_Vector};
+use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_FACE_FLAG_FIXED_WIDTH, FT_Face};
+use freetype::freetype::{FT_Get_Char_Index, FT_Get_Postscript_Name, FT_Get_Sfnt_Table};
+use freetype::freetype::{FT_Init_FreeType, FT_LOAD_DEFAULT, FT_LOAD_NO_HINTING, FT_Library};
+use freetype::freetype::{FT_Load_Glyph, FT_Long, FT_New_Memory_Face, FT_Reference_Face};
+use freetype::freetype::{FT_STYLE_FLAG_ITALIC, FT_Set_Char_Size, FT_Sfnt_Tag, FT_UInt, FT_ULong};
+use freetype::freetype::{FT_UShort, FT_Vector};
 use freetype::tt_os2::TT_OS2;
 use lyon_path::builder::PathBuilder;
 use memmap::Mmap;
@@ -45,7 +43,7 @@ use std::sync::Arc;
 #[cfg(target_os = "macos")]
 use core_text::font::CTFont;
 
-use descriptor::{Descriptor, FONT_STRETCH_MAPPING, Flags, STRETCH_NORMAL, Style, WEIGHT_NORMAL};
+use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use font::{Face, HintingOptions, Metrics, Type};
 
 const PS_DICT_FULL_NAME: u32 = 38;
@@ -205,28 +203,33 @@ impl Font {
         <Self as Face>::analyze_path(path)
     }
 
-    pub fn descriptor(&self) -> Descriptor {
+    pub fn postscript_name(&self) -> String {
         unsafe {
             let postscript_name = FT_Get_Postscript_Name(self.freetype_face);
-            let postscript_name = CStr::from_ptr(postscript_name).to_str().unwrap().to_owned();
-            let family_name = CStr::from_ptr((*self.freetype_face).family_name).to_str()
-                                                                               .unwrap()
-                                                                               .to_owned();
-            let style_name = CStr::from_ptr((*self.freetype_face).style_name).to_str()
-                                                                             .unwrap()
-                                                                             .to_owned();
-            let display_name = self.get_type_1_or_sfnt_name(PS_DICT_FULL_NAME,
-                                                            TT_NAME_ID_FULL_NAME)
-                                   .unwrap_or_else(|| family_name.clone());
+            CStr::from_ptr(postscript_name).to_str().unwrap().to_owned()
+        }
+    }
+
+    pub fn full_name(&self) -> String {
+        self.get_type_1_or_sfnt_name(PS_DICT_FULL_NAME, TT_NAME_ID_FULL_NAME)
+            .unwrap_or_else(|| self.family_name())
+    }
+
+    pub fn family_name(&self) -> String {
+        unsafe {
+            CStr::from_ptr((*self.freetype_face).family_name).to_str().unwrap().to_owned()
+        }
+    }
+
+    pub fn is_monospace(&self) -> bool {
+        unsafe {
+            (*self.freetype_face).face_flags & (FT_FACE_FLAG_FIXED_WIDTH as i64) != 0
+        }
+    }
+
+    pub fn properties(&self) -> Properties {
+        unsafe {
             let os2_table = self.get_os2_table();
-
-            let mut flags = Flags::empty();
-            flags.set(Flags::MONOSPACE,
-                      (*self.freetype_face).face_flags & (FT_FACE_FLAG_FIXED_WIDTH as i64) != 0);
-            flags.set(Flags::VERTICAL,
-                      (*self.freetype_face).face_flags & (FT_FACE_FLAG_VERTICAL as i64) != 0);
-
-            // FIXME(pcwalton): Get these from somewhere else if the OS/2 table isn't present?
             let style = match os2_table {
                 Some(os2_table) if ((*os2_table).fsSelection & OS2_FS_SELECTION_OBLIQUE) != 0 => {
                     Style::Oblique
@@ -238,24 +241,18 @@ impl Font {
             };
             let stretch = match os2_table {
                 Some(os2_table) if (*os2_table).usWidthClass > 0 => {
-                    FONT_STRETCH_MAPPING[((*os2_table).usWidthClass as usize) - 1]
+                    Stretch(FONT_STRETCH_MAPPING[((*os2_table).usWidthClass as usize) - 1])
                 }
-                _ => STRETCH_NORMAL,
+                _ => Stretch::NORMAL,
             };
             let weight = match os2_table {
-                None => WEIGHT_NORMAL,
-                Some(os2_table) => (*os2_table).usWeightClass as u32 as f32,
+                None => Weight::NORMAL,
+                Some(os2_table) => Weight((*os2_table).usWeightClass as u32 as f32),
             };
-
-            Descriptor {
-                postscript_name,
-                display_name,
-                family_name,
-                style_name,
+            Properties {
                 style,
                 stretch,
                 weight,
-                flags,
             }
         }
     }
@@ -512,7 +509,7 @@ impl Drop for Font {
 
 impl Debug for Font {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), fmt::Error> {
-        self.descriptor().fmt(fmt)
+        self.family_name().fmt(fmt)
     }
 }
 
@@ -545,8 +542,28 @@ impl Face for Font {
     }
 
     #[inline]
-    fn descriptor(&self) -> Descriptor {
-        self.descriptor()
+    fn postscript_name(&self) -> String {
+        self.postscript_name()
+    }
+
+    #[inline]
+    fn full_name(&self) -> String {
+        self.full_name()
+    }
+
+    #[inline]
+    fn family_name(&self) -> String {
+        self.family_name()
+    }
+
+    #[inline]
+    fn is_monospace(&self) -> bool {
+        self.is_monospace()
+    }
+
+    #[inline]
+    fn properties(&self) -> Properties {
+        self.properties()
     }
 
     #[inline]

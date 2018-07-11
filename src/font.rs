@@ -17,11 +17,11 @@ use std::sync::Arc;
 #[cfg(target_os = "macos")]
 use core_text::font::CTFont;
 
-use descriptor::Descriptor;
+use descriptor::Properties;
 
 pub use loaders::default::Font;
 
-pub trait Face: Sized {
+pub trait Face: Clone + Sized {
     type NativeFont;
 
     fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Self, ()>;
@@ -44,7 +44,20 @@ pub trait Face: Sized {
         <Self as Face>::analyze_file(&mut try!(File::open(path).map_err(drop)))
     }
 
-    fn descriptor(&self) -> Descriptor;
+    /// PostScript name of the font.
+    fn postscript_name(&self) -> String;
+
+    /// Full name of the font (also known as "display name" on macOS).
+    fn full_name(&self) -> String;
+
+    /// Name of the font family.
+    fn family_name(&self) -> String;
+
+    /// Whether the font is monospace (fixed-width).
+    fn is_monospace(&self) -> bool;
+
+    /// Various font properties, corresponding to those defined in CSS.
+    fn properties(&self) -> Properties;
 
     fn glyph_for_char(&self, character: char) -> Option<u32>;
 

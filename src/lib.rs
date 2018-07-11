@@ -11,10 +11,12 @@
 extern crate arrayvec;
 extern crate byteorder;
 extern crate euclid;
+extern crate itertools;
 extern crate lyon_path;
 extern crate memmap;
 extern crate walkdir;
 
+#[allow(unused_imports)]
 #[macro_use]
 extern crate bitflags;
 #[macro_use]
@@ -42,8 +44,8 @@ pub mod descriptor;
 pub mod family;
 pub mod font;
 pub mod loaders;
+pub mod source;
 pub mod sources;
-pub mod set;
 
 #[cfg(test)]
 pub mod test;

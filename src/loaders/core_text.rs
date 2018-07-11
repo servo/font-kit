@@ -29,7 +29,7 @@ use std::ops::Deref;
 use std::path::Path;
 use std::sync::Arc;
 
-use descriptor::{Descriptor, Flags, FONT_STRETCH_MAPPING, Style};
+use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use font::{Face, HintingOptions, Metrics, Type};
 use sources;
 use utils;
@@ -134,13 +134,34 @@ impl Font {
         self.core_text_font.clone()
     }
 
-    pub fn descriptor(&self) -> Descriptor {
+    #[inline]
+    pub fn postscript_name(&self) -> String {
+        self.core_text_font.postscript_name()
+    }
+
+    #[inline]
+    pub fn full_name(&self) -> String {
+        self.core_text_font.display_name()
+    }
+
+    #[inline]
+    pub fn family_name(&self) -> String {
+        self.core_text_font.family_name()
+    }
+
+    #[inline]
+    pub fn style_name(&self) -> String {
+        self.core_text_font.style_name()
+    }
+
+    #[inline]
+    pub fn is_monospace(&self) -> bool {
+        self.core_text_font.symbolic_traits().is_monospace()
+    }
+
+    pub fn properties(&self) -> Properties {
         let symbolic_traits = self.core_text_font.symbolic_traits();
         let all_traits = self.core_text_font.all_traits();
-
-        let mut flags = Flags::empty();
-        flags.set(Flags::MONOSPACE, symbolic_traits.is_monospace());
-        flags.set(Flags::VERTICAL, symbolic_traits.is_vertical());
 
         let style = if symbolic_traits.is_italic() {
             Style::Italic
@@ -153,15 +174,10 @@ impl Font {
         let weight = core_text_to_css_font_weight(all_traits.normalized_weight() as f32);
         let stretch = core_text_width_to_css_stretchiness(all_traits.normalized_width() as f32);
 
-        Descriptor {
-            postscript_name: self.core_text_font.postscript_name(),
-            display_name: self.core_text_font.display_name(),
-            family_name: self.core_text_font.family_name(),
-            style_name: self.core_text_font.style_name(),
+        Properties {
             style,
             weight,
             stretch,
-            flags,
         }
     }
 
@@ -293,8 +309,28 @@ impl Face for Font {
     }
 
     #[inline]
-    fn descriptor(&self) -> Descriptor {
-        self.descriptor()
+    fn postscript_name(&self) -> String {
+        self.postscript_name()
+    }
+
+    #[inline]
+    fn full_name(&self) -> String {
+        self.full_name()
+    }
+
+    #[inline]
+    fn family_name(&self) -> String {
+        self.family_name()
+    }
+
+    #[inline]
+    fn is_monospace(&self) -> bool {
+        self.is_monospace()
+    }
+
+    #[inline]
+    fn properties(&self) -> Properties {
+        self.properties()
     }
 
     #[inline]
@@ -332,7 +368,7 @@ impl Face for Font {
 
 impl Debug for Font {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), fmt::Error> {
-        self.descriptor().fmt(fmt)
+        self.full_name().fmt(fmt)
     }
 }
 
@@ -367,15 +403,15 @@ impl CGPointExt for CGPoint {
     }
 }
 
-fn core_text_to_css_font_weight(core_text_weight: f32) -> f32 {
-    sources::core_text::piecewise_linear_find_index(core_text_weight,
-                                                    &sources::core_text::FONT_WEIGHT_MAPPING) *
-        100.0 + 100.0
+fn core_text_to_css_font_weight(core_text_weight: f32) -> Weight {
+    Weight(sources::core_text::piecewise_linear_find_index(
+            core_text_weight,
+            &sources::core_text::FONT_WEIGHT_MAPPING) * 100.0 + 100.0)
 }
 
-fn core_text_width_to_css_stretchiness(core_text_width: f32) -> f32 {
-    sources::core_text::piecewise_linear_lookup((core_text_width + 1.0) * 4.0,
-                                                &FONT_STRETCH_MAPPING)
+fn core_text_width_to_css_stretchiness(core_text_width: f32) -> Stretch {
+    Stretch(sources::core_text::piecewise_linear_lookup((core_text_width + 1.0) * 4.0,
+                                                        &FONT_STRETCH_MAPPING))
 }
 
 fn font_is_collection(header: &[u8]) -> bool {
@@ -414,26 +450,28 @@ fn unpack_otc_font(data: &mut [u8], font_index: u32) -> Result<(), ()> {
 
 #[cfg(test)]
 mod test {
+    use descriptor::{Stretch, Weight};
+
     #[test]
     fn test_core_text_to_css_font_weight() {
         // Exact matches
-        assert_eq!(super::core_text_to_css_font_weight(-0.7), 100.0);
-        assert_eq!(super::core_text_to_css_font_weight(0.0), 400.0);
-        assert_eq!(super::core_text_to_css_font_weight(0.4), 700.0);
-        assert_eq!(super::core_text_to_css_font_weight(0.8), 900.0);
+        assert_eq!(super::core_text_to_css_font_weight(-0.7), Weight(100.0));
+        assert_eq!(super::core_text_to_css_font_weight(0.0), Weight(400.0));
+        assert_eq!(super::core_text_to_css_font_weight(0.4), Weight(700.0));
+        assert_eq!(super::core_text_to_css_font_weight(0.8), Weight(900.0));
 
         // Linear interpolation
-        assert_eq!(super::core_text_to_css_font_weight(0.1), 450.0);
+        assert_eq!(super::core_text_to_css_font_weight(0.1), Weight(450.0));
     }
 
     #[test]
     fn test_core_text_to_css_font_stretch() {
         // Exact matches
-        assert_eq!(super::core_text_width_to_css_stretchiness(0.0), 1.0);
-        assert_eq!(super::core_text_width_to_css_stretchiness(-1.0), 0.5);
-        assert_eq!(super::core_text_width_to_css_stretchiness(1.0), 2.0);
+        assert_eq!(super::core_text_width_to_css_stretchiness(0.0), Stretch(1.0));
+        assert_eq!(super::core_text_width_to_css_stretchiness(-1.0), Stretch(0.5));
+        assert_eq!(super::core_text_width_to_css_stretchiness(1.0), Stretch(2.0));
 
         // Linear interpolation
-        assert_eq!(super::core_text_width_to_css_stretchiness(0.85), 1.7);
+        assert_eq!(super::core_text_width_to_css_stretchiness(0.85), Stretch(1.7));
     }
 }

@@ -10,122 +10,65 @@
 
 use core_foundation::array::CFArray;
 use core_foundation::base::{CFType, TCFType};
-use core_foundation::dictionary::CFMutableDictionary;
-use core_foundation::number::CFNumber;
+use core_foundation::dictionary::CFDictionary;
 use core_foundation::string::CFString;
-use core_text::font_collection;
-use core_text::font_descriptor::{self, CTFontDescriptor, kCTFontItalicTrait};
-use core_text::font_descriptor::{kCTFontMonoSpaceTrait, kCTFontVerticalTrait};
+use core_text::font_collection::{self, CTFontCollection};
+use core_text::font_descriptor;
+use core_text::font_manager;
 use core_text;
 use std::cmp::Ordering;
 use std::f32;
 
-use descriptor::{Flags, FONT_STRETCH_MAPPING, Query, QueryFields, Style};
+use descriptor::{FONT_STRETCH_MAPPING, Stretch, Spec, Weight};
+use family::Family;
 use font::Font;
-use set::Set;
+use source::Source;
 use utils;
-
-const ITALIC_SLANT: f64 = 1.0 / 15.0;
 
 pub static FONT_WEIGHT_MAPPING: [f32; 9] = [-0.7, -0.5, -0.23, 0.0, 0.2, 0.3, 0.4, 0.6, 0.8];
 
-pub struct Source;
+pub struct CoreTextSource;
 
-impl Source {
+impl CoreTextSource {
     #[inline]
-    pub fn new() -> Source {
-        Source
+    pub fn new() -> CoreTextSource {
+        CoreTextSource
     }
 
-    pub fn select(&self, query: &Query) -> Set {
-        let collection = if query.is_universal() {
-            font_collection::create_for_all_families()
-        } else {
-            let descriptor = query.as_core_text_font_descriptor();
-            font_collection::new_from_descriptors(&CFArray::from_CFTypes(&[descriptor]))
-        };
-
-        let mut fonts = vec![];
-        if let Some(descriptors) = collection.get_descriptors() {
-            for index in 0..descriptors.len() {
-                unsafe {
-                    let descriptor = (*descriptors.get(index).unwrap()).clone();
-                    let core_text_font = core_text::font::new_from_descriptor(&descriptor, 12.0);
-                    fonts.push(Font::from_core_text_font(core_text_font));
-                }
-            }
+    #[inline]
+    pub fn all_families(&self) -> Vec<String> {
+        let core_text_family_names = font_manager::copy_available_font_family_names();
+        let mut families = Vec::with_capacity(core_text_family_names.len() as usize);
+        for core_text_family_name in core_text_family_names.iter() {
+            families.push(core_text_family_name.to_string())
         }
-        Set::from_fonts(fonts.into_iter())
+        families
+    }
+
+    #[inline]
+    pub fn select_family(&self, family_name: &str) -> Family {
+        let attributes: CFDictionary<CFString, CFType> = CFDictionary::from_CFType_pairs(&[
+            (CFString::new("NSFontFamilyAttribute"), CFString::new(family_name).as_CFType()),
+        ]);
+
+        let descriptor = font_descriptor::new_from_attributes(&attributes);
+        let descriptors = CFArray::from_CFTypes(&[descriptor]);
+        let collection = font_collection::new_from_descriptors(&descriptors);
+        Family::from_fonts(fonts_in_core_text_collection(collection).into_iter())
+    }
+
+    pub fn find(&self, spec: &Spec) -> Result<Font, ()> {
+        <Self as Source>::find(self, spec)
     }
 }
 
-impl Query {
-    fn as_core_text_font_descriptor(&self) -> CTFontDescriptor {
-        let mut attributes: CFMutableDictionary<CFString, CFType> = CFMutableDictionary::new();
+impl Source for CoreTextSource {
+    fn all_families(&self) -> Vec<String> {
+        self.all_families()
+    }
 
-        if self.fields.contains(QueryFields::POSTSCRIPT_NAME) {
-            attributes.set(CFString::new("NSFontNameAttribute"),
-                           CFString::new(&self.descriptor.postscript_name).as_CFType());
-        }
-        if self.fields.contains(QueryFields::DISPLAY_NAME) {
-            attributes.set(CFString::new("NSFontVisibleNameAttribute"),
-                           CFString::new(&self.descriptor.display_name).as_CFType());
-        }
-        if self.fields.contains(QueryFields::FAMILY_NAME) {
-            attributes.set(CFString::new("NSFontFamilyAttribute"),
-                           CFString::new(&self.descriptor.family_name).as_CFType());
-        }
-        if self.fields.contains(QueryFields::STYLE_NAME) {
-            attributes.set(CFString::new("NSFontFaceAttribute"),
-                           CFString::new(&self.descriptor.style_name).as_CFType());
-        }
-
-        if self.fields.intersects(QueryFields::WEIGHT | QueryFields::STRETCH |
-                                  symbolic_trait_fields()) {
-            let mut core_text_traits: CFMutableDictionary<CFString, CFType> =
-                CFMutableDictionary::new();
-
-            if self.fields.contains(QueryFields::STYLE) {
-                let slant = match self.descriptor.style {
-                    Style::Normal => 0.0,
-                    Style::Italic | Style::Oblique => ITALIC_SLANT,
-                };
-                core_text_traits.set(CFString::new("NSCTFontSlantTrait"),
-                                     CFNumber::from(slant).as_CFType());
-            }
-            if self.fields.contains(QueryFields::WEIGHT) {
-                let weight = css_to_core_text_font_weight(self.descriptor.weight);
-                core_text_traits.set(CFString::new("NSCTFontWeightTrait"),
-                                     CFNumber::from(weight).as_CFType());
-            }
-            if self.fields.contains(QueryFields::STRETCH) {
-                let width = css_stretchiness_to_core_text_width(self.descriptor.stretch);
-                core_text_traits.set(CFString::new("NSCTFontProportionTrait"),
-                                     CFNumber::from(width).as_CFType());
-            }
-
-            if self.fields.intersects(symbolic_trait_fields()) {
-                let mut symbolic_traits = 0;
-                if self.fields.contains(QueryFields::MONOSPACE) &&
-                        self.descriptor.flags.contains(Flags::MONOSPACE) {
-                    symbolic_traits |= kCTFontMonoSpaceTrait
-                }
-                if self.fields.contains(QueryFields::VERTICAL) &&
-                        self.descriptor.flags.contains(Flags::VERTICAL) {
-                    symbolic_traits |= kCTFontVerticalTrait
-                }
-                if self.fields.contains(QueryFields::STYLE) &&
-                        self.descriptor.style == Style::Italic {
-                    symbolic_traits |= kCTFontItalicTrait
-                }
-                core_text_traits.set(CFString::new("NSCTFontSymbolicTrait"),
-                                    CFNumber::from(symbolic_traits as i64).as_CFType());
-            }
-
-            attributes.set(CFString::new("NSCTFontTraitsAttribute"), core_text_traits.as_CFType());
-        }
-
-        font_descriptor::new_from_attributes(&attributes.as_dictionary())
+    fn select_family(&self, family_name: &str) -> Family {
+        self.select_family(family_name)
     }
 }
 
@@ -151,41 +94,55 @@ pub(crate) fn piecewise_linear_find_index(query_value: f32, mapping: &[f32]) -> 
     lower_index as f32 + t
 }
 
-fn css_to_core_text_font_weight(css_weight: f32) -> f32 {
-    piecewise_linear_lookup(f32::max(100.0, css_weight) / 100.0 - 1.0, &FONT_WEIGHT_MAPPING)
+#[allow(dead_code)]
+fn css_to_core_text_font_weight(css_weight: Weight) -> f32 {
+    piecewise_linear_lookup(f32::max(100.0, css_weight.0) / 100.0 - 1.0, &FONT_WEIGHT_MAPPING)
 }
 
-fn css_stretchiness_to_core_text_width(css_stretchiness: f32) -> f32 {
-    let css_stretchiness = utils::clamp(css_stretchiness, 0.5, 2.0);
+#[allow(dead_code)]
+fn css_stretchiness_to_core_text_width(css_stretchiness: Stretch) -> f32 {
+    let css_stretchiness = utils::clamp(css_stretchiness.0, 0.5, 2.0);
     0.25 * piecewise_linear_find_index(css_stretchiness, &FONT_STRETCH_MAPPING) - 1.0
 }
 
-fn symbolic_trait_fields() -> QueryFields {
-    QueryFields::STYLE | QueryFields::MONOSPACE | QueryFields::VERTICAL
+fn fonts_in_core_text_collection(collection: CTFontCollection) -> Vec<Font> {
+    let mut fonts = vec![];
+    if let Some(descriptors) = collection.get_descriptors() {
+        for index in 0..descriptors.len() {
+            unsafe {
+                let descriptor = (*descriptors.get(index).unwrap()).clone();
+                let core_text_font = core_text::font::new_from_descriptor(&descriptor, 12.0);
+                fonts.push(Font::from_core_text_font(core_text_font));
+            }
+        }
+    }
+    fonts
 }
 
 #[cfg(test)]
 mod test {
+    use descriptor::{Stretch, Weight};
+
     #[test]
     fn test_css_to_core_text_font_weight() {
         // Exact matches
-        assert_eq!(super::css_to_core_text_font_weight(100.0), -0.7);
-        assert_eq!(super::css_to_core_text_font_weight(400.0), 0.0);
-        assert_eq!(super::css_to_core_text_font_weight(700.0), 0.4);
-        assert_eq!(super::css_to_core_text_font_weight(900.0), 0.8);
+        assert_eq!(super::css_to_core_text_font_weight(Weight(100.0)), -0.7);
+        assert_eq!(super::css_to_core_text_font_weight(Weight(400.0)), 0.0);
+        assert_eq!(super::css_to_core_text_font_weight(Weight(700.0)), 0.4);
+        assert_eq!(super::css_to_core_text_font_weight(Weight(900.0)), 0.8);
 
         // Linear interpolation
-        assert_eq!(super::css_to_core_text_font_weight(450.0), 0.1);
+        assert_eq!(super::css_to_core_text_font_weight(Weight(450.0)), 0.1);
     }
 
     #[test]
     fn test_css_to_core_text_font_stretch() {
         // Exact matches
-        assert_eq!(super::css_stretchiness_to_core_text_width(1.0), 0.0);
-        assert_eq!(super::css_stretchiness_to_core_text_width(0.5), -1.0);
-        assert_eq!(super::css_stretchiness_to_core_text_width(2.0), 1.0);
+        assert_eq!(super::css_stretchiness_to_core_text_width(Stretch(1.0)), 0.0);
+        assert_eq!(super::css_stretchiness_to_core_text_width(Stretch(0.5)), -1.0);
+        assert_eq!(super::css_stretchiness_to_core_text_width(Stretch(2.0)), 1.0);
 
         // Linear interpolation
-        assert_eq!(super::css_stretchiness_to_core_text_width(1.7), 0.85);
+        assert_eq!(super::css_stretchiness_to_core_text_width(Stretch(1.7)), 0.85);
     }
 }

@@ -14,109 +14,83 @@
 //! support. To prefer it over the native font source (only if you know what you're doing), use the
 //! `source-fontconfig-default` feature.
 
-use arrayvec::ArrayVec;
-use byteorder::{BigEndian, ReadBytesExt};
-use euclid::{Point2D, Rect, Size2D, Vector2D};
-use fontconfig::fontconfig::{FcBool, FcConfig, FcConfigGetFonts, FcConfigSubstitute};
-use fontconfig::fontconfig::{FcDefaultSubstitute, FcFontList, FcInitLoadConfigAndFonts};
-use fontconfig::fontconfig::{FcMatchPattern, FcObjectSet, FcObjectSetAdd, FcObjectSetCreate};
-use fontconfig::fontconfig::{FcObjectSetDestroy, FcPattern, FcPatternAddInteger};
+use fontconfig::fontconfig::{FcBool, FcConfig, FcFontList, FcInitLoadConfigAndFonts, FcObjectSet};
+use fontconfig::fontconfig::{FcObjectSetAdd, FcObjectSetCreate, FcObjectSetDestroy, FcPattern};
 use fontconfig::fontconfig::{FcPatternAddString, FcPatternCreate, FcPatternDestroy};
 use fontconfig::fontconfig::{FcPatternGetInteger, FcPatternGetString, FcResultMatch};
-use fontconfig::fontconfig::{FcResultNoMatch, FcSetSystem, FcType, FcTypeString};
-use lyon_path::builder::PathBuilder;
 use memmap::Mmap;
 use std::ffi::{CStr, CString};
 use std::fs::File;
-use std::io::Cursor;
-use std::iter;
 use std::marker::PhantomData;
-use std::mem;
 use std::ops::Deref;
-use std::os::raw::{c_char, c_int, c_uchar, c_void};
+use std::os::raw::{c_char, c_uchar};
 use std::ptr;
 use std::slice;
 use std::sync::Arc;
 
-use descriptor::{Descriptor, FONT_STRETCH_MAPPING, Flags, Query, QueryFields, Style};
+use descriptor::Spec;
 use family::Family;
-use font::{Font, Metrics};
-use set::Set;
+use font::Font;
+use source::Source;
 
-const PS_DICT_FULL_NAME: u32 = 38;
-const TT_NAME_ID_FULL_NAME: u16 = 4;
-
-const PANOSE_PROPORTION: usize = 3;
-const PAN_PROP_MONOSPACED: u8 = 9;
-
+#[allow(dead_code, non_upper_case_globals)]
 const FcFalse: FcBool = 0;
+#[allow(non_upper_case_globals)]
 const FcTrue: FcBool = 1;
-const FcDontCare: FcBool = 2;
 
 const FC_FAMILY: &'static [u8] = b"family\0";
-const FC_STYLE: &'static [u8] = b"style\0";
-const FC_SLANT: &'static [u8] = b"slant\0";
-const FC_WEIGHT: &'static [u8] = b"weight\0";
-const FC_WIDTH: &'static [u8] = b"width\0";
 const FC_FILE: &'static [u8] = b"file\0";
 const FC_INDEX: &'static [u8] = b"index\0";
-const FC_FULLNAME: &'static [u8] = b"fullname\0";
-const FC_POSTSCRIPT_NAME: &'static [u8] = b"postscriptname\0";
 
-const FT_POINT_TAG_ON_CURVE: c_char = 0x01;
-const FT_POINT_TAG_CUBIC_CONTROL: c_char = 0x02;
-
-const FT_SLANT_ROMAN: i32 = 0;
-const FT_SLANT_ITALIC: i32 = 100;
-const FT_SLANT_OBLIQUE: i32 = 110;
-
-pub struct Source {
+pub struct FontconfigSource {
     fontconfig: *mut FcConfig,
 }
 
-impl Source {
-    pub fn new() -> Source {
+impl FontconfigSource {
+    pub fn new() -> FontconfigSource {
         unsafe {
-            Source {
+            FontconfigSource {
                 fontconfig: FcInitLoadConfigAndFonts(),
             }
         }
     }
 
-    pub fn select(&self, query: &Query) -> Set {
+    pub fn all_families(&self) -> Vec<String> {
         unsafe {
-            let mut pattern = FcPatternObject::new();
-            if query.fields.contains(QueryFields::POSTSCRIPT_NAME) {
-                pattern.push_string(FC_POSTSCRIPT_NAME, query.descriptor.postscript_name.clone());
-            }
-            if query.fields.contains(QueryFields::DISPLAY_NAME) {
-                pattern.push_string(FC_FULLNAME, query.descriptor.display_name.clone());
-            }
-            if query.fields.contains(QueryFields::FAMILY_NAME) {
-                pattern.push_string(FC_FAMILY, query.descriptor.family_name.clone());
-            }
-            if query.fields.contains(QueryFields::STYLE_NAME) {
-                pattern.push_string(FC_STYLE, query.descriptor.style_name.clone());
-            }
-            if query.fields.contains(QueryFields::WEIGHT) {
-                let weight = FcWeightFromOpenType(query.descriptor.weight as i32);
-                pattern.push_int(FC_WEIGHT, weight)
-            }
-            if query.fields.contains(QueryFields::STRETCH) {
-                pattern.push_int(FC_WIDTH, (query.descriptor.stretch * 100.0) as i32)
-            }
-            if query.fields.contains(QueryFields::STYLE) {
-                let slant = match query.descriptor.style {
-                    Style::Normal => FT_SLANT_ROMAN,
-                    Style::Italic => FT_SLANT_ITALIC,
-                    Style::Oblique => FT_SLANT_OBLIQUE,
-                };
-                pattern.push_int(FC_SLANT, slant);
-            }
+            let pattern = FcPatternObject::new();
 
-            // We want the file path, the font index, and the family name for grouping.
+            // We want the file path and the font index.
             let mut object_set = FcObjectSetObject::new();
             object_set.push_string(FC_FAMILY);
+
+            let font_set = FcFontList(self.fontconfig, pattern.pattern, object_set.object_set);
+            assert!(!font_set.is_null());
+
+            let font_patterns = slice::from_raw_parts((*font_set).fonts,
+                                                      (*font_set).nfont as usize);
+
+            let mut result_families = vec![];
+            for font_pattern in font_patterns {
+                let family = match fc_pattern_get_string(*font_pattern, FC_FAMILY) {
+                    None => continue,
+                    Some(family) => family,
+                };
+                result_families.push(family);
+            }
+
+            result_families.sort();
+            result_families.dedup();
+            result_families
+        }
+    }
+
+    pub fn select_family(&self, family_name: &str) -> Family {
+        unsafe {
+            let mut pattern = FcPatternObject::new();
+            pattern.push_string(FC_FAMILY, family_name.to_owned());
+
+            // We want the file path and the font index.
+            let mut object_set = FcObjectSetObject::new();
             object_set.push_string(FC_FILE);
             object_set.push_string(FC_INDEX);
 
@@ -124,14 +98,10 @@ impl Source {
             assert!(!font_set.is_null());
 
             let font_patterns = slice::from_raw_parts((*font_set).fonts,
-                                                        (*font_set).nfont as usize);
+                                                      (*font_set).nfont as usize);
 
             let mut result_fonts = vec![];
             for font_pattern in font_patterns {
-                let family_name = match fc_pattern_get_string(*font_pattern, FC_FAMILY) {
-                    None => continue,
-                    Some(family_name) => family_name,
-                };
                 let font_path = match fc_pattern_get_string(*font_pattern, FC_FILE) {
                     None => continue,
                     Some(font_path) => font_path,
@@ -148,10 +118,27 @@ impl Source {
                     Err(_) => continue,
                     Ok(font) => font,
                 };
-                result_fonts.push(font)
+                result_fonts.push(font);
             }
-            Set::from_fonts(result_fonts.into_iter())
+
+            Family::from_fonts(result_fonts.into_iter())
         }
+    }
+
+    pub fn find(&self, spec: &Spec) -> Result<Font, ()> {
+        <Self as Source>::find(self, spec)
+    }
+}
+
+impl Source for FontconfigSource {
+    #[inline]
+    fn all_families(&self) -> Vec<String> {
+        self.all_families()
+    }
+
+    #[inline]
+    fn select_family(&self, family_name: &str) -> Family {
+        self.select_family(family_name)
     }
 }
 
@@ -185,10 +172,6 @@ impl FcPatternObject {
                            object.as_ptr() as *const c_char,
                            c_string.as_ptr() as *const c_uchar);
         self.c_strings.push(c_string)
-    }
-
-    unsafe fn push_int(&mut self, object: &'static [u8], value: i32) {
-        FcPatternAddInteger(self.pattern, object.as_ptr() as *const c_char, value);
     }
 }
 
@@ -259,12 +242,4 @@ unsafe fn fc_pattern_get_integer(pattern: *mut FcPattern, object: &'static [u8])
         return None
     }
     Some(integer)
-}
-
-fn ft_fixed_26_6_to_f32(fixed: i64) -> f32 {
-    (fixed as f32) / 64.0
-}
-
-extern "C" {
-    fn FcWeightFromOpenType(fc_weight: c_int) -> c_int;
 }

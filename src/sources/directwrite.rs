@@ -19,6 +19,7 @@ use std::sync::{Arc, MutexGuard};
 use descriptor::{Flags, FONT_STRETCH_MAPPING, Query, QueryFields};
 use family::Family;
 use font::Font;
+use select::Select;
 use set::Set;
 
 pub struct Source {
@@ -49,6 +50,13 @@ impl Source {
             }
         }
         set
+    }
+}
+
+impl Select for Source {
+    #[inline]
+    fn select(&self, query: &Query) -> Set {
+        Source::select(self, query)
     }
 }
 

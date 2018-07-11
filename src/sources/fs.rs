@@ -12,6 +12,7 @@
 //!
 //! This is the native source on Android.
 
+use itertools::Itertools;
 use std::fs::File;
 use std::path::PathBuf;
 use walkdir::WalkDir;
@@ -27,31 +28,22 @@ use winapi::shared::minwindef::{MAX_PATH, UINT};
 #[cfg(target_family = "windows")]
 use winapi::um::sysinfoapi;
 
-use descriptor::Query;
-use font::{Face, Type};
-use set::Set;
+use descriptor::Spec;
+use family::Family;
+use font::{Font, Type};
+use source::Source;
 
-pub struct Source {
-    font_directory_paths: Vec<PathBuf>,
+pub struct FsSource {
+    families: Vec<FamilyEntry>,
 }
 
-impl Source {
+impl FsSource {
     /// Do not rely on this function for systems other than Android. It makes a best effort to
     /// locate fonts in the typical platform directories, but it is too simple to pick up fonts
     /// that are stored in unusual locations but nevertheless properly installed.
-    pub fn new() -> Source {
-        Source {
-            font_directory_paths: default_font_directories(),
-        }
-    }
-
-    pub fn select(&self, query: &Query) -> Set {
-        self.select_with_loader(query)
-    }
-
-    pub fn select_with_loader<F>(&self, query: &Query) -> Set<F> where F: Face {
-        let mut fonts = vec![];
-        for font_directory in &self.font_directory_paths {
+    pub fn new() -> FsSource {
+        let mut families = vec![];
+        for font_directory in default_font_directories() {
             for directory_entry in WalkDir::new(font_directory).into_iter() {
                 let directory_entry = match directory_entry {
                     Ok(directory_entry) => directory_entry,
@@ -62,29 +54,85 @@ impl Source {
                     Err(_) => continue,
                     Ok(file) => file,
                 };
-                match F::analyze_file(&mut file) {
+                match Font::analyze_file(&mut file) {
                     Err(_) => continue,
                     Ok(Type::Single) => {
-                        if let Ok(font) = F::from_file(&mut file, 0) {
-                            if font.descriptor().matches(query) {
-                                fonts.push(font)
-                            }
+                        if let Ok(font) = Font::from_file(&mut file, 0) {
+                            families.push(FamilyEntry {
+                                family_name: font.family_name(),
+                                font: font,
+                            })
                         }
                     }
                     Ok(Type::Collection(font_count)) => {
                         for font_index in 0..font_count {
-                            if let Ok(font) = F::from_file(&mut file, font_index) {
-                                if font.descriptor().matches(query) {
-                                    fonts.push(font)
-                                }
+                            if let Ok(font) = Font::from_file(&mut file, font_index) {
+                                families.push(FamilyEntry {
+                                    family_name: font.family_name(),
+                                    font: font,
+                                })
                             }
                         }
                     }
                 }
             }
         }
-        Set::from_fonts(fonts.into_iter())
+        families.sort_by(|a, b| a.family_name.cmp(&b.family_name));
+        FsSource {
+            families,
+        }
     }
+
+    pub fn all_families(&self) -> Vec<String> {
+        self.families
+            .iter()
+            .map(|family| &*family.family_name)
+            .dedup()
+            .map(|name| name.to_owned())
+            .collect()
+    }
+
+    // FIXME(pcwalton): Case-insensitive comparison.
+    pub fn select_family(&self, family_name: &str) -> Family {
+        let mut first_family_index = match self.families.binary_search_by(|family| {
+            (&*family.family_name).cmp(family_name)
+        }) {
+            Err(_) => return Family::new(),
+            Ok(family_index) => family_index,
+        };
+        while first_family_index > 0 &&
+                self.families[first_family_index - 1].family_name == family_name {
+            first_family_index -= 1
+        }
+        let mut last_family_index = first_family_index;
+        while last_family_index + 1 < self.families.len() &&
+                self.families[last_family_index + 1].family_name == family_name {
+            last_family_index += 1
+        }
+        Family::from_fonts(self.families[first_family_index..(last_family_index + 1)]
+                               .iter()
+                               .map(|family| family.font.clone()))
+    }
+
+    pub fn find(&self, spec: &Spec) -> Result<Font, ()> {
+        <Self as Source>::find(self, spec)
+    }
+}
+
+impl Source for FsSource {
+    #[inline]
+    fn all_families(&self) -> Vec<String> {
+        self.all_families()
+    }
+
+    fn select_family(&self, family_name: &str) -> Family {
+        self.select_family(family_name)
+    }
+}
+
+struct FamilyEntry {
+    family_name: String,
+    font: Font,
 }
 
 #[cfg(target_os = "android")]

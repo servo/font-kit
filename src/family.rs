@@ -10,7 +10,7 @@
 
 use std::iter;
 
-use descriptor::Query;
+use descriptor::Properties;
 use font::{Face, Font};
 
 #[derive(Debug)]
@@ -54,8 +54,13 @@ impl<F> Family<F> where F: Face {
         self.fonts.is_empty()
     }
 
-    #[inline]
-    pub fn filter(&mut self, query: &Query) {
-        self.fonts.retain(|font| font.descriptor().matches(query))
+    // FIXME(pcwalton)
+    pub fn find(&self, properties: &Properties) -> Result<F, ()> {
+        for font in &self.fonts {
+            if font.properties() == *properties {
+                return Ok((*font).clone())
+            }
+        }
+        Err(())
     }
 }

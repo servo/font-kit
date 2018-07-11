@@ -8,16 +8,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[cfg(all(target_os = "macos", not(feature = "source-fontconfig-default")))]
-pub use sources::core_text as default;
-#[cfg(all(target_family = "windows", not(feature = "source-fontconfig-default")))]
-pub use sources::directwrite as default;
-#[cfg(any(not(any(target_os = "android", target_os = "macos", target_family = "windows")),
-          feature = "source-fontconfig-default"))]
-pub use sources::fontconfig as default;
-#[cfg(all(target_os = "android", not(feature = "source-fontconfig-default")))]
-pub use sources::fs as default;
-
 #[cfg(target_os = "macos")]
 pub mod core_text;
 #[cfg(target_family = "windows")]
