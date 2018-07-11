@@ -16,104 +16,60 @@ use dwrote::InformationalStringId as DWriteInformationalStringId;
 use std::ops::Deref;
 use std::sync::{Arc, MutexGuard};
 
-use descriptor::{Flags, FONT_STRETCH_MAPPING, Query, QueryFields};
+use descriptor::{FONT_STRETCH_MAPPING, Spec};
 use family::Family;
 use font::Font;
-use select::Select;
-use set::Set;
+use source::Source;
 
-pub struct Source {
+pub struct DirectWriteSource {
     system_font_collection: DWriteFontCollection,
 }
 
-impl Source {
-    pub fn new() -> Source {
-        Source {
+impl DirectWriteSource {
+    pub fn new() -> DirectWriteSource {
+        DirectWriteSource {
             system_font_collection: DWriteFontCollection::system(),
         }
     }
 
-    pub fn select(&self, query: &Query) -> Set {
-        let mut set = Set::new();
-        for dwrite_family in self.system_font_collection.families_iter() {
-            let mut family = Family::new();
-            for font_index in 0..dwrite_family.get_font_count() {
-                unsafe {
-                    let dwrite_font = dwrite_family.get_font(font_index);
-                    if query.matches_dwrite_font(&dwrite_font) {
-                        family.push(Font::from_native_font(dwrite_font.create_font_face()))
-                    }
-                }
-            }
-            if !family.fonts().is_empty() {
-                set.push(family)
+    pub fn all_families(&self) -> Vec<String> {
+        self.system_font_collection
+            .families_iter()
+            .map(|dwrite_family| dwrite_family.name())
+            .collect()
+    }
+
+    // TODO(pcwalton): Case-insensitivity.
+    pub fn select_family(&self, family_name: &str) -> Family {
+        let mut family = Family::new();
+        let dwrite_family = match self.system_font_collection
+                                      .get_font_family_by_name(family_name) {
+            Some(dwrite_family) => dwrite_family,
+            None => return family,
+        };
+        for font_index in 0..dwrite_family.get_font_count() {
+            unsafe {
+                let dwrite_font = dwrite_family.get_font(font_index);
+                family.push(Font::from_native_font(dwrite_font.create_font_face()))
             }
         }
-        set
+        family
+    }
+
+    pub fn find(&self, spec: &Spec) -> Result<Font, ()> {
+        <Self as Source>::find(self, spec)
     }
 }
 
-impl Select for Source {
+impl Source for DirectWriteSource {
     #[inline]
-    fn select(&self, query: &Query) -> Set {
-        Source::select(self, query)
-    }
-}
-
-impl Query {
-    fn matches_dwrite_font(&self, dwrite_font: &DWriteFont) -> bool {
-        if dwrite_font.simulations() != DWriteFontSimulations::None {
-            return false
-        }
-
-        if self.fields.contains(QueryFields::POSTSCRIPT_NAME) &&
-                !self.matches_informational_string(dwrite_font,
-                                                   &self.descriptor.postscript_name,
-                                                   DWriteInformationalStringId::PostscriptName) {
-            return false
-        }
-        if self.fields.contains(QueryFields::DISPLAY_NAME) &&
-                !self.matches_informational_string(dwrite_font,
-                                                   &self.descriptor.display_name,
-                                                   DWriteInformationalStringId::FullName) {
-            return false
-        }
-        if self.fields.contains(QueryFields::FAMILY_NAME) &&
-                dwrite_font.family_name() != self.descriptor.family_name {
-            return false
-        }
-        if self.fields.contains(QueryFields::STYLE_NAME) &&
-                style_name_for_dwrite_style(dwrite_font.style()) != self.descriptor.style_name {
-            return false
-        }
-        if self.fields.contains(QueryFields::WEIGHT) &&
-                dwrite_font.weight() as u32 as f32 != self.descriptor.weight {
-            return false
-        }
-        if self.fields.contains(QueryFields::STRETCH) &&
-                FONT_STRETCH_MAPPING[(dwrite_font.stretch() as usize) - 1] !=
-                self.descriptor.stretch {
-            return false
-        }
-        if self.fields.contains(QueryFields::ITALIC) &&
-                dwrite_style_is_italic(dwrite_font.style()) !=
-                self.descriptor.flags.contains(Flags::ITALIC) {
-            return false
-        }
-        // TODO(pcwalton): Monospace, once we have a `winapi` upgrade.
-        // FIXME(pcwalton): How do we identify vertical fonts?
-        true
+    fn all_families(&self) -> Vec<String> {
+        self.all_families()
     }
 
-    fn matches_informational_string(&self,
-                                    dwrite_font: &DWriteFont,
-                                    query_name: &str,
-                                    id: DWriteInformationalStringId)
-                                    -> bool {
-        match dwrite_font.informational_string(id) {
-            None => false,
-            Some(name) => name == query_name,
-        }
+    #[inline]
+    fn select_family(&self, family_name: &str) -> Family {
+        self.select_family(family_name)
     }
 }
 

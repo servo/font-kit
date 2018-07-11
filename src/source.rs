@@ -15,7 +15,7 @@ use font::Font;
 #[cfg(all(target_os = "macos", not(feature = "source-fontconfig-default")))]
 pub use sources::core_text::CoreTextSource as SystemSource;
 #[cfg(all(target_family = "windows", not(feature = "source-fontconfig-default")))]
-pub use sources::core_text::DirectWriteSource as SystemSource;
+pub use sources::directwrite::DirectWriteSource as SystemSource;
 #[cfg(any(not(any(target_os = "android", target_os = "macos", target_family = "windows")),
           feature = "source-fontconfig-default"))]
 pub use sources::fontconfig::FontconfigSource as SystemSource;

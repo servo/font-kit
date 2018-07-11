@@ -23,7 +23,7 @@ use std::ops::Deref;
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use descriptor::{Descriptor, Flags, FONT_STRETCH_MAPPING};
+use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use font::{Face, HintingOptions, Metrics, Type};
 
 pub type NativeFont = DWriteFontFace;
@@ -85,31 +85,37 @@ impl Font {
         <Self as Face>::analyze_path(path)
     }
 
-    // TODO(pcwalton)
-    pub fn descriptor(&self) -> Descriptor {
+    #[inline]
+    pub fn postscript_name(&self) -> String {
         let dwrite_font = self.dwrite_font_face.get_font();
-        let family_name = dwrite_font.family_name();
+        dwrite_font.informational_string(DWriteInformationalStringId::PostscriptName)
+                   .unwrap_or_else(|| dwrite_font.family_name())
+    }
 
-        let mut flags = Flags::empty();
-        if dwrite_style_is_italic(dwrite_font.style()) {
-            flags.insert(Flags::ITALIC)
-        }
+    #[inline]
+    pub fn full_name(&self) -> String {
+        let dwrite_font = self.dwrite_font_face.get_font();
+        dwrite_font.informational_string(DWriteInformationalStringId::FullName)
+                   .unwrap_or_else(|| dwrite_font.family_name())
+    }
 
-        // TODO(pcwalton): Monospace, once we have a `winapi` upgrade.
-        // FIXME(pcwalton): How do we identify vertical fonts?
+    #[inline]
+    pub fn family_name(&self) -> String {
+        self.dwrite_font_face.get_font().family_name()
+    }
 
-        Descriptor {
-            postscript_name:
-                dwrite_font.informational_string(DWriteInformationalStringId::PostscriptName)
-                           .unwrap_or_else(|| family_name.clone()),
-            display_name:
-                dwrite_font.informational_string(DWriteInformationalStringId::FullName)
-                           .unwrap_or_else(|| family_name.clone()),
-            family_name,
-            style_name: style_name_for_dwrite_style(dwrite_font.style()).to_owned(),
-            stretch: FONT_STRETCH_MAPPING[(dwrite_font.stretch() as usize) - 1],
-            weight: dwrite_font.weight() as u32 as f32,
-            flags,
+    // FIXME(pcwalton)
+    #[inline]
+    pub fn is_monospace(&self) -> bool {
+        true
+    }
+
+    pub fn properties(&self) -> Properties {
+        let dwrite_font = self.dwrite_font_face.get_font();
+        Properties {
+            style: style_for_dwrite_style(dwrite_font.style()),
+            stretch: Stretch(FONT_STRETCH_MAPPING[(dwrite_font.stretch() as usize) - 1]),
+            weight: Weight(dwrite_font.weight() as u32 as f32),
         }
     }
 
@@ -211,7 +217,7 @@ impl Clone for Font {
 
 impl Debug for Font {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), fmt::Error> {
-        self.descriptor().fmt(fmt)
+        self.family_name().fmt(fmt)
     }
 }
 
@@ -239,8 +245,28 @@ impl Face for Font {
     }
 
     #[inline]
-    fn descriptor(&self) -> Descriptor {
-        self.descriptor()
+    fn postscript_name(&self) -> String {
+        self.postscript_name()
+    }
+
+    #[inline]
+    fn full_name(&self) -> String {
+        self.full_name()
+    }
+
+    #[inline]
+    fn family_name(&self) -> String {
+        self.family_name()
+    }
+
+    #[inline]
+    fn is_monospace(&self) -> bool {
+        self.is_monospace()
+    }
+
+    #[inline]
+    fn properties(&self) -> Properties {
+        self.properties()
     }
 
     #[inline]
@@ -327,17 +353,10 @@ impl OutlineBuilder for OutlineBuffer {
     }
 }
 
-fn style_name_for_dwrite_style(style: DWriteFontStyle) -> &'static str {
+fn style_for_dwrite_style(style: DWriteFontStyle) -> Style {
     match style {
-        DWriteFontStyle::Normal => "Regular",
-        DWriteFontStyle::Oblique => "Oblique",
-        DWriteFontStyle::Italic => "Italic",
-    }
-}
-
-fn dwrite_style_is_italic(style: DWriteFontStyle) -> bool {
-    match style {
-        DWriteFontStyle::Normal => false,
-        DWriteFontStyle::Oblique | DWriteFontStyle::Italic => true,
+        DWriteFontStyle::Normal => Style::Normal,
+        DWriteFontStyle::Oblique => Style::Oblique,
+        DWriteFontStyle::Italic => Style::Italic,
     }
 }
