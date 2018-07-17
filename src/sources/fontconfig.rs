@@ -41,6 +41,7 @@ const FcTrue: FcBool = 1;
 const FC_FAMILY: &'static [u8] = b"family\0";
 const FC_FILE: &'static [u8] = b"file\0";
 const FC_INDEX: &'static [u8] = b"index\0";
+const FC_POSTSCRIPT_NAME: &'static [u8] = b"postscriptname\0";
 
 pub struct FontconfigSource {
     fontconfig: *mut FcConfig,
@@ -102,31 +103,51 @@ impl FontconfigSource {
 
             let mut result_fonts = vec![];
             for font_pattern in font_patterns {
-                let font_path = match fc_pattern_get_string(*font_pattern, FC_FILE) {
-                    None => continue,
-                    Some(font_path) => font_path,
-                };
-                let font_index = match fc_pattern_get_integer(*font_pattern, FC_INDEX) {
-                    None => continue,
-                    Some(font_index) => font_index,
-                };
-                let mut file = match File::open(font_path) {
-                    Err(_) => continue,
-                    Ok(file) => file,
-                };
-                let font = match Font::from_file(&mut file, font_index as u32) {
-                    Err(_) => continue,
-                    Ok(font) => font,
-                };
-                result_fonts.push(font);
+                if let Ok(font) = self.load_font_from_fontconfig_pattern(*font_pattern) {
+                    result_fonts.push(font)
+                }
             }
 
             Family::from_fonts(result_fonts.into_iter())
         }
     }
 
+    pub fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
+        unsafe {
+            let mut pattern = FcPatternObject::new();
+            pattern.push_string(FC_POSTSCRIPT_NAME, postscript_name.to_owned());
+
+            // We want the file path and the font index.
+            let mut object_set = FcObjectSetObject::new();
+            object_set.push_string(FC_FILE);
+            object_set.push_string(FC_INDEX);
+
+            let font_set = FcFontList(self.fontconfig, pattern.pattern, object_set.object_set);
+            assert!(!font_set.is_null());
+
+            let font_patterns = slice::from_raw_parts((*font_set).fonts,
+                                                      (*font_set).nfont as usize);
+
+            for font_pattern in font_patterns {
+                if let Ok(font) = self.load_font_from_fontconfig_pattern(*font_pattern) {
+                    return Ok(font)
+                }
+            }
+
+            Err(())
+        }
+    }
+
     pub fn find(&self, spec: &Spec) -> Result<Font, ()> {
         <Self as Source>::find(self, spec)
+    }
+
+    unsafe fn load_font_from_fontconfig_pattern(&self, font_pattern: *mut FcPattern)
+                                                -> Result<Font, ()> {
+        let font_path = try!(fc_pattern_get_string(font_pattern, FC_FILE).ok_or(()));
+        let font_index = try!(fc_pattern_get_integer(font_pattern, FC_INDEX).ok_or(()));
+        let mut file = try!(File::open(font_path).map_err(drop));
+        Font::from_file(&mut file, font_index as u32)
     }
 }
 
@@ -139,6 +160,11 @@ impl Source for FontconfigSource {
     #[inline]
     fn select_family(&self, family_name: &str) -> Family {
         self.select_family(family_name)
+    }
+
+    #[inline]
+    fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
+        self.find_by_postscript_name(postscript_name)
     }
 }
 

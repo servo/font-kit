@@ -64,6 +64,13 @@ pub fn lookup_all_fonts_in_a_family_in_system_font_directories() {
 }
 
 #[test]
+pub fn lookup_font_by_postscript_name() {
+    let font = SystemSource::new().find_by_postscript_name(SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME)
+                                  .unwrap();
+    assert_eq!(font.postscript_name(), SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME);
+}
+
+#[test]
 pub fn load_font_from_file() {
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
     let font = Font::from_file(&mut file, 0).unwrap();

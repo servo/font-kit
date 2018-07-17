@@ -12,6 +12,7 @@ extern crate arrayvec;
 extern crate byteorder;
 extern crate euclid;
 extern crate itertools;
+extern crate libc;
 extern crate lyon_path;
 extern crate memmap;
 extern crate walkdir;
@@ -40,6 +41,7 @@ extern crate fontconfig;
 #[cfg(any(not(any(target_os = "macos", target_family = "windows")), feature = "loader-freetype"))]
 extern crate freetype;
 
+pub mod canvas;
 pub mod descriptor;
 pub mod family;
 pub mod font;

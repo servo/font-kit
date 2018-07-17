@@ -57,6 +57,27 @@ impl CoreTextSource {
         Family::from_fonts(fonts_in_core_text_collection(collection).into_iter())
     }
 
+    pub fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
+        let attributes: CFDictionary<CFString, CFType> = CFDictionary::from_CFType_pairs(&[
+            (CFString::new("NSFontNameAttribute"), CFString::new(postscript_name).as_CFType()),
+        ]);
+
+        let descriptor = font_descriptor::new_from_attributes(&attributes);
+        let descriptors = CFArray::from_CFTypes(&[descriptor]);
+        let collection = font_collection::new_from_descriptors(&descriptors);
+
+        match collection.get_descriptors() {
+            Some(ref descriptors) if descriptors.len() > 0 => {
+                unsafe {
+                    let descriptor = (*descriptors.get(0).unwrap()).clone();
+                    let core_text_font = core_text::font::new_from_descriptor(&descriptor, 12.0);
+                    Ok(Font::from_core_text_font(core_text_font))
+                }
+            }
+            Some(_) | None => Err(()),
+        }
+    }
+
     pub fn find(&self, spec: &Spec) -> Result<Font, ()> {
         <Self as Source>::find(self, spec)
     }
@@ -69,6 +90,10 @@ impl Source for CoreTextSource {
 
     fn select_family(&self, family_name: &str) -> Family {
         self.select_family(family_name)
+    }
+
+    fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
+        self.find_by_postscript_name(postscript_name)
     }
 }
 

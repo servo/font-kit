@@ -35,8 +35,11 @@ pub trait Source {
 
     fn select_family(&self, family_name: &str) -> Family;
 
-    // FIXME(pcwalton): This should be private, because it only returns one family for the generic
+    fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()>;
+
+    // FIXME(pcwalton): This only returns one family instead of multiple families for the generic
     // family names.
+    #[doc(hidden)]
     fn select_family_spec(&self, family: &FamilySpec) -> Family {
         match *family {
             FamilySpec::Name(ref name) => self.select_family(name),

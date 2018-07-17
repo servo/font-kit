@@ -114,6 +114,15 @@ impl FsSource {
                                .map(|family| family.font.clone()))
     }
 
+    pub fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
+        self.families
+            .iter()
+            .filter(|family_entry| family_entry.font.postscript_name() == postscript_name)
+            .map(|family_entry| family_entry.font.clone())
+            .next()
+            .ok_or(())
+    }
+
     pub fn find(&self, spec: &Spec) -> Result<Font, ()> {
         <Self as Source>::find(self, spec)
     }
@@ -127,6 +136,10 @@ impl Source for FsSource {
 
     fn select_family(&self, family_name: &str) -> Family {
         self.select_family(family_name)
+    }
+
+    fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
+        self.find_by_postscript_name(postscript_name)
     }
 }
 

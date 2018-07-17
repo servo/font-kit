@@ -9,15 +9,20 @@
 // except according to those terms.
 
 use byteorder::{BigEndian, ReadBytesExt};
+use core_graphics::base::{CGFloat, kCGImageAlphaNoneSkipLast, kCGImageAlphaPremultipliedLast};
+use core_graphics::color_space::CGColorSpace;
+use core_graphics::context::{CGContext, CGTextDrawingMode};
 use core_graphics::data_provider::CGDataProvider;
-use core_graphics::font::CGFont;
-use core_graphics::geometry::{CG_AFFINE_TRANSFORM_IDENTITY, CG_ZERO_SIZE, CGPoint};
+use core_graphics::font::{CGFont, CGGlyph};
+use core_graphics::geometry::{CG_AFFINE_TRANSFORM_IDENTITY, CG_ZERO_POINT, CG_ZERO_SIZE, CGPoint};
+use core_graphics::geometry::{CGRect, CGSize};
 use core_graphics::path::CGPathElementType;
 use core_text::font::CTFont;
 use core_text::font_descriptor::{SymbolicTraitAccessors, TraitAccessors};
 use core_text::font_descriptor::{kCTFontDefaultOrientation};
 use core_text;
 use euclid::{Point2D, Rect, Size2D, Vector2D};
+use libc::c_void;
 use lyon_path::builder::PathBuilder;
 use memmap::Mmap;
 use std::f32;
@@ -29,12 +34,16 @@ use std::ops::Deref;
 use std::path::Path;
 use std::sync::Arc;
 
+use canvas::{Canvas, Format, RasterizationOptions};
 use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use font::{Face, HintingOptions, Metrics, Type};
 use sources;
 use utils;
 
 const TTC_TAG: [u8; 4] = [b't', b't', b'c', b'f'];
+
+#[allow(non_upper_case_globals)]
+const kCGImageAlphaOnly: u32 = 7;
 
 pub type NativeFont = CTFont;
 
@@ -275,6 +284,87 @@ impl Font {
     }
 
     #[inline]
+    pub fn raster_bounds(&self,
+                         glyph_id: u32,
+                         point_size: f32,
+                         origin: &Point2D<f32>,
+                         hinting_options: HintingOptions,
+                         rasterization_options: RasterizationOptions)
+                         -> Rect<i32> {
+        <Self as Face>::raster_bounds(self,
+                                      glyph_id,
+                                      point_size,
+                                      origin,
+                                      hinting_options,
+                                      rasterization_options)
+    }
+
+    // TODO(pcwalton): This is woefully incomplete. See WebRender's code for a more complete
+    // implementation.
+    pub fn rasterize_glyph(&self,
+                           canvas: &mut Canvas,
+                           glyph_id: u32,
+                           point_size: f32,
+                           origin: &Point2D<f32>,
+                           _: HintingOptions,
+                           rasterization_options: RasterizationOptions) {
+        let core_graphics_context =
+            CGContext::create_bitmap_context(Some(canvas.pixels.as_mut_ptr() as *mut c_void),
+                                             canvas.size.width as usize,
+                                             canvas.size.height as usize,
+                                             canvas.format.bits_per_component() as usize,
+                                             canvas.stride,
+                                             &format_to_color_space(canvas.format),
+                                             format_to_cg_image_format(canvas.format));
+
+        match canvas.format {
+            Format::Rgba32 | Format::Rgb24 => {
+                core_graphics_context.set_rgb_fill_color(0.0, 0.0, 0.0, 0.0);
+            }
+            Format::A8 => core_graphics_context.set_gray_fill_color(0.0, 0.0),
+        }
+
+        let core_graphics_size = CGSize::new(canvas.size.width as f64, canvas.size.height as f64);
+        core_graphics_context.fill_rect(CGRect::new(&CG_ZERO_POINT, &core_graphics_size));
+
+        match rasterization_options {
+            RasterizationOptions::Bilevel => {
+                core_graphics_context.set_allows_font_smoothing(false);
+                core_graphics_context.set_should_smooth_fonts(false);
+            }
+            RasterizationOptions::GrayscaleAa | RasterizationOptions::SubpixelAa => {
+                // FIXME(pcwalton): These shouldn't be handled the same!
+                core_graphics_context.set_allows_font_smoothing(true);
+                core_graphics_context.set_should_smooth_fonts(true);
+            }
+        }
+
+        match canvas.format {
+            Format::Rgba32 | Format::Rgb24 => {
+                core_graphics_context.set_rgb_fill_color(1.0, 1.0, 1.0, 1.0);
+            }
+            Format::A8 => core_graphics_context.set_gray_fill_color(1.0, 1.0),
+        }
+
+        let origin = CGPoint::new(origin.x as CGFloat, origin.y as CGFloat);
+        core_graphics_context.set_font(&self.core_text_font.copy_to_CGFont());
+        core_graphics_context.set_font_size(point_size as CGFloat);
+        core_graphics_context.set_text_drawing_mode(CGTextDrawingMode::CGTextFill);
+        core_graphics_context.set_text_matrix(&CG_AFFINE_TRANSFORM_IDENTITY);
+        core_graphics_context.show_glyphs_at_positions(&[glyph_id as CGGlyph], &[origin]);
+    }
+
+    #[inline]
+    pub fn supports_hinting_options(hinting_options: HintingOptions) -> bool {
+        match hinting_options {
+            HintingOptions::None => true,
+            HintingOptions::Vertical(..) |
+            HintingOptions::VerticalSubpixel(..) |
+            HintingOptions::Full(..) => false,
+        }
+    }
+
+    #[inline]
     fn units_per_point(&self) -> f64 {
         (self.core_text_font.units_per_em() as f64) / self.core_text_font.pt_size()
     }
@@ -364,6 +454,22 @@ impl Face for Font {
     fn metrics(&self) -> Metrics {
         self.metrics()
     }
+
+    #[inline]
+    fn rasterize_glyph(&self,
+                       canvas: &mut Canvas,
+                       glyph_id: u32,
+                       point_size: f32,
+                       origin: &Point2D<f32>,
+                       hinting_options: HintingOptions,
+                       rasterization_options: RasterizationOptions) {
+        self.rasterize_glyph(canvas,
+                             glyph_id,
+                             point_size,
+                             origin,
+                             hinting_options,
+                             rasterization_options)
+    }
 }
 
 impl Debug for Font {
@@ -446,6 +552,22 @@ fn unpack_otc_font(data: &mut [u8], font_index: u32) -> Result<(), ()> {
     }
 
     Ok(())
+}
+
+fn format_to_color_space(format: Format) -> CGColorSpace {
+    match format {
+        Format::Rgba32 | Format::Rgb24 => CGColorSpace::create_device_rgb(),
+        Format::A8 => CGColorSpace::create_device_gray(),
+    }
+}
+
+// NB: This assumes little-endian, but that's true for all extant Apple hardware.
+fn format_to_cg_image_format(format: Format) -> u32 {
+    match format {
+        Format::Rgba32 => kCGImageAlphaPremultipliedLast,
+        Format::Rgb24 => kCGImageAlphaNoneSkipLast,
+        Format::A8 => kCGImageAlphaOnly,
+    }
 }
 
 #[cfg(test)]

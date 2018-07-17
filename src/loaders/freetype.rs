@@ -16,16 +16,19 @@
 //! support for retrieving hinted outlines.
 
 use byteorder::{BigEndian, ReadBytesExt};
+use canvas::{Canvas, RasterizationOptions};
 use euclid::{Point2D, Rect, Size2D, Vector2D};
 use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_FACE_FLAG_FIXED_WIDTH, FT_Face};
 use freetype::freetype::{FT_Get_Char_Index, FT_Get_Postscript_Name, FT_Get_Sfnt_Table};
 use freetype::freetype::{FT_Init_FreeType, FT_LOAD_DEFAULT, FT_LOAD_NO_HINTING, FT_Library};
-use freetype::freetype::{FT_Load_Glyph, FT_Long, FT_New_Memory_Face, FT_Reference_Face};
-use freetype::freetype::{FT_STYLE_FLAG_ITALIC, FT_Set_Char_Size, FT_Sfnt_Tag, FT_UInt, FT_ULong};
+use freetype::freetype::{FT_Load_Glyph, FT_Long, FT_New_Memory_Face};
+use freetype::freetype::{FT_Reference_Face, FT_Render_Glyph, FT_Render_Mode};
+use freetype::freetype::{FT_STYLE_FLAG_ITALIC, FT_Set_Char_Size, FT_Set_Transform, FT_Sfnt_Tag, FT_UInt, FT_ULong};
 use freetype::freetype::{FT_UShort, FT_Vector};
 use freetype::tt_os2::TT_OS2;
 use lyon_path::builder::PathBuilder;
 use memmap::Mmap;
+use std::cmp;
 use std::f32;
 use std::ffi::CStr;
 use std::fmt::{self, Debug, Formatter};
@@ -56,11 +59,17 @@ const FT_POINT_TAG_CUBIC_CONTROL: c_char = 0x02;
 
 const FT_RENDER_MODE_NORMAL: u32 = 0;
 const FT_RENDER_MODE_LIGHT: u32 = 1;
+const FT_RENDER_MODE_MONO: u32 = 2;
 const FT_RENDER_MODE_LCD: u32 = 3;
 
 const FT_LOAD_TARGET_LIGHT: u32 = (FT_RENDER_MODE_LIGHT & 15) << 16;
 const FT_LOAD_TARGET_LCD: u32 = (FT_RENDER_MODE_LCD & 15) << 16;
 const FT_LOAD_TARGET_NORMAL: u32 = (FT_RENDER_MODE_NORMAL & 15) << 16;
+
+const FT_PIXEL_MODE_MONO: u8 = 1;
+const FT_PIXEL_MODE_GRAY: u8 = 2;
+const FT_PIXEL_MODE_LCD: u8 = 5;
+const FT_PIXEL_MODE_LCD_V: u8 = 6;
 
 const OS2_FS_SELECTION_OBLIQUE: u16 = 1 << 9;
 
@@ -267,12 +276,7 @@ impl Font {
                       -> Result<(), ()>
                       where B: PathBuilder {
         unsafe {
-            let load_flags = match hinting {
-                HintingOptions::None => FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING,
-                HintingOptions::Vertical(_) => FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT,
-                HintingOptions::VerticalSubpixel(_) => FT_LOAD_DEFAULT | FT_LOAD_TARGET_LCD,
-                HintingOptions::Full(_) => FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL,
-            };
+            let load_flags = self.hinting_options_to_load_flags(hinting);
 
             let units_per_em = (*self.freetype_face).units_per_EM;
             let grid_fitting_size = hinting.grid_fitting_size();
@@ -483,6 +487,100 @@ impl Font {
             }
         }
     }
+
+    #[inline]
+    pub fn raster_bounds(&self,
+                         glyph_id: u32,
+                         point_size: f32,
+                         origin: &Point2D<f32>,
+                         hinting_options: HintingOptions,
+                         rasterization_options: RasterizationOptions)
+                         -> Rect<i32> {
+        <Self as Face>::raster_bounds(self,
+                                      glyph_id,
+                                      point_size,
+                                      origin,
+                                      hinting_options,
+                                      rasterization_options)
+    }
+
+    // TODO(pcwalton): This is woefully incomplete. See WebRender's code for a more complete
+    // implementation.
+    pub fn rasterize_glyph(&self,
+                           canvas: &mut Canvas,
+                           glyph_id: u32,
+                           point_size: f32,
+                           origin: &Point2D<f32>,
+                           hinting_options: HintingOptions,
+                           rasterization_options: RasterizationOptions) {
+        unsafe {
+            let mut delta = FT_Vector {
+                x: f32_to_ft_fixed_26_6(origin.x),
+                y: f32_to_ft_fixed_26_6(origin.y),
+            };
+            FT_Set_Transform(self.freetype_face, ptr::null_mut(), &mut delta);
+
+            assert_eq!(FT_Set_Char_Size(self.freetype_face,
+                                        f32_to_ft_fixed_26_6(point_size),
+                                        0,
+                                        0,
+                                        0),
+                       0);
+
+            let load_flags = self.hinting_options_to_load_flags(hinting_options);
+            assert_eq!(FT_Load_Glyph(self.freetype_face, glyph_id, load_flags as i32), 0);
+
+            let render_mode = match rasterization_options {
+                RasterizationOptions::Bilevel => FT_Render_Mode::FT_RENDER_MODE_MONO,
+                RasterizationOptions::GrayscaleAa => FT_Render_Mode::FT_RENDER_MODE_NORMAL,
+                RasterizationOptions::SubpixelAa => FT_Render_Mode::FT_RENDER_MODE_LCD,
+            };
+            assert_eq!(FT_Render_Glyph((*self.freetype_face).glyph, render_mode), 0);
+
+            // TODO(pcwalton): Use the FreeType "direct" API to save a copy here. Note that we will
+            // need to keep this around for bilevel rendering, as the direct API doesn't work with
+            // that mode.
+            let bitmap = &(*(*self.freetype_face).glyph).bitmap;
+            let bitmap_stride = (*bitmap).pitch as usize;
+            let bitmap_width = (*bitmap).width as usize;
+            let bitmap_height = (*bitmap).rows as usize;
+            let bitmap_buffer = (*bitmap).buffer as *const i8 as *const u8;
+            let bitmap_length = bitmap_stride * bitmap_height;
+            let buffer = slice::from_raw_parts(bitmap_buffer, bitmap_length);
+
+            // FIXME(pcwalton): This function should return a Result instead.
+            let bitmap_bits_per_pixel = match (*bitmap).pixel_mode {
+                FT_PIXEL_MODE_MONO => unimplemented!(),
+                FT_PIXEL_MODE_GRAY => 8,
+                FT_PIXEL_MODE_LCD | FT_PIXEL_MODE_LCD_V => 24,
+                _ => panic!("Unexpected FreeType pixel mode!"),
+            };
+
+            let width = cmp::min(bitmap_width, canvas.size.width as usize);
+            let height = cmp::min(bitmap_height, canvas.size.height as usize);
+            let dest_bytes_per_pixel = canvas.format.bytes_per_pixel() as usize;
+
+            for y in 0..height {
+                let (dest_row_start, src_row_start) = (y * canvas.stride, y * bitmap_stride);
+                let dest_row_end = dest_row_start + width * dest_bytes_per_pixel;
+                let src_row_end = src_row_start + width * bitmap_bits_per_pixel / 8;
+                let dest_row_pixels = &mut canvas.pixels[dest_row_start..dest_row_end];
+                let src_row_pixels = &buffer[src_row_start..src_row_end];
+                dest_row_pixels.clone_from_slice(src_row_pixels)
+            }
+
+            FT_Set_Transform(self.freetype_face, ptr::null_mut(), ptr::null_mut());
+        }
+    }
+
+    fn hinting_options_to_load_flags(&self, hinting: HintingOptions) -> u32 {
+        match hinting {
+            HintingOptions::None => FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING,
+            HintingOptions::Vertical(_) => FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT,
+            HintingOptions::VerticalSubpixel(_) => FT_LOAD_DEFAULT | FT_LOAD_TARGET_LCD,
+            HintingOptions::Full(_) => FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL,
+        }
+    }
 }
 
 impl Clone for Font {
@@ -596,6 +694,22 @@ impl Face for Font {
     #[inline]
     fn metrics(&self) -> Metrics {
         self.metrics()
+    }
+
+    #[inline]
+    fn rasterize_glyph(&self,
+                       canvas: &mut Canvas,
+                       glyph_id: u32,
+                       point_size: f32,
+                       origin: &Point2D<f32>,
+                       hinting_options: HintingOptions,
+                       rasterization_options: RasterizationOptions) {
+        self.rasterize_glyph(canvas,
+                             glyph_id,
+                             point_size,
+                             origin,
+                             hinting_options,
+                             rasterization_options)
     }
 }
 

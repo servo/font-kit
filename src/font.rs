@@ -8,6 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use canvas::{Canvas, RasterizationOptions};
 use euclid::{Point2D, Rect, Vector2D};
 use lyon_path::builder::PathBuilder;
 use std::fs::File;
@@ -72,6 +73,27 @@ pub trait Face: Clone + Sized {
     fn origin(&self, _: u32) -> Point2D<f32>;
 
     fn metrics(&self) -> Metrics;
+
+    fn raster_bounds(&self,
+                     glyph_id: u32,
+                     point_size: f32,
+                     origin: &Point2D<f32>,
+                     _: HintingOptions,
+                     _: RasterizationOptions)
+                     -> Rect<i32> {
+        let typographic_bounds = self.typographic_bounds(glyph_id);
+        let typographic_raster_bounds = typographic_bounds * point_size /
+            self.metrics().units_per_em as f32;
+        typographic_raster_bounds.translate(&origin.to_vector()).round_out().to_i32()
+    }
+
+    fn rasterize_glyph(&self,
+                       canvas: &mut Canvas,
+                       glyph_id: u32,
+                       point_size: f32,
+                       origin: &Point2D<f32>,
+                       hinting_options: HintingOptions,
+                       rasterization_options: RasterizationOptions);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
