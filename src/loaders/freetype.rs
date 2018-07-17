@@ -544,6 +544,7 @@ impl Font {
             let bitmap_stride = (*bitmap).pitch as usize;
             let bitmap_width = (*bitmap).width as usize;
             let bitmap_height = (*bitmap).rows as usize;
+            let bitmap_size = Size2D::new(bitmap_width, bitmap_height);
             let bitmap_buffer = (*bitmap).buffer as *const i8 as *const u8;
             let bitmap_length = bitmap_stride * bitmap_height;
             let buffer = slice::from_raw_parts(bitmap_buffer, bitmap_length);
@@ -556,18 +557,7 @@ impl Font {
                 _ => panic!("Unexpected FreeType pixel mode!"),
             };
 
-            let width = cmp::min(bitmap_width, canvas.size.width as usize);
-            let height = cmp::min(bitmap_height, canvas.size.height as usize);
-            let dest_bytes_per_pixel = canvas.format.bytes_per_pixel() as usize;
-
-            for y in 0..height {
-                let (dest_row_start, src_row_start) = (y * canvas.stride, y * bitmap_stride);
-                let dest_row_end = dest_row_start + width * dest_bytes_per_pixel;
-                let src_row_end = src_row_start + width * bitmap_bits_per_pixel / 8;
-                let dest_row_pixels = &mut canvas.pixels[dest_row_start..dest_row_end];
-                let src_row_pixels = &buffer[src_row_start..src_row_end];
-                dest_row_pixels.clone_from_slice(src_row_pixels)
-            }
+            canvas.blit_from(&bitmap_size, bitmap_stride, buffer, bitmap_bits_per_pixel);
 
             FT_Set_Transform(self.freetype_face, ptr::null_mut(), ptr::null_mut());
         }

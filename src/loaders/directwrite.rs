@@ -11,8 +11,12 @@
 use dwrote::FontFace as DWriteFontFace;
 use dwrote::FontFile as DWriteFontFile;
 use dwrote::FontStyle as DWriteFontStyle;
+use dwrote::GlyphOffset as DWriteGlyphOffset;
+use dwrote::GlyphRunAnalysis as DWriteGlyphRunAnalysis;
 use dwrote::InformationalStringId as DWriteInformationalStringId;
-use dwrote::OutlineBuilder;
+use dwrote::{DWRITE_GLYPH_RUN, DWRITE_MEASURING_MODE_NATURAL, DWRITE_RENDERING_MODE_ALIASED};
+use dwrote::{DWRITE_RENDERING_MODE_NATURAL, DWRITE_TEXTURE_ALIASED_1x1};
+use dwrote::{DWRITE_TEXTURE_CLEARTYPE_3x1, OutlineBuilder};
 use euclid::{Point2D, Rect, Size2D, Vector2D};
 use lyon_path::PathEvent;
 use lyon_path::builder::PathBuilder;
@@ -22,7 +26,9 @@ use std::io::{Read, Seek, SeekFrom};
 use std::ops::Deref;
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
+use winapi::shared::minwindef::FALSE;
 
+use canvas::{Canvas, Format, RasterizationOptions};
 use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use font::{Face, HintingOptions, Metrics, Type};
 
@@ -203,6 +209,107 @@ impl Font {
             })
         }
     }
+
+    #[inline]
+    pub fn raster_bounds(&self,
+                         glyph_id: u32,
+                         point_size: f32,
+                         origin: &Point2D<f32>,
+                         hinting_options: HintingOptions,
+                         rasterization_options: RasterizationOptions)
+                         -> Rect<i32> {
+        <Self as Face>::raster_bounds(self,
+                                      glyph_id,
+                                      point_size,
+                                      origin,
+                                      hinting_options,
+                                      rasterization_options)
+    }
+
+    // TODO(pcwalton): This is woefully incomplete. See WebRender's code for a more complete
+    // implementation.
+    pub fn rasterize_glyph(&self,
+                           canvas: &mut Canvas,
+                           glyph_id: u32,
+                           point_size: f32,
+                           origin: &Point2D<f32>,
+                           hinting_options: HintingOptions,
+                           rasterization_options: RasterizationOptions) {
+        let dwrite_analysis = self.build_glyph_analysis(glyph_id,
+                                                        point_size,
+                                                        origin,
+                                                        hinting_options,
+                                                        rasterization_options);
+
+        let texture_type = match rasterization_options {
+            RasterizationOptions::Bilevel => DWRITE_TEXTURE_ALIASED_1x1,
+            RasterizationOptions::GrayscaleAa | RasterizationOptions::SubpixelAa => {
+                DWRITE_TEXTURE_CLEARTYPE_3x1
+            }
+        };
+
+        // TODO(pcwalton): Avoid a copy in some cases by writing directly to the canvas.
+        let texture_bounds = dwrite_analysis.get_alpha_texture_bounds(texture_type);
+        let texture_format = if texture_type == DWRITE_TEXTURE_ALIASED_1x1 {
+            Format::A8
+        } else {
+            Format::Rgb24
+        };
+        let texture_bits_per_pixel = texture_format.bits_per_pixel();
+        let texture_bytes_per_pixel = texture_bits_per_pixel as usize / 8;
+        let texture_width = texture_bounds.right - texture_bounds.left;
+        let texture_height = texture_bounds.bottom - texture_bounds.top;
+        let texture_size = Size2D::new(texture_width, texture_height).to_u32();
+        let texture_stride = texture_width as usize * texture_bytes_per_pixel;
+
+        let mut texture_bytes = dwrite_analysis.create_alpha_texture(texture_type, texture_bounds);
+        canvas.blit_from(&mut texture_bytes,
+                         &texture_size,
+                         texture_stride,
+                         texture_format);
+    }
+
+    fn build_glyph_analysis(&self,
+                            glyph_id: u32,
+                            point_size: f32,
+                            origin: &Point2D<f32>,
+                            hinting_options: HintingOptions,
+                            rasterization_options: RasterizationOptions)
+                            -> DWriteGlyphRunAnalysis {
+        unsafe {
+            let glyph_id = glyph_id as u16;
+            let advance = 0.0;
+            let offset = DWriteGlyphOffset {
+                advanceOffset: 0.0,
+                ascenderOffset: 0.0,
+            };
+            let glyph_run = DWRITE_GLYPH_RUN {
+                fontFace: self.dwrite_font_face.as_ptr(),
+                fontEmSize: point_size,
+                glyphCount: 1,
+                glyphIndices: &glyph_id,
+                glyphAdvances: &advance,
+                glyphOffsets: &offset,
+                isSideways: FALSE,
+                bidiLevel: 0,
+            };
+
+            let rendering_mode = match rasterization_options {
+                RasterizationOptions::Bilevel => DWRITE_RENDERING_MODE_ALIASED,
+                RasterizationOptions::GrayscaleAa | RasterizationOptions::SubpixelAa => {
+                    DWRITE_RENDERING_MODE_NATURAL
+                }
+            };
+
+            DWriteGlyphRunAnalysis::create(&glyph_run,
+                                           1.0,
+                                           None,
+                                           rendering_mode,
+                                           DWRITE_MEASURING_MODE_NATURAL,
+                                           0.0,
+                                           0.0)
+        }
+    }
 }
 
 impl Clone for Font {
@@ -299,6 +406,22 @@ impl Face for Font {
     #[inline]
     fn metrics(&self) -> Metrics {
         self.metrics()
+    }
+
+    #[inline]
+    fn rasterize_glyph(&self,
+                       canvas: &mut Canvas,
+                       glyph_id: u32,
+                       point_size: f32,
+                       origin: &Point2D<f32>,
+                       hinting_options: HintingOptions,
+                       rasterization_options: RasterizationOptions) {
+        self.rasterize_glyph(canvas,
+                             glyph_id,
+                             point_size,
+                             origin,
+                             hinting_options,
+                             rasterization_options)
     }
 }
 

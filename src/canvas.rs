@@ -9,6 +9,7 @@
 // except according to those terms.
 
 use euclid::Size2D;
+use std::cmp;
 
 pub struct Canvas {
     pub pixels: Vec<u8>,
@@ -24,6 +25,47 @@ impl Canvas {
             size: *size,
             stride,
             format,
+        }
+    }
+
+    pub(crate) fn blit_from(&mut self,
+                            src_bytes: &[u8],
+                            src_size: &Size2D<u32>,
+                            src_stride: usize,
+                            src_format: Format) {
+        let width = cmp::min(src_size.width as usize, self.size.width as usize);
+        let height = cmp::min(src_size.height as usize, self.size.height as usize);
+        let size = Size2D::new(width, height);
+
+        match (self.format, src_format) {
+            (Format::A8, Format::A8) |
+            (Format::Rgb24, Format::Rgb24) |
+            (Format::Rgba32, Format::Rgba32) => {
+                self.blit_from_with::<BlitMemcpy>(src_bytes, &size, src_stride, src_format)
+            }
+            (Format::A8, Format::Rgb24) => {
+                self.blit_from_with::<BlitRgb24ToA8>(src_bytes, &size, src_stride, src_format)
+            }
+            _ => unimplemented!()
+        }
+    }
+
+    fn blit_from_with<B>(&mut self,
+                         src_bytes: &[u8],
+                         size: &Size2D<usize>,
+                         src_stride: usize,
+                         src_format: Format)
+                         where B: Blit {
+        let src_bytes_per_pixel = src_format.bytes_per_pixel() as usize;
+        let dest_bytes_per_pixel = self.format.bytes_per_pixel() as usize;
+
+        for y in 0..size.height {
+            let (dest_row_start, src_row_start) = (y * self.stride, y * src_stride);
+            let dest_row_end = dest_row_start + size.width * dest_bytes_per_pixel;
+            let src_row_end = src_row_start + size.width * src_bytes_per_pixel;
+            let dest_row_pixels = &mut self.pixels[dest_row_start..dest_row_end];
+            let src_row_pixels = &src_bytes[src_row_start..src_row_end];
+            B::blit(dest_row_pixels, src_row_pixels)
         }
     }
 }
@@ -71,4 +113,29 @@ pub enum RasterizationOptions {
     Bilevel,
     GrayscaleAa,
     SubpixelAa,
+}
+
+trait Blit {
+    fn blit(dest: &mut [u8], src: &[u8]);
+}
+
+struct BlitMemcpy;
+
+impl Blit for BlitMemcpy {
+    #[inline]
+    fn blit(dest: &mut [u8], src: &[u8]) {
+        dest.clone_from_slice(src)
+    }
+}
+
+struct BlitRgb24ToA8;
+
+impl Blit for BlitRgb24ToA8 {
+    #[inline]
+    fn blit(dest: &mut [u8], src: &[u8]) {
+        // TODO(pcwalton): SIMD.
+        for (dest, src) in dest.iter_mut().zip(src.chunks(3)) {
+            *dest = src[1]
+        }
+    }
 }

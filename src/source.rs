@@ -35,8 +35,6 @@ pub trait Source {
 
     fn select_family(&self, family_name: &str) -> Family;
 
-    fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()>;
-
     // FIXME(pcwalton): This only returns one family instead of multiple families for the generic
     // family names.
     #[doc(hidden)]
@@ -56,6 +54,21 @@ pub trait Source {
         for family in &spec.families {
             if let Ok(font) = self.select_family_spec(family).find(&spec.properties) {
                 return Ok(font)
+            }
+        }
+        Err(())
+    }
+
+    /// The default implementation, which is used by the DirectWrite and the filesystem backends,
+    /// does a brute-force search of installed fonts to find the font.
+    fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
+        // TODO(pcwalton): Search for families with similar names first.
+        for family_name in self.all_families() {
+            let family = self.select_family(&family_name);
+            for font in family.fonts() {
+                if font.postscript_name() == postscript_name {
+                    return Ok((*font).clone())
+                }
             }
         }
         Err(())

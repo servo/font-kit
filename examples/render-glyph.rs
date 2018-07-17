@@ -19,7 +19,8 @@ use std::env;
 use std::process;
 
 fn usage() -> ! {
-    eprintln!("usage: render-glyph POSTSCRIPT-NAME CHARACTER SIZE WIDTH HEIGHT");
+    eprintln!("usage: render-glyph POSTSCRIPT-NAME CHARACTER SIZE");
+    eprintln!("    example: render-glyph ArialMT a 32");
     process::exit(0)
 }
 

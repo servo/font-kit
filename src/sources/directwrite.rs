@@ -59,6 +59,10 @@ impl DirectWriteSource {
     pub fn find(&self, spec: &Spec) -> Result<Font, ()> {
         <Self as Source>::find(self, spec)
     }
+
+    pub fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
+        <Self as Source>::find_by_postscript_name(self, postscript_name)
+    }
 }
 
 impl Source for DirectWriteSource {
