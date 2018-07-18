@@ -16,7 +16,7 @@
 //! support for retrieving hinted outlines.
 
 use byteorder::{BigEndian, ReadBytesExt};
-use canvas::{Canvas, RasterizationOptions};
+use canvas::{Canvas, Format, RasterizationOptions};
 use euclid::{Point2D, Rect, Size2D, Vector2D};
 use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_FACE_FLAG_FIXED_WIDTH, FT_Face};
 use freetype::freetype::{FT_Get_Char_Index, FT_Get_Postscript_Name, FT_Get_Sfnt_Table};
@@ -542,22 +542,22 @@ impl Font {
             // that mode.
             let bitmap = &(*(*self.freetype_face).glyph).bitmap;
             let bitmap_stride = (*bitmap).pitch as usize;
-            let bitmap_width = (*bitmap).width as usize;
-            let bitmap_height = (*bitmap).rows as usize;
+            let bitmap_width = (*bitmap).width as u32;
+            let bitmap_height = (*bitmap).rows as u32;
             let bitmap_size = Size2D::new(bitmap_width, bitmap_height);
             let bitmap_buffer = (*bitmap).buffer as *const i8 as *const u8;
-            let bitmap_length = bitmap_stride * bitmap_height;
+            let bitmap_length = bitmap_stride * bitmap_height as usize;
             let buffer = slice::from_raw_parts(bitmap_buffer, bitmap_length);
 
             // FIXME(pcwalton): This function should return a Result instead.
-            let bitmap_bits_per_pixel = match (*bitmap).pixel_mode {
+            let bitmap_format = match (*bitmap).pixel_mode {
                 FT_PIXEL_MODE_MONO => unimplemented!(),
-                FT_PIXEL_MODE_GRAY => 8,
-                FT_PIXEL_MODE_LCD | FT_PIXEL_MODE_LCD_V => 24,
+                FT_PIXEL_MODE_GRAY => Format::A8,
+                FT_PIXEL_MODE_LCD | FT_PIXEL_MODE_LCD_V => Format::Rgb24,
                 _ => panic!("Unexpected FreeType pixel mode!"),
             };
 
-            canvas.blit_from(&bitmap_size, bitmap_stride, buffer, bitmap_bits_per_pixel);
+            canvas.blit_from(buffer, &bitmap_size, bitmap_stride, bitmap_format);
 
             FT_Set_Transform(self.freetype_face, ptr::null_mut(), ptr::null_mut());
         }
