@@ -14,6 +14,8 @@ pub mod core_text;
 pub mod directwrite;
 #[cfg(any(not(any(target_os = "macos", target_family = "windows")),
           feature = "source-fontconfig"))]
+
 pub mod fontconfig;
 pub mod fs;
 pub mod mem;
+pub mod multi;
