@@ -21,10 +21,9 @@ use euclid::{Point2D, Rect, Size2D, Vector2D};
 use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_FACE_FLAG_FIXED_WIDTH, FT_Face};
 use freetype::freetype::{FT_Get_Char_Index, FT_Get_Postscript_Name, FT_Get_Sfnt_Table};
 use freetype::freetype::{FT_Init_FreeType, FT_LOAD_DEFAULT, FT_LOAD_NO_HINTING, FT_Library};
-use freetype::freetype::{FT_Load_Glyph, FT_Long, FT_New_Memory_Face};
-use freetype::freetype::{FT_Reference_Face, FT_Render_Glyph, FT_Render_Mode};
-use freetype::freetype::{FT_STYLE_FLAG_ITALIC, FT_Set_Char_Size, FT_Set_Transform, FT_Sfnt_Tag, FT_UInt, FT_ULong};
-use freetype::freetype::{FT_UShort, FT_Vector};
+use freetype::freetype::{FT_Load_Glyph, FT_Long, FT_New_Memory_Face, FT_Reference_Face};
+use freetype::freetype::{FT_Render_Glyph, FT_Render_Mode, FT_STYLE_FLAG_ITALIC, FT_Set_Char_Size};
+use freetype::freetype::{FT_Set_Transform, FT_Sfnt_Tag, FT_UInt, FT_ULong, FT_UShort, FT_Vector};
 use freetype::tt_os2::TT_OS2;
 use lyon_path::builder::PathBuilder;
 use memmap::Mmap;
@@ -47,6 +46,7 @@ use std::sync::Arc;
 use core_text::font::CTFont;
 
 use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
+use error::{FontLoadingError, GlyphLoadingError};
 use font::{Face, HintingOptions, Metrics, Type};
 
 const PS_DICT_FULL_NAME: u32 = 38;
@@ -91,17 +91,20 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Font, ()> {
+    pub fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Font, FontLoadingError> {
         FREETYPE_LIBRARY.with(|freetype_library| {
             unsafe {
                 let mut freetype_face = ptr::null_mut();
-                assert_eq!(FT_New_Memory_Face(*freetype_library,
-                                              (*font_data).as_ptr(),
-                                              font_data.len() as i64,
-                                              font_index as FT_Long,
-                                              &mut freetype_face),
-                           0);
+                if FT_New_Memory_Face(*freetype_library,
+                                      (*font_data).as_ptr(),
+                                      font_data.len() as i64,
+                                      font_index as FT_Long,
+                                      &mut freetype_face) != 0 {
+                    return Err(FontLoadingError::Parse)
+                }
+
                 setup_freetype_face(freetype_face);
+
                 Ok(Font {
                     freetype_face,
                     font_data: FontData::Memory(font_data),
@@ -110,18 +113,21 @@ impl Font {
         })
     }
 
-    pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, ()> {
+    pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
         unsafe {
-            let mmap = try!(Mmap::map(&file).map_err(drop));
+            let mmap = try!(Mmap::map(&file));
             FREETYPE_LIBRARY.with(|freetype_library| {
                 let mut freetype_face = ptr::null_mut();
-                assert_eq!(FT_New_Memory_Face(*freetype_library,
-                                              (*mmap).as_ptr(),
-                                              mmap.len() as i64,
-                                              font_index as FT_Long,
-                                              &mut freetype_face),
-                           0);
+                if FT_New_Memory_Face(*freetype_library,
+                                      (*mmap).as_ptr(),
+                                      mmap.len() as i64,
+                                      font_index as FT_Long,
+                                      &mut freetype_face) != 0 {
+                    return Err(FontLoadingError::Parse)
+                }
+
                 setup_freetype_face(freetype_face);
+
                 Ok(Font {
                     freetype_face,
                     font_data: FontData::File(Arc::new(mmap)),
@@ -131,7 +137,8 @@ impl Font {
     }
 
     #[inline]
-    pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, ()> where P: AsRef<Path> {
+    pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, FontLoadingError>
+                        where P: AsRef<Path> {
         // TODO(pcwalton): Perhaps use the native FreeType support for opening paths?
         <Font as Face>::from_path(path, font_index)
     }
@@ -164,7 +171,7 @@ impl Font {
         Font::from_file(&mut File::open(path).unwrap(), 0).unwrap()
     }
 
-    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<Type, ()> {
+    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<Type, FontLoadingError> {
         FREETYPE_LIBRARY.with(|freetype_library| {
             unsafe {
                 let mut freetype_face = ptr::null_mut();
@@ -173,8 +180,9 @@ impl Font {
                                       font_data.len() as i64,
                                       0,
                                       &mut freetype_face) != 0 {
-                    return Err(())
+                    return Err(FontLoadingError::Parse)
                 }
+
                 let font_type = match (*freetype_face).num_faces {
                     1 => Type::Single,
                     num_faces => Type::Collection(num_faces as u32),
@@ -185,18 +193,19 @@ impl Font {
         })
     }
 
-    pub fn analyze_file(file: &mut File) -> Result<Type, ()> {
+    pub fn analyze_file(file: &mut File) -> Result<Type, FontLoadingError> {
         FREETYPE_LIBRARY.with(|freetype_library| {
             unsafe {
-                let mmap = try!(Mmap::map(&file).map_err(drop));
+                let mmap = try!(Mmap::map(&file));
                 let mut freetype_face = ptr::null_mut();
                 if FT_New_Memory_Face(*freetype_library,
                                       (*mmap).as_ptr(),
                                       mmap.len() as i64,
                                       0,
                                       &mut freetype_face) != 0 {
-                    return Err(())
+                    return Err(FontLoadingError::Parse)
                 }
+
                 let font_type = match (*freetype_face).num_faces {
                     1 => Type::Single,
                     num_faces => Type::Collection(num_faces as u32),
@@ -208,7 +217,7 @@ impl Font {
     }
 
     #[inline]
-    pub fn analyze_path<P>(path: P) -> Result<Type, ()> where P: AsRef<Path> {
+    pub fn analyze_path<P>(path: P) -> Result<Type, FontLoadingError> where P: AsRef<Path> {
         <Self as Face>::analyze_path(path)
     }
 
@@ -273,7 +282,7 @@ impl Font {
     }
 
     pub fn outline<B>(&self, glyph_id: u32, hinting: HintingOptions, path_builder: &mut B)
-                      -> Result<(), ()>
+                      -> Result<(), GlyphLoadingError>
                       where B: PathBuilder {
         unsafe {
             let load_flags = self.hinting_options_to_load_flags(hinting);
@@ -289,7 +298,9 @@ impl Font {
                            0);
             }
 
-            assert_eq!(FT_Load_Glyph(self.freetype_face, glyph_id, load_flags as i32), 0);
+            if FT_Load_Glyph(self.freetype_face, glyph_id, load_flags as i32) != 0 {
+                return Err(GlyphLoadingError::NoSuchGlyph)
+            }
 
             let outline = &(*(*self.freetype_face).glyph).outline;
             let contours = slice::from_raw_parts((*outline).contours,
@@ -344,6 +355,7 @@ impl Font {
                 reset_freetype_face_char_size((*self).freetype_face)
             }
         }
+
         return Ok(());
 
         fn get_point(current_point_index: &mut usize,
@@ -368,34 +380,38 @@ impl Font {
         }
     }
 
-    pub fn typographic_bounds(&self, glyph_id: u32) -> Rect<f32> {
+    pub fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError> {
         unsafe {
-            assert_eq!(FT_Load_Glyph(self.freetype_face,
-                                     glyph_id,
-                                     (FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING) as i32),
-                       0);
+            if FT_Load_Glyph(self.freetype_face,
+                             glyph_id,
+                             (FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING) as i32) != 0 {
+                return Err(GlyphLoadingError::NoSuchGlyph)
+            }
+
             let metrics = &(*(*self.freetype_face).glyph).metrics;
-            Rect::new(Point2D::new(ft_fixed_26_6_to_f32(metrics.horiBearingX),
-                                   ft_fixed_26_6_to_f32(metrics.horiBearingY - metrics.height)),
-                      Size2D::new(ft_fixed_26_6_to_f32(metrics.width),
-                                  ft_fixed_26_6_to_f32(metrics.height)))
+            Ok(Rect::new(Point2D::new(ft_fixed_26_6_to_f32(metrics.horiBearingX),
+                                      ft_fixed_26_6_to_f32(metrics.horiBearingY - metrics.height)),
+                         Size2D::new(ft_fixed_26_6_to_f32(metrics.width),
+                                     ft_fixed_26_6_to_f32(metrics.height))))
         }
     }
 
-    pub fn advance(&self, glyph_id: u32) -> Vector2D<f32> {
+    pub fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError> {
         unsafe {
-            assert_eq!(FT_Load_Glyph(self.freetype_face,
-                                     glyph_id,
-                                     (FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING) as i32),
-                       0);
+            if FT_Load_Glyph(self.freetype_face,
+                             glyph_id,
+                             (FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING) as i32) != 0 {
+                return Err(GlyphLoadingError::NoSuchGlyph)
+            }
+
             let advance = (*(*self.freetype_face).glyph).advance;
-            Vector2D::new(ft_fixed_26_6_to_f32(advance.x), ft_fixed_26_6_to_f32(advance.y))
+            Ok(Vector2D::new(ft_fixed_26_6_to_f32(advance.x), ft_fixed_26_6_to_f32(advance.y)))
         }
     }
 
-    pub fn origin(&self, _: u32) -> Point2D<f32> {
+    pub fn origin(&self, _: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
         // FIXME(pcwalton): This can't be right!
-        Point2D::zero()
+        Ok(Point2D::zero())
     }
 
     pub fn metrics(&self) -> Metrics {
@@ -423,6 +439,22 @@ impl Font {
         match self.font_data {
             FontData::File(_) | FontData::Memory(_) => Some(self.font_data.clone()),
             FontData::Unused(_) => unreachable!(),
+        }
+    }
+
+    #[inline]
+    pub fn supports_hinting_options(&self,
+                                    hinting_options: HintingOptions,
+                                    for_rasterization: bool)
+                                    -> bool {
+        match (hinting_options, for_rasterization) {
+            (HintingOptions::None, _) |
+            (HintingOptions::Vertical(_), true) |
+            (HintingOptions::VerticalSubpixel(_), true) |
+            (HintingOptions::Full(_), true) => true,
+            (HintingOptions::Vertical(_), false) |
+            (HintingOptions::VerticalSubpixel(_), false) |
+            (HintingOptions::Full(_), false) => false,
         }
     }
 
@@ -495,7 +527,7 @@ impl Font {
                          origin: &Point2D<f32>,
                          hinting_options: HintingOptions,
                          rasterization_options: RasterizationOptions)
-                         -> Rect<i32> {
+                         -> Result<Rect<i32>, GlyphLoadingError> {
         <Self as Face>::raster_bounds(self,
                                       glyph_id,
                                       point_size,
@@ -512,7 +544,8 @@ impl Font {
                            point_size: f32,
                            origin: &Point2D<f32>,
                            hinting_options: HintingOptions,
-                           rasterization_options: RasterizationOptions) {
+                           rasterization_options: RasterizationOptions)
+                           -> Result<(), GlyphLoadingError> {
         unsafe {
             let mut delta = FT_Vector {
                 x: f32_to_ft_fixed_26_6(origin.x),
@@ -528,7 +561,9 @@ impl Font {
                        0);
 
             let load_flags = self.hinting_options_to_load_flags(hinting_options);
-            assert_eq!(FT_Load_Glyph(self.freetype_face, glyph_id, load_flags as i32), 0);
+            if FT_Load_Glyph(self.freetype_face, glyph_id, load_flags as i32) != 0 {
+                return Err(GlyphLoadingError::NoSuchGlyph)
+            }
 
             let render_mode = match rasterization_options {
                 RasterizationOptions::Bilevel => FT_Render_Mode::FT_RENDER_MODE_MONO,
@@ -560,6 +595,8 @@ impl Font {
             canvas.blit_from(buffer, &bitmap_size, bitmap_stride, bitmap_format);
 
             FT_Set_Transform(self.freetype_face, ptr::null_mut(), ptr::null_mut());
+
+            Ok(())
         }
     }
 
@@ -605,16 +642,16 @@ impl Face for Font {
     type NativeFont = NativeFont;
 
     #[inline]
-    fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Self, ()> {
+    fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Self, FontLoadingError> {
         Font::from_bytes(font_data, font_index)
     }
 
     #[inline]
-    fn from_file(file: &mut File, font_index: u32) -> Result<Font, ()> {
+    fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
         Font::from_file(file, font_index)
     }
 
-    fn analyze_file(file: &mut File) -> Result<Type, ()> {
+    fn analyze_file(file: &mut File) -> Result<Type, FontLoadingError> {
         Font::analyze_file(file)
     }
 
@@ -661,23 +698,23 @@ impl Face for Font {
 
     #[inline]
     fn outline<B>(&self, glyph_id: u32, hinting_mode: HintingOptions, path_builder: &mut B)
-                  -> Result<(), ()>
+                  -> Result<(), GlyphLoadingError>
                   where B: PathBuilder {
         self.outline(glyph_id, hinting_mode, path_builder)
     }
 
     #[inline]
-    fn typographic_bounds(&self, glyph_id: u32) -> Rect<f32> {
+    fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError> {
         self.typographic_bounds(glyph_id)
     }
 
     #[inline]
-    fn advance(&self, glyph_id: u32) -> Vector2D<f32> {
+    fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError> {
         self.advance(glyph_id)
     }
 
     #[inline]
-    fn origin(&self, origin: u32) -> Point2D<f32> {
+    fn origin(&self, origin: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
         self.origin(origin)
     }
 
@@ -687,13 +724,20 @@ impl Face for Font {
     }
 
     #[inline]
+    fn supports_hinting_options(&self, hinting_options: HintingOptions, for_rasterization: bool)
+                                -> bool {
+        self.supports_hinting_options(hinting_options, for_rasterization)
+    }
+
+    #[inline]
     fn rasterize_glyph(&self,
                        canvas: &mut Canvas,
                        glyph_id: u32,
                        point_size: f32,
                        origin: &Point2D<f32>,
                        hinting_options: HintingOptions,
-                       rasterization_options: RasterizationOptions) {
+                       rasterization_options: RasterizationOptions)
+                       -> Result<(), GlyphLoadingError> {
         self.rasterize_glyph(canvas,
                              glyph_id,
                              point_size,

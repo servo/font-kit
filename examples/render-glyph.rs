@@ -45,7 +45,8 @@ fn main() {
                                          size,
                                          &Point2D::zero(),
                                          HintingOptions::None,
-                                         RasterizationOptions::GrayscaleAa);
+                                         RasterizationOptions::GrayscaleAa)
+                          .unwrap();
 
     let stride = raster_rect.size.width as usize;
     let mut canvas = Canvas::new(&raster_rect.size.to_u32(), stride, Format::A8);
@@ -55,7 +56,8 @@ fn main() {
                          size,
                          &Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32(),
                          HintingOptions::None,
-                         RasterizationOptions::GrayscaleAa);
+                         RasterizationOptions::GrayscaleAa)
+        .unwrap();
 
     println!("glyph {}:", glyph_id);
     for y in 0..raster_rect.size.height {

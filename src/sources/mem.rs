@@ -23,15 +23,15 @@ use winapi::um::sysinfoapi;
 
 use descriptor::Spec;
 use family::Family;
-use font::Font;
+use font::{Face, Font};
 use source::Source;
 
-pub struct MemSource {
-    families: Vec<FamilyEntry>,
+pub struct MemSource<F = Font> where F: Face {
+    families: Vec<FamilyEntry<F>>,
 }
 
-impl MemSource {
-    pub fn from_fonts<I>(fonts: I) -> MemSource where I: Iterator<Item = Font> {
+impl<F> MemSource<F> where F: Face {
+    pub fn from_fonts<FX, I>(fonts: I) -> MemSource<FX> where FX: Face, I: Iterator<Item = FX> {
         let mut families: Vec<_> = fonts.map(|font| {
             let family_name = font.family_name();
             FamilyEntry {
@@ -55,7 +55,7 @@ impl MemSource {
     }
 
     // FIXME(pcwalton): Case-insensitive comparison.
-    pub fn select_family(&self, family_name: &str) -> Family {
+    pub fn select_family_with_loader<FX>(&self, family_name: &str) -> Family<FX> where FX: Face {
         let mut first_family_index = match self.families.binary_search_by(|family| {
             (&*family.family_name).cmp(family_name)
         }) {
@@ -105,7 +105,7 @@ impl Source for MemSource {
     }
 }
 
-struct FamilyEntry {
+struct FamilyEntry<F = Font> where F: Face {
     family_name: String,
-    font: Font,
+    font: F,
 }

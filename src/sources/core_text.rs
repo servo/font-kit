@@ -20,8 +20,9 @@ use std::cmp::Ordering;
 use std::f32;
 
 use descriptor::{FONT_STRETCH_MAPPING, Stretch, Spec, Weight};
+use error::SelectionError;
 use family::Family;
-use font::Font;
+use font::{Face, Font};
 use source::Source;
 use utils;
 
@@ -35,7 +36,6 @@ impl CoreTextSource {
         CoreTextSource
     }
 
-    #[inline]
     pub fn all_families(&self) -> Vec<String> {
         let core_text_family_names = font_manager::copy_available_font_family_names();
         let mut families = Vec::with_capacity(core_text_family_names.len() as usize);
@@ -57,7 +57,9 @@ impl CoreTextSource {
         Family::from_fonts(fonts_in_core_text_collection(collection).into_iter())
     }
 
-    pub fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
+    pub fn find_by_postscript_name_with_loader<F>(&self, postscript_name: &str)
+                                                  -> Result<F, SelectionError>
+                                                  where F: Face {
         let attributes: CFDictionary<CFString, CFType> = CFDictionary::from_CFType_pairs(&[
             (CFString::new("NSFontNameAttribute"), CFString::new(postscript_name).as_CFType()),
         ]);
@@ -71,29 +73,32 @@ impl CoreTextSource {
                 unsafe {
                     let descriptor = (*descriptors.get(0).unwrap()).clone();
                     let core_text_font = core_text::font::new_from_descriptor(&descriptor, 12.0);
-                    Ok(Font::from_core_text_font(core_text_font))
+                    Ok(F::from_core_text_font(core_text_font))
                 }
             }
-            Some(_) | None => Err(()),
+            Some(_) | None => Err(SelectionError::NotFound),
         }
     }
 
-    pub fn find(&self, spec: &Spec) -> Result<Font, ()> {
+    pub fn find(&self, spec: &Spec) -> Result<Font, SelectionError> {
         <Self as Source>::find(self, spec)
     }
 }
 
 impl Source for CoreTextSource {
-    fn all_families(&self) -> Vec<String> {
+    fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         self.all_families()
     }
 
-    fn select_family(&self, family_name: &str) -> Family {
-        self.select_family(family_name)
+    fn select_family_with_loader<F>(&self, family_name: &str) -> Result<Family<F>, SelectionError>
+                                    where F: Face {
+        self.select_family_with_loader(family_name)
     }
 
-    fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
-        self.find_by_postscript_name(postscript_name)
+    fn find_by_postscript_name_with_loader<F>(&self, postscript_name: &str)
+                                              -> Result<F, SelectionError>
+                                              where F: Face {
+        self.find_by_postscript_name_with_loader(postscript_name)
     }
 }
 

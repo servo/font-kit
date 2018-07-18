@@ -13,6 +13,7 @@ use core_graphics::base::{CGFloat, kCGImageAlphaNoneSkipLast, kCGImageAlphaPremu
 use core_graphics::color_space::CGColorSpace;
 use core_graphics::context::{CGContext, CGTextDrawingMode};
 use core_graphics::data_provider::CGDataProvider;
+use core_graphics::display::CGRectNull;
 use core_graphics::font::{CGFont, CGGlyph};
 use core_graphics::geometry::{CG_AFFINE_TRANSFORM_IDENTITY, CG_ZERO_POINT, CG_ZERO_SIZE, CGPoint};
 use core_graphics::geometry::{CGRect, CGSize};
@@ -36,6 +37,7 @@ use std::sync::Arc;
 
 use canvas::{Canvas, Format, RasterizationOptions};
 use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
+use error::{FontLoadingError, GlyphLoadingError};
 use font::{Face, HintingOptions, Metrics, Type};
 use sources;
 use utils;
@@ -54,7 +56,8 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn from_bytes(mut font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Font, ()> {
+    pub fn from_bytes(mut font_data: Arc<Vec<u8>>, font_index: u32)
+                      -> Result<Font, FontLoadingError> {
         // Sadly, there's no API to load OpenType collections on macOS, I don't believe…
         if font_is_collection(&**font_data) {
             let mut new_font_data = (*font_data).clone();
@@ -63,7 +66,8 @@ impl Font {
         }
 
         let data_provider = CGDataProvider::from_buffer(font_data.clone());
-        let core_graphics_font = try!(CGFont::from_data_provider(data_provider).map_err(drop));
+        let core_graphics_font =
+            try!(CGFont::from_data_provider(data_provider).map_err(|_| FontLoadingError::Parse));
         let core_text_font = core_text::font::new_from_CGFont(&core_graphics_font, 16.0);
         Ok(Font {
             core_text_font,
@@ -71,15 +75,16 @@ impl Font {
         })
     }
 
-    pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, ()> {
+    pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
         let mut font_data = vec![];
-        try!(file.seek(SeekFrom::Start(0)).map_err(drop));
-        try!(file.read_to_end(&mut font_data).map_err(drop));
+        try!(file.seek(SeekFrom::Start(0)));
+        try!(file.read_to_end(&mut font_data));
         Font::from_bytes(Arc::new(font_data), font_index)
     }
 
     #[inline]
-    pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, ()> where P: AsRef<Path> {
+    pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, FontLoadingError>
+                        where P: AsRef<Path> {
         <Font as Face>::from_path(path, font_index)
     }
 
@@ -87,7 +92,7 @@ impl Font {
         Font::from_core_text_font(core_text_font)
     }
 
-    pub unsafe fn from_core_text_font(core_text_font: NativeFont) -> Font {
+    unsafe fn from_core_text_font(core_text_font: NativeFont) -> Font {
         let mut font_data = FontData::Unavailable;
         match core_text_font.url() {
             None => warn!("No URL found for Core Text font!"),
@@ -115,26 +120,26 @@ impl Font {
         }
     }
 
-    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<Type, ()> {
+    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<Type, FontLoadingError> {
         if let Ok(font_count) = read_number_of_fonts_from_otc_header(&font_data) {
             return Ok(Type::Collection(font_count))
         }
         let data_provider = CGDataProvider::from_buffer(font_data);
         match CGFont::from_data_provider(data_provider) {
             Ok(_) => Ok(Type::Single),
-            Err(_) => Err(()),
+            Err(_) => Err(FontLoadingError::Parse),
         }
     }
 
-    pub fn analyze_file(file: &mut File) -> Result<Type, ()> {
+    pub fn analyze_file(file: &mut File) -> Result<Type, FontLoadingError> {
         let mut font_data = vec![];
-        try!(file.seek(SeekFrom::Start(0)).map_err(drop));
-        try!(file.read_to_end(&mut font_data).map_err(drop));
+        try!(file.seek(SeekFrom::Start(0)));
+        try!(file.read_to_end(&mut font_data));
         Font::analyze_bytes(Arc::new(font_data))
     }
 
     #[inline]
-    pub fn analyze_path<P>(path: P) -> Result<Type, ()> where P: AsRef<Path> {
+    pub fn analyze_path<P>(path: P) -> Result<Type, FontLoadingError> where P: AsRef<Path> {
         <Self as Face>::analyze_path(path)
     }
 
@@ -200,10 +205,11 @@ impl Font {
     }
 
     pub fn outline<B>(&self, glyph_id: u32, _: HintingOptions, path_builder: &mut B)
-                      -> Result<(), ()>
+                      -> Result<(), GlyphLoadingError>
                       where B: PathBuilder {
-        let path = try!(self.core_text_font.create_path_for_glyph(glyph_id as u16,
-                                                                  &CG_AFFINE_TRANSFORM_IDENTITY));
+        let path = try!(self.core_text_font
+                            .create_path_for_glyph(glyph_id as u16, &CG_AFFINE_TRANSFORM_IDENTITY)
+                            .map_err(|_| GlyphLoadingError::NoSuchGlyph));
         let units_per_point = self.units_per_point() as f32;
         path.apply(&|element| {
             let points = element.points();
@@ -229,32 +235,40 @@ impl Font {
         Ok(())
     }
 
-    pub fn typographic_bounds(&self, glyph_id: u32) -> Rect<f32> {
+    pub fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError> {
         let rect = self.core_text_font.get_bounding_rects_for_glyphs(kCTFontDefaultOrientation,
                                                                      &[glyph_id as u16]);
+        unsafe {
+            if rect == CGRectNull {
+                return Err(GlyphLoadingError::NoSuchGlyph)
+            }
+        }
+
         let units_per_point = self.units_per_point();
-        Rect::new(Point2D::new((rect.origin.x * units_per_point) as f32,
-                               (rect.origin.y * units_per_point) as f32),
-                  Size2D::new((rect.size.width * units_per_point) as f32,
-                              (rect.size.height * units_per_point) as f32))
+        Ok(Rect::new(Point2D::new((rect.origin.x * units_per_point) as f32,
+                                  (rect.origin.y * units_per_point) as f32),
+                     Size2D::new((rect.size.width * units_per_point) as f32,
+                                 (rect.size.height * units_per_point) as f32)))
     }
 
-    pub fn advance(&self, glyph_id: u32) -> Vector2D<f32> {
+    pub fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError> {
+        // FIXME(pcwalton): Apple's docs don't say what happens when the glyph is out of range!
         let (glyph_id, mut advance) = (glyph_id as u16, CG_ZERO_SIZE);
         self.core_text_font
             .get_advances_for_glyphs(kCTFontDefaultOrientation, &glyph_id, &mut advance, 1);
-        Vector2D::new((advance.width * self.units_per_point()) as f32,
-                      (advance.height * self.units_per_point()) as f32)
+        Ok(Vector2D::new((advance.width * self.units_per_point()) as f32,
+                         (advance.height * self.units_per_point()) as f32))
     }
 
-    pub fn origin(&self, glyph_id: u32) -> Point2D<f32> {
+    pub fn origin(&self, glyph_id: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
+        // FIXME(pcwalton): Apple's docs don't say what happens when the glyph is out of range!
         let (glyph_id, mut translation) = (glyph_id as u16, CG_ZERO_SIZE);
         self.core_text_font.get_vertical_translations_for_glyphs(kCTFontDefaultOrientation,
                                                                  &glyph_id,
                                                                  &mut translation,
                                                                  1);
-        Point2D::new((translation.width * self.units_per_point()) as f32,
-                     (translation.height * self.units_per_point()) as f32)
+        Ok(Point2D::new((translation.width * self.units_per_point()) as f32,
+                        (translation.height * self.units_per_point()) as f32))
     }
 
     pub fn metrics(&self) -> Metrics {
@@ -275,10 +289,11 @@ impl Font {
     }
 
     #[inline]
-    pub fn font_data(&self) -> Option<FontData> {
+    pub fn copy_font_data(&self) -> Option<Arc<Vec<u8>>> {
         match self.font_data {
             FontData::Unavailable => None,
-            FontData::File(_) | FontData::Memory(_) => Some(self.font_data.clone()),
+            FontData::File(ref file) => Some(Arc::new((*file).to_vec())),
+            FontData::Memory(ref memory) => Some((*memory).clone()),
             FontData::Unused(_) => unreachable!(),
         }
     }
@@ -290,7 +305,7 @@ impl Font {
                          origin: &Point2D<f32>,
                          hinting_options: HintingOptions,
                          rasterization_options: RasterizationOptions)
-                         -> Rect<i32> {
+                         -> Result<Rect<i32>, GlyphLoadingError> {
         <Self as Face>::raster_bounds(self,
                                       glyph_id,
                                       point_size,
@@ -307,7 +322,8 @@ impl Font {
                            point_size: f32,
                            origin: &Point2D<f32>,
                            _: HintingOptions,
-                           rasterization_options: RasterizationOptions) {
+                           rasterization_options: RasterizationOptions)
+                           -> Result<(), GlyphLoadingError> {
         let core_graphics_context =
             CGContext::create_bitmap_context(Some(canvas.pixels.as_mut_ptr() as *mut c_void),
                                              canvas.size.width as usize,
@@ -352,10 +368,12 @@ impl Font {
         core_graphics_context.set_text_drawing_mode(CGTextDrawingMode::CGTextFill);
         core_graphics_context.set_text_matrix(&CG_AFFINE_TRANSFORM_IDENTITY);
         core_graphics_context.show_glyphs_at_positions(&[glyph_id as CGGlyph], &[origin]);
+
+        Ok(())
     }
 
     #[inline]
-    pub fn supports_hinting_options(hinting_options: HintingOptions) -> bool {
+    pub fn supports_hinting_options(&self, hinting_options: HintingOptions, _: bool) -> bool {
         match hinting_options {
             HintingOptions::None => true,
             HintingOptions::Vertical(..) |
@@ -374,12 +392,12 @@ impl Face for Font {
     type NativeFont = NativeFont;
 
     #[inline]
-    fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Self, ()> {
+    fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Self, FontLoadingError> {
         Font::from_bytes(font_data, font_index)
     }
 
     #[inline]
-    fn from_file(file: &mut File, font_index: u32) -> Result<Font, ()> {
+    fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
         Font::from_file(file, font_index)
     }
 
@@ -388,13 +406,7 @@ impl Face for Font {
         Font::from_native_font(native_font)
     }
 
-    #[cfg(target_os = "macos")]
-    #[inline]
-    unsafe fn from_core_text_font(core_text_font: CTFont) -> Font {
-        Font::from_core_text_font(core_text_font)
-    }
-
-    fn analyze_file(file: &mut File) -> Result<Type, ()> {
+    fn analyze_file(file: &mut File) -> Result<Type, FontLoadingError> {
         Font::analyze_file(file)
     }
 
@@ -430,29 +442,40 @@ impl Face for Font {
 
     #[inline]
     fn outline<B>(&self, glyph_id: u32, hinting_mode: HintingOptions, path_builder: &mut B)
-                  -> Result<(), ()>
+                  -> Result<(), GlyphLoadingError>
                   where B: PathBuilder {
         self.outline(glyph_id, hinting_mode, path_builder)
     }
 
     #[inline]
-    fn typographic_bounds(&self, glyph_id: u32) -> Rect<f32> {
+    fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError> {
         self.typographic_bounds(glyph_id)
     }
 
     #[inline]
-    fn advance(&self, glyph_id: u32) -> Vector2D<f32> {
+    fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError> {
         self.advance(glyph_id)
     }
 
     #[inline]
-    fn origin(&self, origin: u32) -> Point2D<f32> {
-        self.origin(origin)
+    fn origin(&self, glyph_id: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
+        self.origin(glyph_id)
     }
 
     #[inline]
     fn metrics(&self) -> Metrics {
         self.metrics()
+    }
+
+    #[inline]
+    fn copy_font_data(&self) -> Option<Arc<Vec<u8>>> {
+        self.copy_font_data()
+    }
+
+    #[inline]
+    fn supports_hinting_options(&self, hinting_options: HintingOptions, for_rasterization: bool)
+                                -> bool {
+        self.supports_hinting_options(hinting_options, for_rasterization)
     }
 
     #[inline]
@@ -462,7 +485,8 @@ impl Face for Font {
                        point_size: f32,
                        origin: &Point2D<f32>,
                        hinting_options: HintingOptions,
-                       rasterization_options: RasterizationOptions) {
+                       rasterization_options: RasterizationOptions)
+                       -> Result<(), GlyphLoadingError> {
         self.rasterize_glyph(canvas,
                              glyph_id,
                              point_size,
@@ -524,26 +548,25 @@ fn font_is_collection(header: &[u8]) -> bool {
     header.len() >= 4 && header[0..4] == TTC_TAG
 }
 
-fn read_number_of_fonts_from_otc_header(header: &[u8]) -> Result<u32, ()> {
+fn read_number_of_fonts_from_otc_header(header: &[u8]) -> Result<u32, FontLoadingError> {
     if !font_is_collection(header) {
-        return Err(())
+        return Err(FontLoadingError::UnknownFormat)
     }
-    (&header[8..]).read_u32::<BigEndian>().map_err(drop)
+    Ok(try!((&header[8..]).read_u32::<BigEndian>()))
 }
 
 // Unpacks an OTC font "in-place".
-fn unpack_otc_font(data: &mut [u8], font_index: u32) -> Result<(), ()> {
+fn unpack_otc_font(data: &mut [u8], font_index: u32) -> Result<(), FontLoadingError> {
     if font_index >= try!(read_number_of_fonts_from_otc_header(data)) {
-        return Err(())
+        return Err(FontLoadingError::NoSuchFontInCollection)
     }
 
     let offset_table_pos_pos = 12 + 4 * font_index as usize;
-    let offset_table_pos = try!((&data[offset_table_pos_pos..]).read_u32::<BigEndian>()
-                                                               .map_err(drop)) as usize;
+    let offset_table_pos = try!((&data[offset_table_pos_pos..]).read_u32::<BigEndian>()) as usize;
     debug_assert!(utils::SFNT_VERSIONS.iter().any(|version| {
         data[offset_table_pos..(offset_table_pos + 4)] == *version
     }));
-    let num_tables = try!((&data[(offset_table_pos + 4)..]).read_u16::<BigEndian>().map_err(drop));
+    let num_tables = try!((&data[(offset_table_pos + 4)..]).read_u16::<BigEndian>());
 
     // Must copy forward in order to avoid problems with overlapping memory.
     let offset_table_and_table_record_size = 12 + (num_tables as usize) * 16;
