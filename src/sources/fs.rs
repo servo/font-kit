@@ -12,7 +12,6 @@
 //!
 //! This is the native source on Android.
 
-use itertools::Itertools;
 use std::fs::File;
 use std::path::PathBuf;
 use walkdir::WalkDir;
@@ -32,9 +31,10 @@ use descriptor::Spec;
 use family::Family;
 use font::{Font, Type};
 use source::Source;
+use sources::mem::MemSource;
 
 pub struct FsSource {
-    families: Vec<FamilyEntry>,
+    mem_source: MemSource,
 }
 
 impl FsSource {
@@ -42,7 +42,7 @@ impl FsSource {
     /// locate fonts in the typical platform directories, but it is too simple to pick up fonts
     /// that are stored in unusual locations but nevertheless properly installed.
     pub fn new() -> FsSource {
-        let mut families = vec![];
+        let mut fonts = vec![];
         for font_directory in default_font_directories() {
             for directory_entry in WalkDir::new(font_directory).into_iter() {
                 let directory_entry = match directory_entry {
@@ -58,73 +58,39 @@ impl FsSource {
                     Err(_) => continue,
                     Ok(Type::Single) => {
                         if let Ok(font) = Font::from_file(&mut file, 0) {
-                            families.push(FamilyEntry {
-                                family_name: font.family_name(),
-                                font: font,
-                            })
+                            fonts.push(font)
                         }
                     }
                     Ok(Type::Collection(font_count)) => {
                         for font_index in 0..font_count {
                             if let Ok(font) = Font::from_file(&mut file, font_index) {
-                                families.push(FamilyEntry {
-                                    family_name: font.family_name(),
-                                    font: font,
-                                })
+                                fonts.push(font)
                             }
                         }
                     }
                 }
             }
         }
-        families.sort_by(|a, b| a.family_name.cmp(&b.family_name));
+
         FsSource {
-            families,
+            mem_source: MemSource::from_fonts(fonts.into_iter()),
         }
     }
 
     pub fn all_families(&self) -> Vec<String> {
-        self.families
-            .iter()
-            .map(|family| &*family.family_name)
-            .dedup()
-            .map(|name| name.to_owned())
-            .collect()
+        self.mem_source.all_families()
     }
 
-    // FIXME(pcwalton): Case-insensitive comparison.
     pub fn select_family(&self, family_name: &str) -> Family {
-        let mut first_family_index = match self.families.binary_search_by(|family| {
-            (&*family.family_name).cmp(family_name)
-        }) {
-            Err(_) => return Family::new(),
-            Ok(family_index) => family_index,
-        };
-        while first_family_index > 0 &&
-                self.families[first_family_index - 1].family_name == family_name {
-            first_family_index -= 1
-        }
-        let mut last_family_index = first_family_index;
-        while last_family_index + 1 < self.families.len() &&
-                self.families[last_family_index + 1].family_name == family_name {
-            last_family_index += 1
-        }
-        Family::from_fonts(self.families[first_family_index..(last_family_index + 1)]
-                               .iter()
-                               .map(|family| family.font.clone()))
+        self.mem_source.select_family(family_name)
     }
 
     pub fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
-        self.families
-            .iter()
-            .filter(|family_entry| family_entry.font.postscript_name() == postscript_name)
-            .map(|family_entry| family_entry.font.clone())
-            .next()
-            .ok_or(())
+        self.mem_source.find_by_postscript_name(postscript_name)
     }
 
     pub fn find(&self, spec: &Spec) -> Result<Font, ()> {
-        <Self as Source>::find(self, spec)
+        self.mem_source.find(spec)
     }
 }
 
@@ -141,11 +107,6 @@ impl Source for FsSource {
     fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
         self.find_by_postscript_name(postscript_name)
     }
-}
-
-struct FamilyEntry {
-    family_name: String,
-    font: Font,
 }
 
 #[cfg(target_os = "android")]

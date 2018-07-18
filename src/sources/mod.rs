@@ -16,3 +16,4 @@ pub mod directwrite;
           feature = "source-fontconfig"))]
 pub mod fontconfig;
 pub mod fs;
+pub mod mem;
