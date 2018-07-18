@@ -21,9 +21,10 @@ use winapi::shared::minwindef::{MAX_PATH, UINT};
 #[cfg(target_family = "windows")]
 use winapi::um::sysinfoapi;
 
-use descriptor::Spec;
-use family::Family;
+use error::{FontLoadingError, SelectionError};
+use family::FamilyHandle;
 use font::Font;
+use handle::Handle;
 use source::Source;
 
 pub struct MemSource {
@@ -31,37 +32,39 @@ pub struct MemSource {
 }
 
 impl MemSource {
-    pub fn from_fonts<I>(fonts: I) -> MemSource where I: Iterator<Item = Font> {
-        let mut families: Vec<_> = fonts.map(|font| {
-            let family_name = font.family_name();
-            FamilyEntry {
-                family_name,
-                font,
-            }
-        }).collect();
-        families.sort_by(|a, b| a.family_name.cmp(&b.family_name));
-        MemSource {
-            families,
+    pub fn from_fonts<I>(fonts: I) -> Result<MemSource, FontLoadingError>
+                         where I: Iterator<Item = Handle> {
+        let mut families = vec![];
+        for handle in fonts {
+            let font = try!(Font::from_handle(&handle));
+            families.push(FamilyEntry {
+                family_name: font.family_name(),
+                postscript_name: font.postscript_name(),
+                font: handle,
+            })
         }
+        families.sort_by(|a, b| a.family_name.cmp(&b.family_name));
+        Ok(MemSource {
+            families,
+        })
     }
 
-    pub fn all_families(&self) -> Vec<String> {
-        self.families
-            .iter()
-            .map(|family| &*family.family_name)
-            .dedup()
-            .map(|name| name.to_owned())
-            .collect()
+    pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
+        Ok(self.families
+               .iter()
+               .map(|family| &*family.family_name)
+               .dedup()
+               .map(|name| name.to_owned())
+               .collect())
     }
 
     // FIXME(pcwalton): Case-insensitive comparison.
-    pub fn select_family(&self, family_name: &str) -> Family {
-        let mut first_family_index = match self.families.binary_search_by(|family| {
+    pub fn select_family_by_name(&self, family_name: &str)
+                                 -> Result<FamilyHandle, SelectionError> {
+        let mut first_family_index = try!(self.families.binary_search_by(|family| {
             (&*family.family_name).cmp(family_name)
-        }) {
-            Err(_) => return Family::new(),
-            Ok(family_index) => family_index,
-        };
+        }).map_err(|_| SelectionError::NotFound));
+
         while first_family_index > 0 &&
                 self.families[first_family_index - 1].family_name == family_name {
             first_family_index -= 1
@@ -71,41 +74,39 @@ impl MemSource {
                 self.families[last_family_index + 1].family_name == family_name {
             last_family_index += 1
         }
-        Family::from_fonts(self.families[first_family_index..(last_family_index + 1)]
-                               .iter()
-                               .map(|family| family.font.clone()))
+
+        let families = &self.families[first_family_index..(last_family_index + 1)];
+        Ok(FamilyHandle::from_font_handles(families.iter().map(|family| family.font.clone())))
     }
 
-    pub fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
+    pub fn select_by_postscript_name(&self, postscript_name: &str)
+                                     -> Result<Handle, SelectionError> {
         self.families
             .iter()
-            .filter(|family_entry| family_entry.font.postscript_name() == postscript_name)
+            .filter(|family_entry| family_entry.postscript_name == postscript_name)
             .map(|family_entry| family_entry.font.clone())
             .next()
-            .ok_or(())
-    }
-
-    pub fn find(&self, spec: &Spec) -> Result<Font, ()> {
-        <Self as Source>::find(self, spec)
+            .ok_or(SelectionError::NotFound)
     }
 }
 
 impl Source for MemSource {
     #[inline]
-    fn all_families(&self) -> Vec<String> {
+    fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         self.all_families()
     }
 
-    fn select_family(&self, family_name: &str) -> Family {
-        self.select_family(family_name)
+    fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
+        self.select_family_by_name(family_name)
     }
 
-    fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
-        self.find_by_postscript_name(postscript_name)
+    fn select_by_postscript_name(&self, postscript_name: &str) -> Result<Handle, SelectionError> {
+        self.select_by_postscript_name(postscript_name)
     }
 }
 
 struct FamilyEntry {
     family_name: String,
-    font: Font,
+    postscript_name: String,
+    font: Handle,
 }

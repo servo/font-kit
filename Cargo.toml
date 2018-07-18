@@ -14,6 +14,7 @@ arrayvec = "0.4"
 bitflags = "1.0"
 byteorder = "1.2"
 euclid = "0.17"
+failure = "0.1"
 float-ord = "0.2"
 itertools = "0.7"
 libc = "0.2"
@@ -37,14 +38,14 @@ features = ["minwindef", "winbase"]
 [target.'cfg(target_family = "windows")'.dependencies.dwrote]
 path = "../dwrote-rs"
 
-[target.'cfg(target_os = "macos")'.dependencies.cocoa]
-path = "../core-foundation-rs/cocoa"
+# [target.'cfg(target_os = "macos")'.dependencies.cocoa]
+# path = "../core-foundation-rs/cocoa"
 
-[target.'cfg(target_os = "macos")'.dependencies.core-foundation]
-path = "../core-foundation-rs/core-foundation"
+# [target.'cfg(target_os = "macos")'.dependencies.core-foundation]
+# path = "../core-foundation-rs/core-foundation"
 
-[target.'cfg(target_os = "macos")'.dependencies.core-graphics]
-path = "../core-foundation-rs/core-graphics"
+# [target.'cfg(target_os = "macos")'.dependencies.core-graphics]
+# path = "../core-foundation-rs/core-graphics"
 
-[target.'cfg(target_os = "macos")'.dependencies.core-text]
-path = "../core-foundation-rs/core-text"
+# [target.'cfg(target_os = "macos")'.dependencies.core-text]
+# path = "../core-foundation-rs/core-text"

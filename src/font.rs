@@ -15,34 +15,44 @@ use std::fs::File;
 use std::path::Path;
 use std::sync::Arc;
 
-#[cfg(target_os = "macos")]
-use core_text::font::CTFont;
-
 use descriptor::Properties;
+use error::{FontLoadingError, GlyphLoadingError};
+use handle::Handle;
 
 pub use loaders::default::Font;
 
 pub trait Face: Clone + Sized {
     type NativeFont;
 
-    fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Self, ()>;
+    fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Self, FontLoadingError>;
 
-    fn from_file(file: &mut File, font_index: u32) -> Result<Self, ()>;
+    fn from_file(file: &mut File, font_index: u32) -> Result<Self, FontLoadingError>;
 
-    fn from_path<P>(path: P, font_index: u32) -> Result<Self, ()> where P: AsRef<Path> {
-        Face::from_file(&mut try!(File::open(path).map_err(drop)), font_index)
+    fn from_path<P>(path: P, font_index: u32) -> Result<Self, FontLoadingError>
+                    where P: AsRef<Path> {
+        Face::from_file(&mut try!(File::open(path)), font_index)
     }
 
     unsafe fn from_native_font(native_font: Self::NativeFont) -> Self;
 
-    #[cfg(target_os = "macos")]
-    unsafe fn from_core_text_font(core_text_font: CTFont) -> Self;
+    fn from_handle(handle: &Handle) -> Result<Self, FontLoadingError> {
+        match *handle {
+            Handle::Memory {
+                ref bytes,
+                font_index,
+            } => Self::from_bytes((*bytes).clone(), font_index),
+            Handle::Path {
+                ref path,
+                font_index,
+            } => Self::from_path(path, font_index),
+        }
+    }
 
-    fn analyze_file(file: &mut File) -> Result<Type, ()>;
+    fn analyze_file(file: &mut File) -> Result<Type, FontLoadingError>;
 
     #[inline]
-    fn analyze_path<P>(path: P) -> Result<Type, ()> where P: AsRef<Path> {
-        <Self as Face>::analyze_file(&mut try!(File::open(path).map_err(drop)))
+    fn analyze_path<P>(path: P) -> Result<Type, FontLoadingError> where P: AsRef<Path> {
+        <Self as Face>::analyze_file(&mut try!(File::open(path)))
     }
 
     /// PostScript name of the font.
@@ -63,16 +73,21 @@ pub trait Face: Clone + Sized {
     fn glyph_for_char(&self, character: char) -> Option<u32>;
 
     fn outline<B>(&self, glyph_id: u32, hinting_mode: HintingOptions, path_builder: &mut B)
-                  -> Result<(), ()>
+                  -> Result<(), GlyphLoadingError>
                   where B: PathBuilder;
 
-    fn typographic_bounds(&self, glyph_id: u32) -> Rect<f32>;
+    fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError>;
 
-    fn advance(&self, glyph_id: u32) -> Vector2D<f32>;
+    fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError>;
 
-    fn origin(&self, _: u32) -> Point2D<f32>;
+    fn origin(&self, glyph_id: u32) -> Result<Point2D<f32>, GlyphLoadingError>;
 
     fn metrics(&self) -> Metrics;
+
+    fn copy_font_data(&self) -> Option<Arc<Vec<u8>>>;
+
+    fn supports_hinting_options(&self, hinting_options: HintingOptions, for_rasterization: bool)
+                                -> bool;
 
     fn raster_bounds(&self,
                      glyph_id: u32,
@@ -80,11 +95,11 @@ pub trait Face: Clone + Sized {
                      origin: &Point2D<f32>,
                      _: HintingOptions,
                      _: RasterizationOptions)
-                     -> Rect<i32> {
-        let typographic_bounds = self.typographic_bounds(glyph_id);
+                     -> Result<Rect<i32>, GlyphLoadingError> {
+        let typographic_bounds = try!(self.typographic_bounds(glyph_id));
         let typographic_raster_bounds = typographic_bounds * point_size /
             self.metrics().units_per_em as f32;
-        typographic_raster_bounds.translate(&origin.to_vector()).round_out().to_i32()
+        Ok(typographic_raster_bounds.translate(&origin.to_vector()).round_out().to_i32())
     }
 
     fn rasterize_glyph(&self,
@@ -93,7 +108,8 @@ pub trait Face: Clone + Sized {
                        point_size: f32,
                        origin: &Point2D<f32>,
                        hinting_options: HintingOptions,
-                       rasterization_options: RasterizationOptions);
+                       rasterization_options: RasterizationOptions)
+                       -> Result<(), GlyphLoadingError>;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

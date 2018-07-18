@@ -24,13 +24,16 @@ use std::fs::File;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::os::raw::{c_char, c_uchar};
+use std::path::PathBuf;
 use std::ptr;
 use std::slice;
 use std::sync::Arc;
 
 use descriptor::Spec;
-use family::Family;
+use error::SelectionError;
+use family::{Family, FamilyHandle};
 use font::Font;
+use handle::Handle;
 use source::Source;
 
 #[allow(dead_code, non_upper_case_globals)]
@@ -56,7 +59,7 @@ impl FontconfigSource {
         }
     }
 
-    pub fn all_families(&self) -> Vec<String> {
+    pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         unsafe {
             let pattern = FcPatternObject::new();
 
@@ -65,7 +68,9 @@ impl FontconfigSource {
             object_set.push_string(FC_FAMILY);
 
             let font_set = FcFontList(self.fontconfig, pattern.pattern, object_set.object_set);
-            assert!(!font_set.is_null());
+            if font_set.is_null() {
+                return Err(SelectionError::NotFound)
+            }
 
             let font_patterns = slice::from_raw_parts((*font_set).fonts,
                                                       (*font_set).nfont as usize);
@@ -81,11 +86,17 @@ impl FontconfigSource {
 
             result_families.sort();
             result_families.dedup();
-            result_families
+
+            if !result_families.is_empty() {
+                Ok(result_families)
+            } else {
+                Err(SelectionError::NotFound)
+            }
         }
     }
 
-    pub fn select_family(&self, family_name: &str) -> Family {
+    pub fn select_family_by_name(&self, family_name: &str)
+                                 -> Result<FamilyHandle, SelectionError> {
         unsafe {
             let mut pattern = FcPatternObject::new();
             pattern.push_string(FC_FAMILY, family_name.to_owned());
@@ -103,16 +114,19 @@ impl FontconfigSource {
 
             let mut result_fonts = vec![];
             for font_pattern in font_patterns {
-                if let Ok(font) = self.load_font_from_fontconfig_pattern(*font_pattern) {
-                    result_fonts.push(font)
-                }
+                result_fonts.push(self.create_font_handle_from_fontconfig_pattern(*font_pattern))
             }
 
-            Family::from_fonts(result_fonts.into_iter())
+            if !result_fonts.is_empty() {
+                Ok(FamilyHandle::from_font_handles(result_fonts.into_iter()))
+            } else {
+                Err(SelectionError::NotFound)
+            }
         }
     }
 
-    pub fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
+    pub fn select_by_postscript_name(&self, postscript_name: &str)
+                                     -> Result<Handle, SelectionError> {
         unsafe {
             let mut pattern = FcPatternObject::new();
             pattern.push_string(FC_POSTSCRIPT_NAME, postscript_name.to_owned());
@@ -127,44 +141,41 @@ impl FontconfigSource {
 
             let font_patterns = slice::from_raw_parts((*font_set).fonts,
                                                       (*font_set).nfont as usize);
-
-            for font_pattern in font_patterns {
-                if let Ok(font) = self.load_font_from_fontconfig_pattern(*font_pattern) {
-                    return Ok(font)
-                }
+            if !font_patterns.is_empty() {
+                Ok(self.create_font_handle_from_fontconfig_pattern(font_patterns[0]))
+            } else {
+                Err(SelectionError::NotFound)
             }
-
-            Err(())
         }
     }
 
-    pub fn find(&self, spec: &Spec) -> Result<Font, ()> {
-        <Self as Source>::find(self, spec)
+    #[inline]
+    pub fn select_best_match(&self, spec: &Spec) -> Result<Handle, SelectionError> {
+        <Self as Source>::select_best_match(self, spec)
     }
 
-    unsafe fn load_font_from_fontconfig_pattern(&self, font_pattern: *mut FcPattern)
-                                                -> Result<Font, ()> {
-        let font_path = try!(fc_pattern_get_string(font_pattern, FC_FILE).ok_or(()));
-        let font_index = try!(fc_pattern_get_integer(font_pattern, FC_INDEX).ok_or(()));
-        let mut file = try!(File::open(font_path).map_err(drop));
-        Font::from_file(&mut file, font_index as u32)
+    unsafe fn create_font_handle_from_fontconfig_pattern(&self, font_pattern: *mut FcPattern)
+                                                         -> Handle {
+        let font_path = fc_pattern_get_string(font_pattern, FC_FILE).unwrap();
+        let font_index = fc_pattern_get_integer(font_pattern, FC_INDEX).unwrap() as u32;
+        Handle::from_path(PathBuf::from(font_path), font_index)
     }
 }
 
 impl Source for FontconfigSource {
     #[inline]
-    fn all_families(&self) -> Vec<String> {
+    fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         self.all_families()
     }
 
     #[inline]
-    fn select_family(&self, family_name: &str) -> Family {
-        self.select_family(family_name)
+    fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
+        self.select_family_by_name(family_name)
     }
 
     #[inline]
-    fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
-        self.find_by_postscript_name(postscript_name)
+    fn select_by_postscript_name(&self, postscript_name: &str) -> Result<Handle, SelectionError> {
+        self.select_by_postscript_name(postscript_name)
     }
 }
 

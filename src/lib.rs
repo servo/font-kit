@@ -22,6 +22,8 @@ extern crate walkdir;
 #[macro_use]
 extern crate bitflags;
 #[macro_use]
+extern crate failure;
+#[macro_use]
 extern crate log;
 
 #[cfg(target_family = "windows")]
@@ -44,8 +46,10 @@ extern crate freetype;
 
 pub mod canvas;
 pub mod descriptor;
+pub mod error;
 pub mod family;
 pub mod font;
+pub mod handle;
 pub mod loaders;
 pub mod source;
 pub mod sources;
@@ -53,4 +57,5 @@ pub mod sources;
 #[cfg(test)]
 pub mod test;
 
+mod matching;
 mod utils;

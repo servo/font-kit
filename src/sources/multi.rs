@@ -10,66 +10,70 @@
 
 //! A source that encapsulates multiple sources.
 
-use descriptor::Spec;
-use family::Family;
-use font::Font;
+use error::SelectionError;
+use family::FamilyHandle;
+use handle::Handle;
 use source::Source;
 
+/// FIXME(pcwalton): This API is rather unwieldy for more than two sources. Thankfully, I think
+/// only two sources should be needed in most cases.
 pub struct MultiSource {
     subsources: Vec<Box<Source>>,
 }
 
 impl MultiSource {
-    pub fn from_sources<I>(subsources: I) -> MultiSource where I: Iterator<Item = Box<Source>> {
+    pub fn from_sources(subsources: Vec<Box<Source>>) -> MultiSource {
         MultiSource {
-            subsources: subsources.collect(),
+            subsources,
         }
     }
 
-    pub fn all_families(&self) -> Vec<String> {
+    pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         let mut families = vec![];
         for subsource in &self.subsources {
-            families.append(&mut subsource.all_families())
+            families.extend(try!(subsource.all_families()).into_iter())
         }
-        families
+        Ok(families)
     }
 
-    // FIXME(pcwalton): Case-insensitive comparison.
-    pub fn select_family(&self, family_name: &str) -> Family {
+    pub fn select_family_by_name(&self, family_name: &str)
+                                 -> Result<FamilyHandle, SelectionError> {
         for subsource in &self.subsources {
-            let family = subsource.select_family(family_name);
-            if !family.is_empty() {
-                return family
+            match subsource.select_family_by_name(family_name) {
+                Ok(family) => return Ok(family),
+                Err(SelectionError::NotFound) => {}
+                Err(err) => return Err(err),
             }
         }
-        Family::new()
+        Err(SelectionError::NotFound)
     }
 
-    pub fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
+    pub fn select_by_postscript_name(&self, postscript_name: &str)
+                                     -> Result<Handle, SelectionError> {
         for subsource in &self.subsources {
-            if let Ok(font) = subsource.find_by_postscript_name(postscript_name) {
-                return Ok(font)
+            match subsource.select_by_postscript_name(postscript_name) {
+                Ok(font) => return Ok(font),
+                Err(SelectionError::NotFound) => {}
+                Err(err) => return Err(err),
             }
         }
-        Err(())
-    }
-
-    pub fn find(&self, spec: &Spec) -> Result<Font, ()> {
-        <Self as Source>::find(self, spec)
+        Err(SelectionError::NotFound)
     }
 }
 
 impl Source for MultiSource {
     #[inline]
-    fn all_families(&self) -> Vec<String> {
+    fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         self.all_families()
     }
 
-    fn select_family(&self, family_name: &str) -> Family {
-        self.select_family(family_name)
+    #[inline]
+    fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
+        self.select_family_by_name(family_name)
     }
 
-    fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
-        self.find_by_postscript_name(postscript_name)
+    #[inline]
+    fn select_by_postscript_name(&self, postscript_name: &str) -> Result<Handle, SelectionError> {
+        self.select_by_postscript_name(postscript_name)
     }
 }

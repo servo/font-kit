@@ -38,14 +38,18 @@ fn main() {
         None => usage(),
     };
 
-    let font = SystemSource::new().find_by_postscript_name(&postscript_name).unwrap();
+    let font = SystemSource::new().select_by_postscript_name(&postscript_name)
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
     let glyph_id = font.glyph_for_char(character).unwrap();
 
     let raster_rect = font.raster_bounds(glyph_id,
                                          size,
                                          &Point2D::zero(),
                                          HintingOptions::None,
-                                         RasterizationOptions::GrayscaleAa);
+                                         RasterizationOptions::GrayscaleAa)
+                          .unwrap();
 
     let stride = raster_rect.size.width as usize;
     let mut canvas = Canvas::new(&raster_rect.size.to_u32(), stride, Format::A8);
@@ -55,7 +59,8 @@ fn main() {
                          size,
                          &Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32(),
                          HintingOptions::None,
-                         RasterizationOptions::GrayscaleAa);
+                         RasterizationOptions::GrayscaleAa)
+        .unwrap();
 
     println!("glyph {}:", glyph_id);
     for y in 0..raster_rect.size.height {
