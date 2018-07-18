@@ -122,7 +122,7 @@ impl Default for Style {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct Weight(pub f32);
 
 impl Default for Weight {
@@ -145,7 +145,7 @@ impl Weight {
 }
 
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct Stretch(pub f32);
 
 impl Default for Stretch {
