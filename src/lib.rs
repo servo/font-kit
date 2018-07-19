@@ -49,6 +49,7 @@ pub mod descriptor;
 pub mod error;
 pub mod family;
 pub mod font;
+pub mod handle;
 pub mod loaders;
 pub mod source;
 pub mod sources;

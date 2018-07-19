@@ -12,7 +12,45 @@ use float_ord::FloatOrd;
 use std::iter;
 
 use descriptor::{Properties, Stretch, Style, Weight};
+use error::FontLoadingError;
 use font::{Face, Font};
+use handle::Handle;
+
+#[derive(Debug)]
+pub struct FamilyHandle {
+    pub fonts: Vec<Handle>,
+}
+
+impl FamilyHandle {
+    #[inline]
+    pub fn new() -> FamilyHandle {
+        FamilyHandle {
+            fonts: vec![],
+        }
+    }
+
+    #[inline]
+    pub fn from_font_handles<I>(fonts: I) -> FamilyHandle where I: Iterator<Item = Handle> {
+        FamilyHandle {
+            fonts: fonts.collect::<Vec<Handle>>(),
+        }
+    }
+
+    #[inline]
+    pub fn push(&mut self, font: Handle) {
+        self.fonts.push(font)
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.fonts.is_empty()
+    }
+
+    #[inline]
+    pub fn fonts(&self) -> &[Handle] {
+        &self.fonts
+    }
+}
 
 #[derive(Debug)]
 pub struct Family<F = Font> where F: Face {
@@ -38,6 +76,22 @@ impl<F> Family<F> where F: Face {
     #[inline]
     pub fn from_font(font: F) -> Family<F> {
         Family::from_fonts(iter::once(font))
+    }
+
+    pub fn from_font_handles<'a, I>(font_handles: I) -> Result<Family<F>, FontLoadingError>
+                                    where I: Iterator<Item = &'a Handle> {
+        let mut fonts = vec![];
+        for font_handle in font_handles {
+            fonts.push(try!(F::from_handle(font_handle)))
+        }
+        Ok(Family {
+            fonts,
+        })
+    }
+
+    #[inline]
+    pub fn from_handle(family_handle: &FamilyHandle) -> Result<Family<F>, FontLoadingError> {
+        Family::from_font_handles(family_handle.fonts.iter())
     }
 
     #[inline]

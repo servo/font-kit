@@ -48,6 +48,7 @@ use core_text::font::CTFont;
 use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use error::{FontLoadingError, GlyphLoadingError};
 use font::{Face, HintingOptions, Metrics, Type};
+use handle::Handle;
 
 const PS_DICT_FULL_NAME: u32 = 38;
 const TT_NAME_ID_FULL_NAME: u16 = 4;
@@ -163,12 +164,9 @@ impl Font {
         Font::from_bytes(Arc::new(font_data), (*freetype_face).face_index as u32).unwrap()
     }
 
-    #[cfg(target_os = "macos")]
-    pub unsafe fn from_core_text_font(core_text_font: CTFont) -> Font {
-        // FIXME(pcwalton): How do we deal with collections? I guess we have to find which font in
-        // the collection matches?
-        let path = core_text_font.url().unwrap().to_path().unwrap();
-        Font::from_file(&mut File::open(path).unwrap(), 0).unwrap()
+    #[inline]
+    pub fn from_handle(handle: &Handle) -> Result<Self, FontLoadingError> {
+        <Self as Face>::from_handle(handle)
     }
 
     pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<Type, FontLoadingError> {

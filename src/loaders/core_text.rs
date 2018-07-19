@@ -39,6 +39,7 @@ use canvas::{Canvas, Format, RasterizationOptions};
 use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use error::{FontLoadingError, GlyphLoadingError};
 use font::{Face, HintingOptions, Metrics, Type};
+use handle::Handle;
 use sources;
 use utils;
 
@@ -118,6 +119,11 @@ impl Font {
             core_text_font,
             font_data,
         }
+    }
+
+    #[inline]
+    pub fn from_handle(handle: &Handle) -> Result<Self, FontLoadingError> {
+        <Self as Face>::from_handle(handle)
     }
 
     pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<Type, FontLoadingError> {
@@ -238,12 +244,6 @@ impl Font {
     pub fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError> {
         let rect = self.core_text_font.get_bounding_rects_for_glyphs(kCTFontDefaultOrientation,
                                                                      &[glyph_id as u16]);
-        unsafe {
-            if rect == CGRectNull {
-                return Err(GlyphLoadingError::NoSuchGlyph)
-            }
-        }
-
         let units_per_point = self.units_per_point();
         Ok(Rect::new(Point2D::new((rect.origin.x * units_per_point) as f32,
                                   (rect.origin.y * units_per_point) as f32),

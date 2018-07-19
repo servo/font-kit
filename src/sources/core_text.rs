@@ -13,7 +13,7 @@ use core_foundation::base::{CFType, TCFType};
 use core_foundation::dictionary::CFDictionary;
 use core_foundation::string::CFString;
 use core_text::font_collection::{self, CTFontCollection};
-use core_text::font_descriptor;
+use core_text::font_descriptor::{self, CTFontDescriptor};
 use core_text::font_manager;
 use core_text;
 use std::cmp::Ordering;
@@ -21,8 +21,9 @@ use std::f32;
 
 use descriptor::{FONT_STRETCH_MAPPING, Stretch, Spec, Weight};
 use error::SelectionError;
-use family::Family;
+use family::{Family, FamilyHandle};
 use font::{Face, Font};
+use handle::Handle;
 use source::Source;
 use utils;
 
@@ -36,17 +37,17 @@ impl CoreTextSource {
         CoreTextSource
     }
 
-    pub fn all_families(&self) -> Vec<String> {
+    pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         let core_text_family_names = font_manager::copy_available_font_family_names();
         let mut families = Vec::with_capacity(core_text_family_names.len() as usize);
         for core_text_family_name in core_text_family_names.iter() {
             families.push(core_text_family_name.to_string())
         }
-        families
+        Ok(families)
     }
 
-    #[inline]
-    pub fn select_family(&self, family_name: &str) -> Family {
+    pub fn select_family_by_name(&self, family_name: &str)
+                                 -> Result<FamilyHandle, SelectionError> {
         let attributes: CFDictionary<CFString, CFType> = CFDictionary::from_CFType_pairs(&[
             (CFString::new("NSFontFamilyAttribute"), CFString::new(family_name).as_CFType()),
         ]);
@@ -54,27 +55,24 @@ impl CoreTextSource {
         let descriptor = font_descriptor::new_from_attributes(&attributes);
         let descriptors = CFArray::from_CFTypes(&[descriptor]);
         let collection = font_collection::new_from_descriptors(&descriptors);
-        Family::from_fonts(fonts_in_core_text_collection(collection).into_iter())
+        let handles = create_handles_from_core_text_collection(collection);
+        Ok(FamilyHandle::from_font_handles(handles.into_iter()))
     }
 
-    pub fn find_by_postscript_name_with_loader<F>(&self, postscript_name: &str)
-                                                  -> Result<F, SelectionError>
-                                                  where F: Face {
+    pub fn select_by_postscript_name(&self, postscript_name: &str)
+                                     -> Result<Handle, SelectionError> {
         let attributes: CFDictionary<CFString, CFType> = CFDictionary::from_CFType_pairs(&[
             (CFString::new("NSFontNameAttribute"), CFString::new(postscript_name).as_CFType()),
         ]);
 
         let descriptor = font_descriptor::new_from_attributes(&attributes);
         let descriptors = CFArray::from_CFTypes(&[descriptor]);
+
         let collection = font_collection::new_from_descriptors(&descriptors);
 
         match collection.get_descriptors() {
             Some(ref descriptors) if descriptors.len() > 0 => {
-                unsafe {
-                    let descriptor = (*descriptors.get(0).unwrap()).clone();
-                    let core_text_font = core_text::font::new_from_descriptor(&descriptor, 12.0);
-                    Ok(F::from_core_text_font(core_text_font))
-                }
+                Ok(create_handle_from_descriptor(&*descriptors.get(0).unwrap()))
             }
             Some(_) | None => Err(SelectionError::NotFound),
         }
@@ -90,15 +88,12 @@ impl Source for CoreTextSource {
         self.all_families()
     }
 
-    fn select_family_with_loader<F>(&self, family_name: &str) -> Result<Family<F>, SelectionError>
-                                    where F: Face {
-        self.select_family_with_loader(family_name)
+    fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
+        self.select_family_by_name(family_name)
     }
 
-    fn find_by_postscript_name_with_loader<F>(&self, postscript_name: &str)
-                                              -> Result<F, SelectionError>
-                                              where F: Face {
-        self.find_by_postscript_name_with_loader(postscript_name)
+    fn select_by_postscript_name(&self, postscript_name: &str) -> Result<Handle, SelectionError> {
+        self.select_by_postscript_name(postscript_name)
     }
 }
 
@@ -135,18 +130,23 @@ fn css_stretchiness_to_core_text_width(css_stretchiness: Stretch) -> f32 {
     0.25 * piecewise_linear_find_index(css_stretchiness, &FONT_STRETCH_MAPPING) - 1.0
 }
 
-fn fonts_in_core_text_collection(collection: CTFontCollection) -> Vec<Font> {
+fn create_handles_from_core_text_collection(collection: CTFontCollection) -> Vec<Handle> {
     let mut fonts = vec![];
     if let Some(descriptors) = collection.get_descriptors() {
         for index in 0..descriptors.len() {
-            unsafe {
-                let descriptor = (*descriptors.get(index).unwrap()).clone();
-                let core_text_font = core_text::font::new_from_descriptor(&descriptor, 12.0);
-                fonts.push(Font::from_core_text_font(core_text_font));
-            }
+            let descriptor = descriptors.get(index).unwrap();
+            fonts.push(create_handle_from_descriptor(&*descriptor));
         }
     }
     fonts
+}
+
+fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Handle {
+    // FIXME(pcwalton): Fish out the font index. Probably we are going to have to open the font…
+    Handle::Path {
+        path: descriptor.font_path().unwrap(),
+        font_index: 0,
+    }
 }
 
 #[cfg(test)]

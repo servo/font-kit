@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use descriptor::Properties;
 use error::{FontLoadingError, GlyphLoadingError};
+use handle::Handle;
 
 pub use loaders::default::Font;
 
@@ -34,11 +35,16 @@ pub trait Face: Clone + Sized {
 
     unsafe fn from_native_font(native_font: Self::NativeFont) -> Self;
 
-    fn from_font<F>(other_font: F) -> Result<Self, FontLoadingError> where F: Face {
-        // TODO(pcwalton): This should retrieve the proper font index!
-        match other_font.copy_font_data() {
-            Some(font_data) => Self::from_bytes(font_data, 0),
-            None => Err(FontLoadingError::FontDataUnavailable),
+    fn from_handle(handle: &Handle) -> Result<Self, FontLoadingError> {
+        match *handle {
+            Handle::Memory {
+                ref bytes,
+                font_index,
+            } => Self::from_bytes((*bytes).clone(), font_index),
+            Handle::Path {
+                ref path,
+                font_index,
+            } => Self::from_path(path, font_index),
         }
     }
 

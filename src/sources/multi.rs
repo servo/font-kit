@@ -12,74 +12,74 @@
 
 use descriptor::Spec;
 use error::SelectionError;
-use family::Family;
-use font::Face;
+use family::{Family, FamilyHandle};
+use font::Font;
+use handle::Handle;
 use source::Source;
 
 /// FIXME(pcwalton): This API is rather unwieldy for more than two sources. Thankfully, I think
 /// only two sources should be needed in most cases.
-pub struct MultiSource<SA, SB> where SA: Source, SB: Source {
-    subsources: (SA, SB),
+pub struct MultiSource {
+    subsources: Vec<Box<Source>>,
 }
 
-impl<SA, SB> MultiSource<SA, SB> where SA: Source, SB: Source {
-    pub fn from_sources<SAX, SBX>(source_a: SAX, source_b: SBX) -> MultiSource<SAX, SBX>
-                                  where SAX: Source, SBX: Source {
+impl MultiSource {
+    pub fn from_sources(subsources: Vec<Box<Source>>) -> MultiSource {
         MultiSource {
-            subsources: (source_a, source_b)
+            subsources,
         }
     }
 
     pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
-        let mut families = try!(self.subsources.0.all_families());
-        families.append(&mut try!(self.subsources.1.all_families()));
+        let mut families = vec![];
+        for subsource in &self.subsources {
+            families.extend(try!(subsource.all_families()).into_iter())
+        }
         Ok(families)
     }
 
-    // FIXME(pcwalton): Case-insensitive comparison.
-    pub fn select_family_with_loader<F>(&self, family_name: &str)
-                                        -> Result<Family<F>, SelectionError>
-                                        where F: Face {
-        match self.subsources.0.select_family_with_loader(family_name) {
-            Ok(family) => Ok(family),
-            Err(SelectionError::NotFound) => {
-                self.subsources.1.select_family_with_loader(family_name)
+    pub fn select_family_by_name(&self, family_name: &str)
+                                 -> Result<FamilyHandle, SelectionError> {
+        for subsource in &self.subsources {
+            match subsource.select_family_by_name(family_name) {
+                Ok(family) => return Ok(family),
+                Err(SelectionError::NotFound) => {}
+                Err(err) => return Err(err),
             }
-            Err(err) => Err(err),
         }
+        Err(SelectionError::NotFound)
     }
 
-    pub fn find_by_postscript_name_with_loader<F>(&self, postscript_name: &str)
-                                                  -> Result<F, SelectionError>
-                                                  where F: Face {
-        match self.subsources.0.find_by_postscript_name_with_loader(postscript_name) {
-            Ok(family) => Ok(family),
-            Err(SelectionError::NotFound) => {
-                self.subsources.1.find_by_postscript_name_with_loader(postscript_name)
+    pub fn select_by_postscript_name(&self, postscript_name: &str)
+                                     -> Result<Handle, SelectionError> {
+        for subsource in &self.subsources {
+            match subsource.select_by_postscript_name(postscript_name) {
+                Ok(font) => return Ok(font),
+                Err(SelectionError::NotFound) => {}
+                Err(err) => return Err(err),
             }
-            Err(err) => Err(err),
         }
+        Err(SelectionError::NotFound)
     }
 
-    pub fn find_with_loader<F>(&self, spec: &Spec) -> Result<F, SelectionError> where F: Face {
-        <Self as Source>::find_with_loader(self, spec)
+    pub fn find(&self, spec: &Spec) -> Result<Font, SelectionError> {
+        <Self as Source>::find(self, spec)
     }
 }
 
-impl<SA, SB> Source for MultiSource<SA, SB> where SA: Source, SB: Source {
+impl Source for MultiSource {
     #[inline]
     fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         self.all_families()
     }
 
-    fn select_family_with_loader<F>(&self, family_name: &str) -> Result<Family<F>, SelectionError>
-                                    where F: Face {
-        self.select_family_with_loader(family_name)
+    #[inline]
+    fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
+        self.select_family_by_name(family_name)
     }
 
-    fn find_by_postscript_name_with_loader<F>(&self, postscript_name: &str)
-                                              -> Result<F, SelectionError>
-                                              where F: Face {
-        self.find_by_postscript_name_with_loader(postscript_name)
+    #[inline]
+    fn select_by_postscript_name(&self, postscript_name: &str) -> Result<Handle, SelectionError> {
+        self.select_by_postscript_name(postscript_name)
     }
 }

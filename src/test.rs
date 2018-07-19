@@ -51,7 +51,7 @@ pub fn lookup_single_italic_font() {
 
 #[test]
 pub fn lookup_all_fonts_in_a_family() {
-    let family = SystemSource::new().select_family(SANS_SERIF_FONT_FAMILY_NAME);
+    let family = SystemSource::new().select_family_by_name(SANS_SERIF_FONT_FAMILY_NAME).unwrap();
     assert!(family.fonts().len() > 2);
 }
 
@@ -59,14 +59,17 @@ pub fn lookup_all_fonts_in_a_family() {
 #[ignore]
 #[test]
 pub fn lookup_all_fonts_in_a_family_in_system_font_directories() {
-    let family = FsSource::new().select_family(SANS_SERIF_FONT_FAMILY_NAME);
+    let family = FsSource::new().select_family_by_name(SANS_SERIF_FONT_FAMILY_NAME).unwrap();
     assert!(family.fonts().len() > 0);
 }
 
 #[test]
 pub fn lookup_font_by_postscript_name() {
-    let font = SystemSource::new().find_by_postscript_name(SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME)
-                                  .unwrap();
+    let font =
+        SystemSource::new().select_by_postscript_name(SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME)
+                           .unwrap()
+                           .load()
+                           .unwrap();
     assert_eq!(font.postscript_name(), SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME);
 }
 
@@ -181,15 +184,15 @@ pub fn get_glyph_typographic_bounds() {
     let font = SystemSource::new().find(&Spec::new().sans_serif()).unwrap();
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
     assert_eq!(font.typographic_bounds(glyph),
-               Rect::new(Point2D::new(74.0, -24.0), Size2D::new(978.0, 1110.0)));
+               Ok(Rect::new(Point2D::new(74.0, -24.0), Size2D::new(978.0, 1110.0))));
 }
 
 #[test]
 pub fn get_glyph_advance_and_origin() {
     let font = SystemSource::new().find(&Spec::new().sans_serif()).unwrap();
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
-    assert_eq!(font.advance(glyph), Vector2D::new(1139.0, 0.0));
-    assert_eq!(font.origin(glyph), Point2D::zero());
+    assert_eq!(font.advance(glyph), Ok(Vector2D::new(1139.0, 0.0)));
+    assert_eq!(font.origin(glyph), Ok(Point2D::zero()));
 }
 
 #[test]
@@ -223,6 +226,6 @@ pub fn get_font_properties() {
 #[test]
 pub fn get_font_data() {
     let font = SystemSource::new().find(&Spec::new().sans_serif()).unwrap();
-    let data = font.font_data().unwrap();
+    let data = font.copy_font_data().unwrap();
     debug_assert!(utils::SFNT_VERSIONS.iter().any(|version| data[0..4] == *version));
 }

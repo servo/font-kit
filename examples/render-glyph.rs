@@ -13,7 +13,7 @@ extern crate font_kit;
 
 use euclid::Point2D;
 use font_kit::canvas::{Canvas, Format, RasterizationOptions};
-use font_kit::font::HintingOptions;
+use font_kit::font::{Font, HintingOptions};
 use font_kit::source::SystemSource;
 use std::env;
 use std::process;
@@ -38,7 +38,10 @@ fn main() {
         None => usage(),
     };
 
-    let font = SystemSource::new().find_by_postscript_name(&postscript_name).unwrap();
+    let font = SystemSource::new().select_by_postscript_name(&postscript_name)
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
     let glyph_id = font.glyph_for_char(character).unwrap();
 
     let raster_rect = font.raster_bounds(glyph_id,

@@ -31,6 +31,7 @@ use winapi::shared::minwindef::FALSE;
 use canvas::{Canvas, Format, RasterizationOptions};
 use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use font::{Face, HintingOptions, Metrics, Type};
+use handle::Handle;
 
 pub type NativeFont = DWriteFontFace;
 
@@ -67,6 +68,11 @@ impl Font {
             dwrite_font_face,
             cached_data: Mutex::new(None),
         }
+    }
+
+    #[inline]
+    pub fn from_handle(handle: &Handle) -> Result<Self, FontLoadingError> {
+        <Self as Face>::from_handle(handle)
     }
 
     pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<Type, ()> {

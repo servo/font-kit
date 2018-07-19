@@ -28,8 +28,10 @@ use winapi::shared::minwindef::{MAX_PATH, UINT};
 use winapi::um::sysinfoapi;
 
 use descriptor::Spec;
-use family::Family;
+use error::{FontLoadingError, SelectionError};
+use family::{Family, FamilyHandle};
 use font::{Font, Type};
+use handle::Handle;
 use source::Source;
 use sources::mem::MemSource;
 
@@ -56,16 +58,10 @@ impl FsSource {
                 };
                 match Font::analyze_file(&mut file) {
                     Err(_) => continue,
-                    Ok(Type::Single) => {
-                        if let Ok(font) = Font::from_file(&mut file, 0) {
-                            fonts.push(font)
-                        }
-                    }
+                    Ok(Type::Single) => fonts.push(Handle::from_path(path.to_owned(), 0)),
                     Ok(Type::Collection(font_count)) => {
                         for font_index in 0..font_count {
-                            if let Ok(font) = Font::from_file(&mut file, font_index) {
-                                fonts.push(font)
-                            }
+                            fonts.push(Handle::from_path(path.to_owned(), font_index))
                         }
                     }
                 }
@@ -73,39 +69,41 @@ impl FsSource {
         }
 
         FsSource {
-            mem_source: MemSource::from_fonts(fonts.into_iter()),
+            mem_source: MemSource::from_fonts(fonts.into_iter()).unwrap(),
         }
     }
 
-    pub fn all_families(&self) -> Vec<String> {
+    pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         self.mem_source.all_families()
     }
 
-    pub fn select_family(&self, family_name: &str) -> Family {
-        self.mem_source.select_family(family_name)
+    pub fn select_family_by_name(&self, family_name: &str)
+                                 -> Result<FamilyHandle, SelectionError> {
+        self.mem_source.select_family_by_name(family_name)
     }
 
-    pub fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
-        self.mem_source.find_by_postscript_name(postscript_name)
+    pub fn select_by_postscript_name(&self, postscript_name: &str)
+                                     -> Result<Handle, SelectionError> {
+        self.mem_source.select_by_postscript_name(postscript_name)
     }
 
-    pub fn find(&self, spec: &Spec) -> Result<Font, ()> {
+    pub fn find(&self, spec: &Spec) -> Result<Font, SelectionError> {
         self.mem_source.find(spec)
     }
 }
 
 impl Source for FsSource {
     #[inline]
-    fn all_families(&self) -> Vec<String> {
+    fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         self.all_families()
     }
 
-    fn select_family(&self, family_name: &str) -> Family {
-        self.select_family(family_name)
+    fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
+        self.select_family_by_name(family_name)
     }
 
-    fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
-        self.find_by_postscript_name(postscript_name)
+    fn select_by_postscript_name(&self, postscript_name: &str) -> Result<Handle, SelectionError> {
+        self.select_by_postscript_name(postscript_name)
     }
 }
 
