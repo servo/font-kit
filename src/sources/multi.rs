@@ -10,10 +10,8 @@
 
 //! A source that encapsulates multiple sources.
 
-use descriptor::Spec;
 use error::SelectionError;
-use family::{Family, FamilyHandle};
-use font::Font;
+use family::FamilyHandle;
 use handle::Handle;
 use source::Source;
 

@@ -28,6 +28,7 @@ impl Canvas {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn blit_from(&mut self,
                             src_bytes: &[u8],
                             src_size: &Size2D<u32>,

@@ -13,7 +13,6 @@ use core_graphics::base::{CGFloat, kCGImageAlphaNoneSkipLast, kCGImageAlphaPremu
 use core_graphics::color_space::CGColorSpace;
 use core_graphics::context::{CGContext, CGTextDrawingMode};
 use core_graphics::data_provider::CGDataProvider;
-use core_graphics::display::CGRectNull;
 use core_graphics::font::{CGFont, CGGlyph};
 use core_graphics::geometry::{CG_AFFINE_TRANSFORM_IDENTITY, CG_ZERO_POINT, CG_ZERO_SIZE, CGPoint};
 use core_graphics::geometry::{CGRect, CGSize};

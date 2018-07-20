@@ -11,7 +11,7 @@
 use descriptor::{FamilySpec, Spec};
 use error::SelectionError;
 use family::{Family, FamilyHandle};
-use font::{Face, Font};
+use font::Font;
 use handle::Handle;
 use matching::{self, MatchFields};
 

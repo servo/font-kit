@@ -27,7 +27,6 @@ use freetype::freetype::{FT_Set_Transform, FT_Sfnt_Tag, FT_UInt, FT_ULong, FT_US
 use freetype::tt_os2::TT_OS2;
 use lyon_path::builder::PathBuilder;
 use memmap::Mmap;
-use std::cmp;
 use std::f32;
 use std::ffi::CStr;
 use std::fmt::{self, Debug, Formatter};
@@ -41,9 +40,6 @@ use std::path::Path;
 use std::ptr;
 use std::slice;
 use std::sync::Arc;
-
-#[cfg(target_os = "macos")]
-use core_text::font::CTFont;
 
 use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use error::{FontLoadingError, GlyphLoadingError};
@@ -60,6 +56,7 @@ const FT_POINT_TAG_CUBIC_CONTROL: c_char = 0x02;
 
 const FT_RENDER_MODE_NORMAL: u32 = 0;
 const FT_RENDER_MODE_LIGHT: u32 = 1;
+#[allow(dead_code)]
 const FT_RENDER_MODE_MONO: u32 = 2;
 const FT_RENDER_MODE_LCD: u32 = 3;
 

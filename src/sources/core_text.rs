@@ -15,16 +15,13 @@ use core_foundation::string::CFString;
 use core_text::font_collection::{self, CTFontCollection};
 use core_text::font_descriptor::{self, CTFontDescriptor};
 use core_text::font_manager;
-use core_text;
 use std::cmp::Ordering;
 use std::f32;
 
 use descriptor::{FONT_STRETCH_MAPPING, Stretch, Spec, Weight};
 use error::SelectionError;
-use family::{Family, FamilyHandle};
-use font::{Face, Font};
+use family::{FamilyHandle};
 use handle::Handle;
-use matching::MatchFields;
 use source::Source;
 use utils;
 

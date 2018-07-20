@@ -8,10 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use float_ord::FloatOrd;
 use std::iter;
 
-use descriptor::{Properties, Stretch, Style, Weight};
 use error::FontLoadingError;
 use font::{Face, Font};
 use handle::Handle;

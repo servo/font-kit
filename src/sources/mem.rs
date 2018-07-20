@@ -21,10 +21,9 @@ use winapi::shared::minwindef::{MAX_PATH, UINT};
 #[cfg(target_family = "windows")]
 use winapi::um::sysinfoapi;
 
-use descriptor::Spec;
 use error::{FontLoadingError, SelectionError};
-use family::{Family, FamilyHandle};
-use font::{Face, Font};
+use family::FamilyHandle;
+use font::Font;
 use handle::Handle;
 use source::Source;
 
