@@ -154,7 +154,10 @@ pub fn get_glyph_outline() {
 #[test]
 pub fn get_vertically_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
-    let font = SystemSource::new().find(&Spec::new().sans_serif()).unwrap();
+    let font = SystemSource::new().select_best_match(&Spec::new().sans_serif())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
     font.outline(glyph, HintingOptions::Vertical(16.0), &mut path_builder).unwrap();
     let path = path_builder.build();
@@ -178,7 +181,10 @@ pub fn get_vertically_hinted_glyph_outline() {
 #[test]
 pub fn get_fully_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
-    let font = SystemSource::new().find(&Spec::new().sans_serif()).unwrap();
+    let font = SystemSource::new().select_best_match(&Spec::new().sans_serif())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
     font.outline(glyph, HintingOptions::Full(10.0), &mut path_builder).unwrap();
     let path = path_builder.build();

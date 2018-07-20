@@ -606,6 +606,14 @@ impl Font {
             HintingOptions::Full(_) => FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL,
         }
     }
+
+    pub fn copy_font_data(&self) -> Option<Arc<Vec<u8>>> {
+        match self.font_data {
+            FontData::File(ref file) => Some(Arc::new((*file).to_vec())),
+            FontData::Memory(ref memory) => Some((*memory).clone()),
+            FontData::Unused(_) => unreachable!(),
+        }
+    }
 }
 
 impl Clone for Font {
@@ -656,12 +664,6 @@ impl Face for Font {
     #[inline]
     unsafe fn from_native_font(native_font: Self::NativeFont) -> Self {
         Font::from_native_font(native_font)
-    }
-
-    #[cfg(target_os = "macos")]
-    #[inline]
-    unsafe fn from_core_text_font(core_text_font: CTFont) -> Font {
-        Font::from_core_text_font(core_text_font)
     }
 
     #[inline]
@@ -719,6 +721,11 @@ impl Face for Font {
     #[inline]
     fn metrics(&self) -> Metrics {
         self.metrics()
+    }
+
+    #[inline]
+    fn copy_font_data(&self) -> Option<Arc<Vec<u8>>> {
+        self.copy_font_data()
     }
 
     #[inline]

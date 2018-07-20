@@ -288,7 +288,6 @@ impl Font {
         }
     }
 
-    #[inline]
     pub fn copy_font_data(&self) -> Option<Arc<Vec<u8>>> {
         match self.font_data {
             FontData::Unavailable => None,
