@@ -61,10 +61,6 @@ impl MultiSource {
         }
         Err(SelectionError::NotFound)
     }
-
-    pub fn find(&self, spec: &Spec) -> Result<Font, SelectionError> {
-        <Self as Source>::find(self, spec)
-    }
 }
 
 impl Source for MultiSource {

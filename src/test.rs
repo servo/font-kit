@@ -33,19 +33,30 @@ static TEST_FONT_POSTSCRIPT_NAME: &'static str = "EBGaramond12-Regular";
 
 #[test]
 pub fn lookup_single_regular_font() {
-    let font = SystemSource::new().find(&Spec::new().sans_serif()).unwrap();
+    let font = SystemSource::new().select_best_match(&Spec::new().sans_serif())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
     assert_eq!(font.postscript_name(), SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME);
 }
 
 #[test]
 pub fn lookup_single_bold_font() {
-    let font = SystemSource::new().find(&Spec::new().sans_serif().weight(Weight::BOLD)).unwrap();
+    let font = SystemSource::new().select_best_match(&Spec::new().sans_serif()
+                                                                 .weight(Weight::BOLD))
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
     assert_eq!(font.postscript_name(), SANS_SERIF_FONT_BOLD_POSTSCRIPT_NAME);
 }
 
 #[test]
 pub fn lookup_single_italic_font() {
-    let font = SystemSource::new().find(&Spec::new().sans_serif().style(Style::Italic)).unwrap();
+    let font = SystemSource::new().select_best_match(&Spec::new().sans_serif()
+                                                                 .style(Style::Italic))
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
     assert_eq!(font.postscript_name(), SANS_SERIF_FONT_ITALIC_POSTSCRIPT_NAME);
 }
 
@@ -105,7 +116,10 @@ pub fn analyze_bytes() {
 
 #[test]
 pub fn get_glyph_for_char() {
-    let font = SystemSource::new().find(&Spec::new().sans_serif()).unwrap();
+    let font = SystemSource::new().select_best_match(&Spec::new().sans_serif())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
     assert_eq!(glyph, 68);
 }
@@ -113,7 +127,10 @@ pub fn get_glyph_for_char() {
 #[test]
 pub fn get_glyph_outline() {
     let mut path_builder = Path::builder();
-    let font = SystemSource::new().find(&Spec::new().sans_serif()).unwrap();
+    let font = SystemSource::new().select_best_match(&Spec::new().sans_serif())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
     font.outline(glyph, HintingOptions::None, &mut path_builder).unwrap();
     let path = path_builder.build();
@@ -181,7 +198,10 @@ pub fn get_fully_hinted_glyph_outline() {
 
 #[test]
 pub fn get_glyph_typographic_bounds() {
-    let font = SystemSource::new().find(&Spec::new().sans_serif()).unwrap();
+    let font = SystemSource::new().select_best_match(&Spec::new().sans_serif())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
     assert_eq!(font.typographic_bounds(glyph),
                Ok(Rect::new(Point2D::new(74.0, -24.0), Size2D::new(978.0, 1110.0))));
@@ -189,7 +209,10 @@ pub fn get_glyph_typographic_bounds() {
 
 #[test]
 pub fn get_glyph_advance_and_origin() {
-    let font = SystemSource::new().find(&Spec::new().sans_serif()).unwrap();
+    let font = SystemSource::new().select_best_match(&Spec::new().sans_serif())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
     assert_eq!(font.advance(glyph), Ok(Vector2D::new(1139.0, 0.0)));
     assert_eq!(font.origin(glyph), Ok(Point2D::zero()));
@@ -197,7 +220,10 @@ pub fn get_glyph_advance_and_origin() {
 
 #[test]
 pub fn get_font_metrics() {
-    let font = SystemSource::new().find(&Spec::new().sans_serif()).unwrap();
+    let font = SystemSource::new().select_best_match(&Spec::new().sans_serif())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
     let metrics = font.metrics();
     assert_eq!(metrics.units_per_em, 2048);
     assert_eq!(metrics.ascent, 1854.0);
@@ -211,13 +237,19 @@ pub fn get_font_metrics() {
 
 #[test]
 pub fn get_font_full_name() {
-    let font = SystemSource::new().find(&Spec::new().sans_serif()).unwrap();
+    let font = SystemSource::new().select_best_match(&Spec::new().sans_serif())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
     assert_eq!(font.full_name(), "Arial");
 }
 
 #[test]
 pub fn get_font_properties() {
-    let font = SystemSource::new().find(&Spec::new().sans_serif()).unwrap();
+    let font = SystemSource::new().select_best_match(&Spec::new().sans_serif())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
     let properties = font.properties();
     assert_eq!(properties.weight, Weight(400.0));
     assert_eq!(properties.stretch, Stretch(1.0));
@@ -225,7 +257,10 @@ pub fn get_font_properties() {
 
 #[test]
 pub fn get_font_data() {
-    let font = SystemSource::new().find(&Spec::new().sans_serif()).unwrap();
+    let font = SystemSource::new().select_best_match(&Spec::new().sans_serif())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
     let data = font.copy_font_data().unwrap();
     debug_assert!(utils::SFNT_VERSIONS.iter().any(|version| data[0..4] == *version));
 }

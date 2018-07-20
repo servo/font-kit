@@ -86,10 +86,6 @@ impl FsSource {
                                      -> Result<Handle, SelectionError> {
         self.mem_source.select_by_postscript_name(postscript_name)
     }
-
-    pub fn find(&self, spec: &Spec) -> Result<Font, SelectionError> {
-        self.mem_source.find(spec)
-    }
 }
 
 impl Source for FsSource {

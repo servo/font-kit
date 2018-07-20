@@ -13,7 +13,7 @@ use error::SelectionError;
 use family::{Family, FamilyHandle};
 use font::{Face, Font};
 use handle::Handle;
-use loaders;
+use matching::{self, MatchFields};
 
 #[cfg(all(target_os = "macos", not(feature = "source-fontconfig-default")))]
 pub use sources::core_text::CoreTextSource as SystemSource;
@@ -69,51 +69,33 @@ pub trait Source {
         }
     }
 
-    /// Performs font matching according to the CSS Fonts Level 3 specification and loads the font
-    /// using the default loader.
+    /// Performs font matching according to the CSS Fonts Level 3 specification and returns the
+    /// font handle.
     #[inline]
-    fn find(&self, spec: &Spec) -> Result<Font, SelectionError> {
-        find_with_loader::<_, Font>(self, spec)
-    }
-
-    /// Performs font matching according to the CSS Fonts Level 3 specification and loads the font
-    /// using the Core Text loader.
-    #[inline]
-    #[cfg(all(target_os = "macos"))]
-    fn find_with_core_text_loader(&self, spec: &Spec) -> Result<Font, SelectionError> {
-        find_with_loader::<_, loaders::core_text::Font>(self, spec)
-    }
-
-    /// Performs font matching according to the CSS Fonts Level 3 specification and loads the font
-    /// using the DirectWrite loader.
-    #[inline]
-    #[cfg(all(target_family = "windows"))]
-    fn find_with_directwrite_loader(&self, spec: &Spec) -> Result<Font, SelectionError> {
-        find_with_loader::<_, loaders::directwrite::Font>(self, spec)
-    }
-
-    /// Performs font matching according to the CSS Fonts Level 3 specification and loads the font
-    /// using the FreeType loader.
-    #[inline]
-    #[cfg(any(not(any(target_os = "macos", target_family = "windows")),
-              feature = "loader-freetype"))]
-    fn find_with_freetype_loader(&self, spec: &Spec) -> Result<Font, SelectionError> {
-        find_with_loader::<_, loaders::freetype::Font>(self, spec)
-    }
-}
-
-// Performs font matching according to the CSS Fonts Level 3 specification, and loads the font
-// using the supplied loader.
-fn find_with_loader<S, F>(source: &S, spec: &Spec) -> Result<F, SelectionError>
-                          where S: ?Sized + Source, F: Face {
-    for family in &spec.families {
-        if let Ok(family_handle) = source.select_family_by_spec(family) {
-            if let Ok(family) = Family::from_handle(&family_handle) {
-                if let Ok(font) = family.find(&spec.properties) {
-                    return Ok(font)
+    fn select_best_match(&self, spec: &Spec) -> Result<Handle, SelectionError> {
+        for family in &spec.families {
+            if let Ok(family_handle) = self.select_family_by_spec(family) {
+                let candidates = try!(self.select_match_fields_for_family(&family_handle));
+                if let Ok(index) = matching::find_best_match(&candidates, &spec.properties) {
+                    return Ok(family_handle.fonts[index].clone())
                 }
             }
         }
+        Err(SelectionError::NotFound)
     }
-    Err(SelectionError::NotFound)
+
+    #[doc(hidden)]
+    fn select_match_fields_for_family(&self, family: &FamilyHandle)
+                                      -> Result<Vec<MatchFields>, SelectionError> {
+        let mut fields = vec![];
+        for font_handle in family.fonts() {
+            let font = Font::from_handle(font_handle).unwrap();
+            let (family_name, properties) = (font.family_name(), font.properties());
+            fields.push(MatchFields {
+                family_name,
+                properties,
+            })
+        }
+        Ok(fields)
+    }
 }

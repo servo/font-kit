@@ -24,6 +24,7 @@ use error::SelectionError;
 use family::{Family, FamilyHandle};
 use font::{Face, Font};
 use handle::Handle;
+use matching::MatchFields;
 use source::Source;
 use utils;
 
@@ -78,8 +79,9 @@ impl CoreTextSource {
         }
     }
 
-    pub fn find(&self, spec: &Spec) -> Result<Font, SelectionError> {
-        <Self as Source>::find(self, spec)
+    #[inline]
+    pub fn select_best_match(&self, spec: &Spec) -> Result<Handle, SelectionError> {
+        <Self as Source>::select_best_match(self, spec)
     }
 }
 
