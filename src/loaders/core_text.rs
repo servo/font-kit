@@ -22,7 +22,6 @@ use core_text::font_descriptor::{SymbolicTraitAccessors, TraitAccessors};
 use core_text::font_descriptor::{kCTFontDefaultOrientation};
 use core_text;
 use euclid::{Point2D, Rect, Size2D, Vector2D};
-use libc::c_void;
 use lyon_path::builder::PathBuilder;
 use memmap::Mmap;
 use std::f32;
@@ -323,7 +322,7 @@ impl Font {
                            rasterization_options: RasterizationOptions)
                            -> Result<(), GlyphLoadingError> {
         let core_graphics_context =
-            CGContext::create_bitmap_context(Some(canvas.pixels.as_mut_ptr() as *mut c_void),
+            CGContext::create_bitmap_context(Some(canvas.pixels.as_mut_ptr() as *mut _),
                                              canvas.size.width as usize,
                                              canvas.size.height as usize,
                                              canvas.format.bits_per_component() as usize,
