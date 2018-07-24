@@ -17,8 +17,10 @@ use std::ops::Deref;
 use std::sync::{Arc, MutexGuard};
 
 use descriptor::{FONT_STRETCH_MAPPING, Spec};
-use family::Family;
+use error::SelectionError;
+use family::{Family, FamilyHandle};
 use font::Font;
+use handle::Handle;
 use source::Source;
 
 pub struct DirectWriteSource {
@@ -32,48 +34,60 @@ impl DirectWriteSource {
         }
     }
 
-    pub fn all_families(&self) -> Vec<String> {
-        self.system_font_collection
-            .families_iter()
-            .map(|dwrite_family| dwrite_family.name())
-            .collect()
+    pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
+        Ok(self.system_font_collection
+               .families_iter()
+               .map(|dwrite_family| dwrite_family.name())
+               .collect())
     }
 
     // TODO(pcwalton): Case-insensitivity.
-    pub fn select_family(&self, family_name: &str) -> Family {
-        let mut family = Family::new();
+    pub fn select_family_by_name(&self, family_name: &str)
+                                 -> Result<FamilyHandle, SelectionError> {
+        let mut family = FamilyHandle::new();
         let dwrite_family = match self.system_font_collection
                                       .get_font_family_by_name(family_name) {
             Some(dwrite_family) => dwrite_family,
-            None => return family,
+            None => return Err(SelectionError::NotFound),
         };
         for font_index in 0..dwrite_family.get_font_count() {
             unsafe {
                 let dwrite_font = dwrite_family.get_font(font_index);
-                family.push(Font::from_native_font(dwrite_font.create_font_face()))
+                family.push(self.create_handle_from_dwrite_font(dwrite_font))
             }
         }
-        family
+        Ok(family)
     }
 
-    pub fn find(&self, spec: &Spec) -> Result<Font, ()> {
-        <Self as Source>::find(self, spec)
+    pub fn select_by_postscript_name(&self, postscript_name: &str)  
+                                     -> Result<Handle, SelectionError> {
+        <Self as Source>::select_by_postscript_name(self, postscript_name)
     }
 
-    pub fn find_by_postscript_name(&self, postscript_name: &str) -> Result<Font, ()> {
-        <Self as Source>::find_by_postscript_name(self, postscript_name)
+    #[inline]
+    pub fn select_best_match(&self, spec: &Spec) -> Result<Handle, SelectionError> {
+        <Self as Source>::select_best_match(self, spec)
+    }
+
+    fn create_handle_from_dwrite_font(&self, dwrite_font: DWriteFont) -> Handle {
+        let dwrite_font_face = dwrite_font.create_font_face();
+        let dwrite_font_files = dwrite_font_face.get_files();
+        Handle::Path {
+            path: dwrite_font_files[0].get_font_file_path().unwrap(),
+            font_index: dwrite_font_face.get_index()
+        }
     }
 }
 
 impl Source for DirectWriteSource {
     #[inline]
-    fn all_families(&self) -> Vec<String> {
+    fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         self.all_families()
     }
 
     #[inline]
-    fn select_family(&self, family_name: &str) -> Family {
-        self.select_family(family_name)
+    fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
+        self.select_family_by_name(family_name)
     }
 }
 
