@@ -109,7 +109,9 @@ pub fn find_best_match(candidates: &[MatchFields], query: &Properties)
         } else if query.weight <= Weight(500.0) {
             // Closest weight, first checking thinner values and then fatter ones.
             match matching_set.iter()
-                              .filter(|&&index| candidates[index].properties.weight < query.weight)
+                              .filter(|&&index| {
+                                  candidates[index].properties.weight <= query.weight
+                              })
                               .min_by_key(|&&index| {
                                 FloatOrd(query.weight.0 - candidates[index].properties.weight.0)
                               }) {
@@ -128,7 +130,9 @@ pub fn find_best_match(candidates: &[MatchFields], query: &Properties)
         } else {
             // Closest weight, first checking fatter values and then thinner ones.
             match matching_set.iter()
-                              .filter(|&&index| candidates[index].properties.weight > query.weight)
+                              .filter(|&&index| {
+                                  candidates[index].properties.weight >= query.weight
+                              })
                               .min_by_key(|&&index| {
                                 FloatOrd(candidates[index].properties.weight.0 - query.weight.0)
                               }) {

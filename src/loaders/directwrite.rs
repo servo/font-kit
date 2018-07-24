@@ -8,6 +8,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use dwrote::CustomFontCollectionLoaderImpl;
+use dwrote::Font as DWriteFont;
+use dwrote::FontCollection as DWriteFontCollection;
 use dwrote::FontFace as DWriteFontFace;
 use dwrote::FontFile as DWriteFontFile;
 use dwrote::FontStyle as DWriteFontStyle;
@@ -34,9 +37,13 @@ use error::{FontLoadingError, GlyphLoadingError};
 use font::{Face, HintingOptions, Metrics, Type};
 use handle::Handle;
 
-pub type NativeFont = DWriteFontFace;
+pub struct NativeFont {
+    pub dwrite_font: DWriteFont,
+    pub dwrite_font_face: DWriteFontFace,
+}
 
 pub struct Font {
+    dwrite_font: DWriteFont,
     dwrite_font_face: DWriteFontFace,
     cached_data: Mutex<Option<Arc<Vec<u8>>>>,
 }
@@ -45,9 +52,14 @@ impl Font {
     pub fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Font, FontLoadingError> {
         let font_file =
             try!(DWriteFontFile::new_from_data(&**font_data).ok_or(FontLoadingError::Parse));
-        let face = font_file.create_face(font_index, 0);
+        let collection_loader = CustomFontCollectionLoaderImpl::new(&[font_file.clone()]);
+        let collection = DWriteFontCollection::from_loader(collection_loader);
+        let family = collection.families_iter().next().unwrap();
+        let dwrite_font = family.get_font(0);
+        let dwrite_font_face = dwrite_font.create_font_face();
         Ok(Font {
-            dwrite_font_face: face,
+            dwrite_font,
+            dwrite_font_face,
             cached_data: Mutex::new(Some(font_data)),
         })
     }
@@ -65,10 +77,11 @@ impl Font {
         <Font as Face>::from_path(path, font_index)
     }
 
-    // TODO(pcwalton)
-    pub unsafe fn from_native_font(dwrite_font_face: NativeFont) -> Font {
+    #[inline]
+    pub unsafe fn from_native_font(native_font: NativeFont) -> Font {
         Font {
-            dwrite_font_face,
+            dwrite_font: native_font.dwrite_font,
+            dwrite_font_face: native_font.dwrite_font_face,
             cached_data: Mutex::new(None),
         }
     }
@@ -102,21 +115,21 @@ impl Font {
 
     #[inline]
     pub fn postscript_name(&self) -> String {
-        let dwrite_font = self.dwrite_font_face.get_font();
+        let dwrite_font = &self.dwrite_font;
         dwrite_font.informational_string(DWriteInformationalStringId::PostscriptName)
                    .unwrap_or_else(|| dwrite_font.family_name())
     }
 
     #[inline]
     pub fn full_name(&self) -> String {
-        let dwrite_font = self.dwrite_font_face.get_font();
+        let dwrite_font = &self.dwrite_font;
         dwrite_font.informational_string(DWriteInformationalStringId::FullName)
                    .unwrap_or_else(|| dwrite_font.family_name())
     }
 
     #[inline]
     pub fn family_name(&self) -> String {
-        self.dwrite_font_face.get_font().family_name()
+        self.dwrite_font.family_name()
     }
 
     // FIXME(pcwalton)
@@ -126,7 +139,7 @@ impl Font {
     }
 
     pub fn properties(&self) -> Properties {
-        let dwrite_font = self.dwrite_font_face.get_font();
+        let dwrite_font = &self.dwrite_font;
         Properties {
             style: style_for_dwrite_style(dwrite_font.style()),
             stretch: Stretch(FONT_STRETCH_MAPPING[(dwrite_font.stretch() as usize) - 1]),
@@ -186,7 +199,7 @@ impl Font {
     }
 
     pub fn metrics(&self) -> Metrics {
-        let dwrite_font = self.dwrite_font_face.get_font();
+        let dwrite_font = &self.dwrite_font;
         let dwrite_metrics = dwrite_font.metrics();
         Metrics {
             units_per_em: dwrite_metrics.designUnitsPerEm as u32,
@@ -335,6 +348,7 @@ impl Clone for Font {
     #[inline]
     fn clone(&self) -> Font {
         Font {
+            dwrite_font: self.dwrite_font.clone(),
             dwrite_font_face: self.dwrite_font_face.clone(),
             cached_data: Mutex::new((*self.cached_data.lock().unwrap()).clone())
         }
