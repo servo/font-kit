@@ -8,6 +8,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! `font-kit` provides a common interface to the various system font libraries and provides
+//! services such as finding fonts on the system, performing nearest-font matching, and
+//! glyph rasterization.
+
 extern crate arrayvec;
 extern crate byteorder;
 extern crate euclid;

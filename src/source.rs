@@ -32,11 +32,16 @@ const DEFAULT_FONT_FAMILY_MONOSPACE: &'static str = "Courier New";
 const DEFAULT_FONT_FAMILY_CURSIVE: &'static str = "Comic Sans MS";
 const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "Papyrus";
 
+/// A database of installed fonts that can be queried.
 pub trait Source {
+    /// Returns all families installed on the system.
     fn all_families(&self) -> Result<Vec<String>, SelectionError>;
 
+    /// Looks up a font family by name.
     fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError>;
 
+    /// Selects a font by PostScript name, which should be a unique identifier.
+    ///
     /// The default implementation, which is used by the DirectWrite and the filesystem backends,
     /// does a brute-force search of installed fonts to find the one that matches.
     fn select_by_postscript_name(&self, postscript_name: &str) -> Result<Handle, SelectionError> {
