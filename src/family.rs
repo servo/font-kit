@@ -11,8 +11,9 @@
 use std::iter;
 
 use error::FontLoadingError;
-use font::{Face, Font};
+use font::Font;
 use handle::Handle;
+use loader::Loader;
 
 #[derive(Debug)]
 pub struct FamilyHandle {
@@ -51,11 +52,11 @@ impl FamilyHandle {
 }
 
 #[derive(Debug)]
-pub struct Family<F = Font> where F: Face {
+pub struct Family<F = Font> where F: Loader {
     pub fonts: Vec<F>,
 }
 
-impl<F> Family<F> where F: Face {
+impl<F> Family<F> where F: Loader {
     #[inline]
     pub fn new() -> Family<F> {
         Family {

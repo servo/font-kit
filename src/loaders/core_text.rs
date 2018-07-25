@@ -36,8 +36,9 @@ use std::sync::Arc;
 use canvas::{Canvas, Format, RasterizationOptions};
 use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use error::{FontLoadingError, GlyphLoadingError};
-use font::{Face, HintingOptions, Metrics, Type};
+use font::{HintingOptions, Metrics, Type};
 use handle::Handle;
+use loader::Loader;
 use sources;
 use utils;
 
@@ -84,7 +85,7 @@ impl Font {
     #[inline]
     pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, FontLoadingError>
                         where P: AsRef<Path> {
-        <Font as Face>::from_path(path, font_index)
+        <Font as Loader>::from_path(path, font_index)
     }
 
     pub unsafe fn from_native_font(core_text_font: NativeFont) -> Font {
@@ -121,7 +122,7 @@ impl Font {
 
     #[inline]
     pub fn from_handle(handle: &Handle) -> Result<Self, FontLoadingError> {
-        <Self as Face>::from_handle(handle)
+        <Self as Loader>::from_handle(handle)
     }
 
     pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<Type, FontLoadingError> {
@@ -144,7 +145,7 @@ impl Font {
 
     #[inline]
     pub fn analyze_path<P>(path: P) -> Result<Type, FontLoadingError> where P: AsRef<Path> {
-        <Self as Face>::analyze_path(path)
+        <Self as Loader>::analyze_path(path)
     }
 
     #[inline]
@@ -303,12 +304,12 @@ impl Font {
                          hinting_options: HintingOptions,
                          rasterization_options: RasterizationOptions)
                          -> Result<Rect<i32>, GlyphLoadingError> {
-        <Self as Face>::raster_bounds(self,
-                                      glyph_id,
-                                      point_size,
-                                      origin,
-                                      hinting_options,
-                                      rasterization_options)
+        <Self as Loader>::raster_bounds(self,
+                                        glyph_id,
+                                        point_size,
+                                        origin,
+                                        hinting_options,
+                                        rasterization_options)
     }
 
     // TODO(pcwalton): This is woefully incomplete. See WebRender's code for a more complete
@@ -385,7 +386,7 @@ impl Font {
     }
 }
 
-impl Face for Font {
+impl Loader for Font {
     type NativeFont = NativeFont;
 
     #[inline]
