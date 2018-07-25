@@ -17,7 +17,8 @@ use std::io::Read;
 use std::sync::Arc;
 
 use family_name::FamilyName;
-use font::{Font, Type};
+use file_type::FileType;
+use font::Font;
 use hinting::HintingOptions;
 use properties::{Properties, Stretch, Style, Weight};
 use source::SystemSource;
@@ -105,7 +106,7 @@ pub fn load_font_from_memory() {
 #[test]
 pub fn analyze_file() {
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
-    assert_eq!(Font::analyze_file(&mut file).unwrap(), Type::Single);
+    assert_eq!(Font::analyze_file(&mut file).unwrap(), FileType::Single);
 }
 
 #[test]
@@ -113,7 +114,7 @@ pub fn analyze_bytes() {
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
     let mut font_data = vec![];
     file.read_to_end(&mut font_data).unwrap();
-    assert_eq!(Font::analyze_bytes(Arc::new(font_data)).unwrap(), Type::Single);
+    assert_eq!(Font::analyze_bytes(Arc::new(font_data)).unwrap(), FileType::Single);
 }
 
 #[test]

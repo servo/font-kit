@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use canvas::{Canvas, RasterizationOptions};
 use error::{FontLoadingError, GlyphLoadingError};
-use font::Type;
+use file_type::FileType;
 use handle::Handle;
 use hinting::HintingOptions;
 use metrics::Metrics;
@@ -51,10 +51,10 @@ pub trait Loader: Clone + Sized {
         }
     }
 
-    fn analyze_file(file: &mut File) -> Result<Type, FontLoadingError>;
+    fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError>;
 
     #[inline]
-    fn analyze_path<P>(path: P) -> Result<Type, FontLoadingError> where P: AsRef<Path> {
+    fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
         <Self as Loader>::analyze_file(&mut try!(File::open(path)))
     }
 

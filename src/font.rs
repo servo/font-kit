@@ -9,12 +9,3 @@
 // except according to those terms.
 
 pub use loaders::default::Font;
-
-/// The type of a font file: either a single font or a TrueType/OpenType collection.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Type {
-    /// The font file represents a single font (`.ttf`, `.otf`, `.woff`, etc.)
-    Single,
-    /// The font file represents a collection of fonts (`.ttc`, `.otc`, etc.)
-    Collection(u32),
-}

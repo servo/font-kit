@@ -33,7 +33,7 @@ use winapi::shared::minwindef::FALSE;
 
 use canvas::{Canvas, Format, RasterizationOptions};
 use error::{FontLoadingError, GlyphLoadingError};
-use font::Type;
+use file_type::FileType;
 use handle::Handle;
 use hinting::HintingOptions;
 use loader::Loader;
@@ -94,15 +94,15 @@ impl Font {
         <Self as Loader>::from_handle(handle)
     }
 
-    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<Type, FontLoadingError> {
+    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<FileType, FontLoadingError> {
         match DWriteFontFile::analyze_data(&**font_data) {
             0 => Err(FontLoadingError::Parse),
-            1 => Ok(Type::Single),
-            font_count => Ok(Type::Collection(font_count)),
+            1 => Ok(FileType::Single),
+            font_count => Ok(FileType::Collection(font_count)),
         }
     }
 
-    pub fn analyze_file(file: &mut File) -> Result<Type, FontLoadingError> {
+    pub fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         let mut font_data = vec![];
         try!(file.seek(SeekFrom::Start(0)).map_err(FontLoadingError::Io));
         match file.read_to_end(&mut font_data) {
@@ -112,7 +112,7 @@ impl Font {
     }
 
     #[inline]
-    pub fn analyze_path<P>(path: P) -> Result<Type, FontLoadingError> where P: AsRef<Path> {
+    pub fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
         <Self as Loader>::analyze_path(path)
     }
 
@@ -383,7 +383,7 @@ impl Loader for Font {
     }
 
     #[inline]
-    fn analyze_file(file: &mut File) -> Result<Type, FontLoadingError> {
+    fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         Font::analyze_file(file)
     }
 

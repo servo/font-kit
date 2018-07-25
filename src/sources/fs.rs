@@ -30,7 +30,8 @@ use winapi::um::sysinfoapi;
 use error::SelectionError;
 use family_handle::FamilyHandle;
 use family_name::FamilyName;
-use font::{Font, Type};
+use file_type::FileType;
+use font::Font;
 use handle::Handle;
 use properties::Properties;
 use source::Source;
@@ -59,8 +60,8 @@ impl FsSource {
                 };
                 match Font::analyze_file(&mut file) {
                     Err(_) => continue,
-                    Ok(Type::Single) => fonts.push(Handle::from_path(path.to_owned(), 0)),
-                    Ok(Type::Collection(font_count)) => {
+                    Ok(FileType::Single) => fonts.push(Handle::from_path(path.to_owned(), 0)),
+                    Ok(FileType::Collection(font_count)) => {
                         for font_index in 0..font_count {
                             fonts.push(Handle::from_path(path.to_owned(), font_index))
                         }

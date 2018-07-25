@@ -35,7 +35,7 @@ use std::sync::Arc;
 
 use canvas::{Canvas, Format, RasterizationOptions};
 use error::{FontLoadingError, GlyphLoadingError};
-use font::Type;
+use file_type::FileType;
 use handle::Handle;
 use hinting::HintingOptions;
 use loader::Loader;
@@ -127,18 +127,18 @@ impl Font {
         <Self as Loader>::from_handle(handle)
     }
 
-    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<Type, FontLoadingError> {
+    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<FileType, FontLoadingError> {
         if let Ok(font_count) = read_number_of_fonts_from_otc_header(&font_data) {
-            return Ok(Type::Collection(font_count))
+            return Ok(FileType::Collection(font_count))
         }
         let data_provider = CGDataProvider::from_buffer(font_data);
         match CGFont::from_data_provider(data_provider) {
-            Ok(_) => Ok(Type::Single),
+            Ok(_) => Ok(FileType::Single),
             Err(_) => Err(FontLoadingError::Parse),
         }
     }
 
-    pub fn analyze_file(file: &mut File) -> Result<Type, FontLoadingError> {
+    pub fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         let mut font_data = vec![];
         try!(file.seek(SeekFrom::Start(0)));
         try!(file.read_to_end(&mut font_data));
@@ -146,7 +146,7 @@ impl Font {
     }
 
     #[inline]
-    pub fn analyze_path<P>(path: P) -> Result<Type, FontLoadingError> where P: AsRef<Path> {
+    pub fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
         <Self as Loader>::analyze_path(path)
     }
 
@@ -410,7 +410,7 @@ impl Loader for Font {
         Font::from_native_font(native_font)
     }
 
-    fn analyze_file(file: &mut File) -> Result<Type, FontLoadingError> {
+    fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         Font::analyze_file(file)
     }
 

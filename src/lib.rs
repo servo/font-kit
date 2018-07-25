@@ -53,6 +53,7 @@ pub mod error;
 pub mod family;
 pub mod family_handle;
 pub mod family_name;
+pub mod file_type;
 pub mod font;
 pub mod handle;
 pub mod hinting;

@@ -42,7 +42,7 @@ use std::slice;
 use std::sync::Arc;
 
 use error::{FontLoadingError, GlyphLoadingError};
-use font::Type;
+use file_type::FileType;
 use handle::Handle;
 use hinting::HintingOptions;
 use loader::Loader;
@@ -169,7 +169,7 @@ impl Font {
         <Self as Loader>::from_handle(handle)
     }
 
-    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<Type, FontLoadingError> {
+    pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<FileType, FontLoadingError> {
         FREETYPE_LIBRARY.with(|freetype_library| {
             unsafe {
                 let mut freetype_face = ptr::null_mut();
@@ -182,8 +182,8 @@ impl Font {
                 }
 
                 let font_type = match (*freetype_face).num_faces {
-                    1 => Type::Single,
-                    num_faces => Type::Collection(num_faces as u32),
+                    1 => FileType::Single,
+                    num_faces => FileType::Collection(num_faces as u32),
                 };
                 FT_Done_Loader(freetype_face);
                 Ok(font_type)
@@ -191,7 +191,7 @@ impl Font {
         })
     }
 
-    pub fn analyze_file(file: &mut File) -> Result<Type, FontLoadingError> {
+    pub fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         FREETYPE_LIBRARY.with(|freetype_library| {
             unsafe {
                 let mmap = try!(Mmap::map(&file));
@@ -205,8 +205,8 @@ impl Font {
                 }
 
                 let font_type = match (*freetype_face).num_faces {
-                    1 => Type::Single,
-                    num_faces => Type::Collection(num_faces as u32),
+                    1 => FileType::Single,
+                    num_faces => FileType::Collection(num_faces as u32),
                 };
                 FT_Done_Loader(freetype_face);
                 Ok(font_type)
@@ -215,7 +215,7 @@ impl Font {
     }
 
     #[inline]
-    pub fn analyze_path<P>(path: P) -> Result<Type, FontLoadingError> where P: AsRef<Path> {
+    pub fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
         <Self as Loader>::analyze_path(path)
     }
 
@@ -657,7 +657,7 @@ impl Loader for Font {
         Font::from_file(file, font_index)
     }
 
-    fn analyze_file(file: &mut File) -> Result<Type, FontLoadingError> {
+    fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         Font::analyze_file(file)
     }
 
