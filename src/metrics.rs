@@ -29,7 +29,7 @@ pub struct Metrics {
     ///
     /// NB: This is typically a negative value to match the definition of `sTypoDescender` in the
     /// `OS/2` table in the OpenType specification. If you are used to using Windows or Mac APIs,
-    /// beware, as the sign is reversed.
+    /// beware, as the sign is reversed from what those APIs return.
     pub descent: f32,
 
     /// Distance between baselines, in font units.
@@ -39,7 +39,7 @@ pub struct Metrics {
     /// indicate below baseline), in font units.
     pub underline_position: f32,
 
-    /// Suggested values for the underline thickness, in font units.
+    /// A suggested value for the underline thickness, in font units.
     pub underline_thickness: f32,
 
     /// The approximate amount that uppercase letters rise above the baseline, in font units.

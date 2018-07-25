@@ -41,7 +41,7 @@ pub trait Source {
     /// Returns all families installed on the system.
     fn all_families(&self) -> Result<Vec<String>, SelectionError>;
 
-    /// Looks up a font family by name.
+    /// Looks up a font family by name and returns the handles of all the fonts in that family.
     fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError>;
 
     /// Selects a font by PostScript name, which should be a unique identifier.

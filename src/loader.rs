@@ -28,19 +28,34 @@ use properties::Properties;
 /// Provides a common interface to the platform-specific API that loads, parses, and rasterizes
 /// fonts.
 pub trait Loader: Clone + Sized {
+    /// The handle that the API natively uses to represent a font.
     type NativeFont;
 
+    /// Loads a font from raw font data (the contents of a `.ttf`/`.otf`/etc. file).
+    ///
+    /// If the data represents a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index
+    /// of the font to load from it. If the data represents a single font, pass 0 for `font_index`.
     fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Self, FontLoadingError>;
 
+    /// Loads a font from a `.ttf`/`.otf`/etc. file.
+    ///
+    /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
+    /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     fn from_file(file: &mut File, font_index: u32) -> Result<Self, FontLoadingError>;
 
+    /// Loads a font from the path to a `.ttf`/`.otf`/etc. file.
+    ///
+    /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
+    /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     fn from_path<P>(path: P, font_index: u32) -> Result<Self, FontLoadingError>
                     where P: AsRef<Path> {
         Loader::from_file(&mut try!(File::open(path)), font_index)
     }
 
+    /// Creates a font from a native API handle.
     unsafe fn from_native_font(native_font: Self::NativeFont) -> Self;
 
+    /// Loads the font pointed to by a handle.
     fn from_handle(handle: &Handle) -> Result<Self, FontLoadingError> {
         match *handle {
             Handle::Memory {
@@ -54,47 +69,76 @@ pub trait Loader: Clone + Sized {
         }
     }
 
+    /// Determines whether a file represents a supported font, and if so, what type of font it is.
     fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError>;
 
+    /// Determines whether a path points to a supported font, and if so, what type of font it is.
     #[inline]
     fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
         <Self as Loader>::analyze_file(&mut try!(File::open(path)))
     }
 
-    /// PostScript name of the font.
+    /// Returns the PostScript name of the font. This should be globally unique.
     fn postscript_name(&self) -> String;
 
-    /// Full name of the font (also known as "display name" on macOS).
+    /// Returns the full name of the font (also known as "display name" on macOS).
     fn full_name(&self) -> String;
 
-    /// Name of the font family.
+    /// Returns the name of the font family.
     fn family_name(&self) -> String;
 
-    /// Whether the font is monospace (fixed-width).
+    /// Returns true if and only if the font is monospace (fixed-width).
     fn is_monospace(&self) -> bool;
 
-    /// Various font properties, corresponding to those defined in CSS.
+    /// Returns various font properties, corresponding to those defined in CSS.
     fn properties(&self) -> Properties;
 
+    /// Returns the usual glyph ID for a Unicode character.
+    ///
+    /// Be careful with this function; typographically correct character-to-glyph mapping must be
+    /// done using a *shaper* such as HarfBuzz. This function is only useful for best-effort simple
+    /// use cases like "what does character X look like on its own".
     fn glyph_for_char(&self, character: char) -> Option<u32>;
 
+    /// Sends the vector path for a glyph to a path builder.
+    ///
+    /// If `hinting_mode` is not None, this function performs grid-fitting as requested before
+    /// sending the hinding outlines to the builder.
+    ///
+    /// TODO(pcwalton): What should we do for bitmap glyphs?
     fn outline<B>(&self, glyph_id: u32, hinting_mode: HintingOptions, path_builder: &mut B)
                   -> Result<(), GlyphLoadingError>
                   where B: PathBuilder;
 
+    /// Returns the boundaries of a glyph in font units.
     fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError>;
 
+    /// Returns the distance from the origin of the given glyph ID to the next, in font units.
     fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError>;
 
+    /// Returns the amount that the given glyph should be displaced from the origin.
     fn origin(&self, glyph_id: u32) -> Result<Point2D<f32>, GlyphLoadingError>;
 
+    /// Retrieves various metrics that apply to the entire font.
     fn metrics(&self) -> Metrics;
 
+    /// Attempts to return the raw font data (contents of the font file).
+    ///
+    /// If this font is a member of a collection, this function returns the data for the entire
+    /// collection.
     fn copy_font_data(&self) -> Option<Arc<Vec<u8>>>;
 
+    /// Returns true if and only if the font loader can perform hinting in the desired way.
+    ///
+    /// Some APIs support only rasterizing glyphs with hinting, not retriving hinted outlines. If
+    /// `for_rasterization` is false, this function returns true if and only if the loader supports
+    /// retrieval of hinted *outlines*. If `for_rasterization` is true, this function returns true
+    /// if and only if the loader supports *rasterizing* hinted glyphs.
     fn supports_hinting_options(&self, hinting_options: HintingOptions, for_rasterization: bool)
                                 -> bool;
 
+    /// Returns the pixel boundaries that the glyph will take up when rendered using this loader's
+    /// rasterizer at the given size and origin.
     fn raster_bounds(&self,
                      glyph_id: u32,
                      point_size: f32,
@@ -108,6 +152,15 @@ pub trait Loader: Clone + Sized {
         Ok(typographic_raster_bounds.translate(&origin.to_vector()).round_out().to_i32())
     }
 
+    /// Rasterizes a glyph to a canvas with the given size and origin.
+    ///
+    /// Format conversion will be performed if the canvas format does not match the rasterization
+    /// options. For example, if bilevel (black and white) rendering is requested to an RGBA
+    /// surface, this function will automatically convert the 1-bit raster image to the 32-bit
+    /// format of the canvas. Note that this may result in a performance penalty, depending on the
+    /// loader.
+    ///
+    /// If `hinting_options` is not None, the requested grid fitting is performed.
     fn rasterize_glyph(&self,
                        canvas: &mut Canvas,
                        glyph_id: u32,
