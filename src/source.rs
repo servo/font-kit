@@ -14,7 +14,7 @@ use family_handle::FamilyHandle;
 use family_name::FamilyName;
 use font::Font;
 use handle::Handle;
-use matching::{self, MatchFields};
+use matching::{self, Description};
 use properties::Properties;
 
 #[cfg(all(target_os = "macos", not(feature = "source-fontconfig-default")))]
@@ -84,7 +84,7 @@ pub trait Source {
                          -> Result<Handle, SelectionError> {
         for family_name in family_names {
             if let Ok(family_handle) = self.select_family_by_generic_name(family_name) {
-                let candidates = try!(self.select_match_fields_for_family(&family_handle));
+                let candidates = try!(self.select_descriptions_in_family(&family_handle));
                 if let Ok(index) = matching::find_best_match(&candidates, properties) {
                     return Ok(family_handle.fonts[index].clone())
                 }
@@ -94,13 +94,13 @@ pub trait Source {
     }
 
     #[doc(hidden)]
-    fn select_match_fields_for_family(&self, family: &FamilyHandle)
-                                      -> Result<Vec<MatchFields>, SelectionError> {
+    fn select_descriptions_in_family(&self, family: &FamilyHandle)
+                                     -> Result<Vec<Description>, SelectionError> {
         let mut fields = vec![];
         for font_handle in family.fonts() {
             let font = Font::from_handle(font_handle).unwrap();
             let (family_name, properties) = (font.family_name(), font.properties());
-            fields.push(MatchFields {
+            fields.push(Description {
                 family_name,
                 properties,
             })

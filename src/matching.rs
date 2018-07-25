@@ -8,12 +8,14 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! Determines the closest font matching a description per the CSS Fonts Level 3 specification.
+
 use float_ord::FloatOrd;
 
 use error::SelectionError;
 use properties::{Properties, Stretch, Style, Weight};
 
-pub struct MatchFields {
+pub struct Description {
     pub family_name: String,
     pub properties: Properties,
 }
@@ -21,7 +23,7 @@ pub struct MatchFields {
 /// This follows CSS Fonts Level 3 § 5.2 [1].
 ///
 /// https://drafts.csswg.org/css-fonts-3/#font-style-matching
-pub fn find_best_match(candidates: &[MatchFields], query: &Properties)
+pub fn find_best_match(candidates: &[Description], query: &Properties)
                        -> Result<usize, SelectionError> {
     // Step 4.
     let mut matching_set: Vec<usize> = (0..candidates.len()).collect();
