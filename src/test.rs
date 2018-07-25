@@ -16,7 +16,7 @@ use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
 
-use descriptor::Class;
+use family_name::FamilyName;
 use font::{Font, Type};
 use hinting::HintingOptions;
 use properties::{Properties, Stretch, Style, Weight};
@@ -35,7 +35,7 @@ static TEST_FONT_POSTSCRIPT_NAME: &'static str = "EBGaramond12-Regular";
 
 #[test]
 pub fn lookup_single_regular_font() {
-    let font = SystemSource::new().select_best_match(&[Class::SansSerif], &Properties::new())
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
                                   .unwrap()
                                   .load()
                                   .unwrap();
@@ -44,7 +44,7 @@ pub fn lookup_single_regular_font() {
 
 #[test]
 pub fn lookup_single_bold_font() {
-    let font = SystemSource::new().select_best_match(&[Class::SansSerif],
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif],
                                                      Properties::new().weight(Weight::BOLD))
                                   .unwrap()
                                   .load()
@@ -54,7 +54,7 @@ pub fn lookup_single_bold_font() {
 
 #[test]
 pub fn lookup_single_italic_font() {
-    let font = SystemSource::new().select_best_match(&[Class::SansSerif],
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif],
                                                      Properties::new().style(Style::Italic))
                                   .unwrap()
                                   .load()
@@ -118,7 +118,7 @@ pub fn analyze_bytes() {
 
 #[test]
 pub fn get_glyph_for_char() {
-    let font = SystemSource::new().select_best_match(&[Class::SansSerif], &Properties::new())
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
                                   .unwrap()
                                   .load()
                                   .unwrap();
@@ -129,7 +129,7 @@ pub fn get_glyph_for_char() {
 #[test]
 pub fn get_glyph_outline() {
     let mut path_builder = Path::builder();
-    let font = SystemSource::new().select_best_match(&[Class::SansSerif], &Properties::new())
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
                                   .unwrap()
                                   .load()
                                   .unwrap();
@@ -156,7 +156,7 @@ pub fn get_glyph_outline() {
 #[test]
 pub fn get_vertically_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
-    let font = SystemSource::new().select_best_match(&[Class::SansSerif], &Properties::new())
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
                                   .unwrap()
                                   .load()
                                   .unwrap();
@@ -206,7 +206,7 @@ pub fn get_fully_hinted_glyph_outline() {
 
 #[test]
 pub fn get_glyph_typographic_bounds() {
-    let font = SystemSource::new().select_best_match(&[Class::SansSerif], &Properties::new())
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
                                   .unwrap()
                                   .load()
                                   .unwrap();
@@ -217,7 +217,7 @@ pub fn get_glyph_typographic_bounds() {
 
 #[test]
 pub fn get_glyph_advance_and_origin() {
-    let font = SystemSource::new().select_best_match(&[Class::SansSerif], &Properties::new())
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
                                   .unwrap()
                                   .load()
                                   .unwrap();
@@ -228,7 +228,7 @@ pub fn get_glyph_advance_and_origin() {
 
 #[test]
 pub fn get_font_metrics() {
-    let font = SystemSource::new().select_best_match(&[Class::SansSerif], &Properties::new())
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
                                   .unwrap()
                                   .load()
                                   .unwrap();
@@ -245,7 +245,7 @@ pub fn get_font_metrics() {
 
 #[test]
 pub fn get_font_full_name() {
-    let font = SystemSource::new().select_best_match(&[Class::SansSerif], &Properties::new())
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
                                   .unwrap()
                                   .load()
                                   .unwrap();
@@ -254,7 +254,7 @@ pub fn get_font_full_name() {
 
 #[test]
 pub fn get_font_properties() {
-    let font = SystemSource::new().select_best_match(&[Class::SansSerif], &Properties::new())
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
                                   .unwrap()
                                   .load()
                                   .unwrap();
@@ -265,7 +265,7 @@ pub fn get_font_properties() {
 
 #[test]
 pub fn get_font_data() {
-    let font = SystemSource::new().select_best_match(&[Class::SansSerif], &Properties::new())
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
                                   .unwrap()
                                   .load()
                                   .unwrap();

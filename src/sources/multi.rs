@@ -13,9 +13,9 @@
 //! This is useful when an application wants a library of fonts consisting of the installed system
 //! fonts plus some other application-supplied fonts.
 
-use descriptor::Class;
 use error::SelectionError;
 use family_handle::FamilyHandle;
+use family_name::FamilyName;
 use handle::Handle;
 use properties::Properties;
 use source::Source;
@@ -68,9 +68,9 @@ impl MultiSource {
     }
 
     #[inline]
-    pub fn select_best_match(&self, classes: &[Class], properties: &Properties)
+    pub fn select_best_match(&self, family_names: &[FamilyName], properties: &Properties)
                              -> Result<Handle, SelectionError> {
-        <Self as Source>::select_best_match(self, classes, properties)
+        <Self as Source>::select_best_match(self, family_names, properties)
     }
 }
 

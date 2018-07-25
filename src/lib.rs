@@ -49,10 +49,10 @@ extern crate fontconfig;
 extern crate freetype;
 
 pub mod canvas;
-pub mod descriptor;
 pub mod error;
 pub mod family;
 pub mod family_handle;
+pub mod family_name;
 pub mod font;
 pub mod handle;
 pub mod hinting;

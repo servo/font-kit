@@ -27,9 +27,9 @@ use winapi::shared::minwindef::{MAX_PATH, UINT};
 #[cfg(target_family = "windows")]
 use winapi::um::sysinfoapi;
 
-use descriptor::Class;
 use error::SelectionError;
 use family_handle::FamilyHandle;
+use family_name::FamilyName;
 use font::{Font, Type};
 use handle::Handle;
 use properties::Properties;
@@ -89,9 +89,9 @@ impl FsSource {
     }
 
     #[inline]
-    pub fn select_best_match(&self, classes: &[Class], properties: &Properties)
+    pub fn select_best_match(&self, family_names: &[FamilyName], properties: &Properties)
                              -> Result<Handle, SelectionError> {
-        <Self as Source>::select_best_match(self, classes, properties)
+        <Self as Source>::select_best_match(self, family_names, properties)
     }
 }
 

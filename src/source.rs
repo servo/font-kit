@@ -8,10 +8,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use descriptor::Class;
 use error::SelectionError;
 use family::Family;
 use family_handle::FamilyHandle;
+use family_name::FamilyName;
 use font::Font;
 use handle::Handle;
 use matching::{self, MatchFields};
@@ -65,24 +65,25 @@ pub trait Source {
     // FIXME(pcwalton): This only returns one family instead of multiple families for the generic
     // family names.
     #[doc(hidden)]
-    fn select_family_by_class(&self, class: &Class) -> Result<FamilyHandle, SelectionError> {
-        match *class {
-            Class::Name(ref name) => self.select_family_by_name(name),
-            Class::Serif => self.select_family_by_name(DEFAULT_FONT_FAMILY_SERIF),
-            Class::SansSerif => self.select_family_by_name(DEFAULT_FONT_FAMILY_SANS_SERIF),
-            Class::Monospace => self.select_family_by_name(DEFAULT_FONT_FAMILY_MONOSPACE),
-            Class::Cursive => self.select_family_by_name(DEFAULT_FONT_FAMILY_CURSIVE),
-            Class::Fantasy => self.select_family_by_name(DEFAULT_FONT_FAMILY_FANTASY),
+    fn select_family_by_generic_name(&self, family_name: &FamilyName)
+                              -> Result<FamilyHandle, SelectionError> {
+        match *family_name {
+            FamilyName::Title(ref title) => self.select_family_by_name(title),
+            FamilyName::Serif => self.select_family_by_name(DEFAULT_FONT_FAMILY_SERIF),
+            FamilyName::SansSerif => self.select_family_by_name(DEFAULT_FONT_FAMILY_SANS_SERIF),
+            FamilyName::Monospace => self.select_family_by_name(DEFAULT_FONT_FAMILY_MONOSPACE),
+            FamilyName::Cursive => self.select_family_by_name(DEFAULT_FONT_FAMILY_CURSIVE),
+            FamilyName::Fantasy => self.select_family_by_name(DEFAULT_FONT_FAMILY_FANTASY),
         }
     }
 
     /// Performs font matching according to the CSS Fonts Level 3 specification and returns the
     /// handle.
     #[inline]
-    fn select_best_match(&self, classes: &[Class], properties: &Properties)
+    fn select_best_match(&self, family_names: &[FamilyName], properties: &Properties)
                          -> Result<Handle, SelectionError> {
-        for class in classes {
-            if let Ok(family_handle) = self.select_family_by_class(class) {
+        for family_name in family_names {
+            if let Ok(family_handle) = self.select_family_by_generic_name(family_name) {
                 let candidates = try!(self.select_match_fields_for_family(&family_handle));
                 if let Ok(index) = matching::find_best_match(&candidates, properties) {
                     return Ok(family_handle.fonts[index].clone())
