@@ -34,8 +34,9 @@ use winapi::shared::minwindef::FALSE;
 use canvas::{Canvas, Format, RasterizationOptions};
 use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use error::{FontLoadingError, GlyphLoadingError};
-use font::{HintingOptions, Type};
+use font::Type;
 use handle::Handle;
+use hinting::HintingOptions;
 use loader::Loader;
 use metrics::Metrics;
 

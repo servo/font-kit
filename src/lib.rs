@@ -50,6 +50,7 @@ pub mod error;
 pub mod family;
 pub mod font;
 pub mod handle;
+pub mod hinting;
 pub mod loader;
 pub mod loaders;
 pub mod metrics;

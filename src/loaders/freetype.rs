@@ -43,8 +43,9 @@ use std::sync::Arc;
 
 use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use error::{FontLoadingError, GlyphLoadingError};
-use font::{HintingOptions, Type};
+use font::Type;
 use handle::Handle;
+use hinting::HintingOptions;
 use loader::Loader;
 use metrics::Metrics;
 

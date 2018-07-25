@@ -17,7 +17,8 @@ use std::io::Read;
 use std::sync::Arc;
 
 use descriptor::{Class, Properties, Stretch, Style, Weight};
-use font::{Font, HintingOptions, Type};
+use font::{Font, Type};
+use hinting::HintingOptions;
 use source::SystemSource;
 use sources::fs::FsSource;
 use utils;

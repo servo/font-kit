@@ -13,7 +13,7 @@ extern crate font_kit;
 
 use euclid::Point2D;
 use font_kit::canvas::{Canvas, Format, RasterizationOptions};
-use font_kit::font::HintingOptions;
+use font_kit::hinting::HintingOptions;
 use font_kit::source::SystemSource;
 use std::env;
 use std::process;
