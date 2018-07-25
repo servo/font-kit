@@ -16,7 +16,7 @@ use dwrote::InformationalStringId as DWriteInformationalStringId;
 use std::ops::Deref;
 use std::sync::{Arc, MutexGuard};
 
-use descriptor::{FONT_STRETCH_MAPPING, Spec};
+use descriptor::{Class, FONT_STRETCH_MAPPING, Properties};
 use error::SelectionError;
 use family::{Family, FamilyHandle};
 use font::Font;
@@ -65,8 +65,9 @@ impl DirectWriteSource {
     }
 
     #[inline]
-    pub fn select_best_match(&self, spec: &Spec) -> Result<Handle, SelectionError> {
-        <Self as Source>::select_best_match(self, spec)
+    pub fn select_best_match(&self, classes: &[Class], properties: &Properties)
+                             -> Result<Handle, SelectionError> {
+        <Self as Source>::select_best_match(self, classes, properties)
     }
 
     fn create_handle_from_dwrite_font(&self, dwrite_font: DWriteFont) -> Handle {

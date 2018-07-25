@@ -27,6 +27,7 @@ use winapi::shared::minwindef::{MAX_PATH, UINT};
 #[cfg(target_family = "windows")]
 use winapi::um::sysinfoapi;
 
+use descriptor::{Class, Properties};
 use error::SelectionError;
 use family::FamilyHandle;
 use font::{Font, Type};
@@ -84,6 +85,12 @@ impl FsSource {
     pub fn select_by_postscript_name(&self, postscript_name: &str)
                                      -> Result<Handle, SelectionError> {
         self.mem_source.select_by_postscript_name(postscript_name)
+    }
+
+    #[inline]
+    pub fn select_best_match(&self, classes: &[Class], properties: &Properties)
+                             -> Result<Handle, SelectionError> {
+        <Self as Source>::select_best_match(self, classes, properties)
     }
 }
 

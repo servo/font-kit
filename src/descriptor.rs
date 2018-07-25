@@ -21,73 +21,6 @@ pub(crate) const FONT_STRETCH_MAPPING: [f32; 9] = [
     Stretch::ULTRA_EXPANDED.0,
 ];
 
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Spec {
-    pub families: Vec<FamilySpec>,
-    pub properties: Properties,
-}
-
-impl Spec {
-    #[inline]
-    pub fn new() -> Spec {
-        Spec::default()
-    }
-
-    #[inline]
-    pub fn family(&mut self, family_name: &str) -> &mut Spec {
-        self.families.push(FamilySpec::Name(family_name.to_owned()));
-        self
-    }
-
-    #[inline]
-    pub fn serif(&mut self) -> &mut Spec {
-        self.families.push(FamilySpec::Serif);
-        self
-    }
-
-    #[inline]
-    pub fn sans_serif(&mut self) -> &mut Spec {
-        self.families.push(FamilySpec::SansSerif);
-        self
-    }
-
-    #[inline]
-    pub fn monospace(&mut self) -> &mut Spec {
-        self.families.push(FamilySpec::Monospace);
-        self
-    }
-
-    #[inline]
-    pub fn cursive(&mut self) -> &mut Spec {
-        self.families.push(FamilySpec::Cursive);
-        self
-    }
-
-    #[inline]
-    pub fn fantasy(&mut self) -> &mut Spec {
-        self.families.push(FamilySpec::Fantasy);
-        self
-    }
-
-    #[inline]
-    pub fn style(&mut self, style: Style) -> &mut Spec {
-        self.properties.style = style;
-        self
-    }
-
-    #[inline]
-    pub fn weight(&mut self, weight: Weight) -> &mut Spec {
-        self.properties.weight = weight;
-        self
-    }
-
-    #[inline]
-    pub fn stretch(&mut self, stretch: Stretch) -> &mut Spec {
-        self.properties.stretch = stretch;
-        self
-    }
-}
-
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Properties {
     /// The font style, as defined in CSS.
@@ -98,9 +31,36 @@ pub struct Properties {
     pub stretch: Stretch,
 }
 
-// TODO(pcwalton): `system-ui`, `emoji`, `math`, `fangsong`
+impl Properties {
+    #[inline]
+    pub fn new() -> Properties {
+        Properties::default()
+    }
+
+    #[inline]
+    pub fn style(&mut self, style: Style) -> &mut Properties {
+        self.style = style;
+        self
+    }
+
+    #[inline]
+    pub fn weight(&mut self, weight: Weight) -> &mut Properties {
+        self.weight = weight;
+        self
+    }
+
+    #[inline]
+    pub fn stretch(&mut self, stretch: Stretch) -> &mut Properties {
+        self.stretch = stretch;
+        self
+    }
+}
+
+/// A possible value for the `font-family` CSS property.
+///
+/// TODO(pcwalton): `system-ui`, `emoji`, `math`, `fangsong`
 #[derive(Clone, Debug, PartialEq)]
-pub enum FamilySpec {
+pub enum Class {
     Name(String),
     Serif,
     SansSerif,

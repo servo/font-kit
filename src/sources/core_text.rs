@@ -18,7 +18,7 @@ use core_text::font_manager;
 use std::cmp::Ordering;
 use std::f32;
 
-use descriptor::{FONT_STRETCH_MAPPING, Stretch, Spec, Weight};
+use descriptor::{Class, FONT_STRETCH_MAPPING, Properties, Stretch, Weight};
 use error::SelectionError;
 use family::{FamilyHandle};
 use handle::Handle;
@@ -67,18 +67,18 @@ impl CoreTextSource {
         let descriptors = CFArray::from_CFTypes(&[descriptor]);
 
         let collection = font_collection::new_from_descriptors(&descriptors);
-
-        match collection.get_descriptors() {
-            Some(ref descriptors) if descriptors.len() > 0 => {
-                Ok(create_handle_from_descriptor(&*descriptors.get(0).unwrap()))
-            }
-            Some(_) | None => Err(SelectionError::NotFound),
+        let descriptors = collection.get_descriptors();
+        if descriptors.len() > 0 {
+            Ok(create_handle_from_descriptor(&*descriptors.get(0).unwrap()))
+        } else {
+            Err(SelectionError::NotFound)
         }
     }
 
     #[inline]
-    pub fn select_best_match(&self, spec: &Spec) -> Result<Handle, SelectionError> {
-        <Self as Source>::select_best_match(self, spec)
+    pub fn select_best_match(&self, classes: &[Class], properties: &Properties)
+                             -> Result<Handle, SelectionError> {
+        <Self as Source>::select_best_match(self, classes, properties)
     }
 }
 
@@ -131,11 +131,10 @@ fn css_stretchiness_to_core_text_width(css_stretchiness: Stretch) -> f32 {
 
 fn create_handles_from_core_text_collection(collection: CTFontCollection) -> Vec<Handle> {
     let mut fonts = vec![];
-    if let Some(descriptors) = collection.get_descriptors() {
-        for index in 0..descriptors.len() {
-            let descriptor = descriptors.get(index).unwrap();
-            fonts.push(create_handle_from_descriptor(&*descriptor));
-        }
+    let descriptors = collection.get_descriptors();
+    for index in 0..descriptors.len() {
+        let descriptor = descriptors.get(index).unwrap();
+        fonts.push(create_handle_from_descriptor(&*descriptor));
     }
     fonts
 }

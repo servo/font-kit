@@ -29,7 +29,7 @@ use std::ptr;
 use std::slice;
 use std::sync::Arc;
 
-use descriptor::Spec;
+use descriptor::{Class, Properties};
 use error::SelectionError;
 use family::{Family, FamilyHandle};
 use font::Font;
@@ -150,8 +150,9 @@ impl FontconfigSource {
     }
 
     #[inline]
-    pub fn select_best_match(&self, spec: &Spec) -> Result<Handle, SelectionError> {
-        <Self as Source>::select_best_match(self, spec)
+    pub fn select_best_match(&self, classes: &[Class], properties: &Properties)
+                             -> Result<Handle, SelectionError> {
+        <Self as Source>::select_best_match(self, classes, properties)
     }
 
     unsafe fn create_font_handle_from_fontconfig_pattern(&self, font_pattern: *mut FcPattern)

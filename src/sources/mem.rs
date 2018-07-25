@@ -21,6 +21,7 @@ use winapi::shared::minwindef::{MAX_PATH, UINT};
 #[cfg(target_family = "windows")]
 use winapi::um::sysinfoapi;
 
+use descriptor::{Class, Properties};
 use error::{FontLoadingError, SelectionError};
 use family::FamilyHandle;
 use font::Font;
@@ -87,6 +88,12 @@ impl MemSource {
             .map(|family_entry| family_entry.font.clone())
             .next()
             .ok_or(SelectionError::NotFound)
+    }
+
+    #[inline]
+    pub fn select_best_match(&self, classes: &[Class], properties: &Properties)
+                             -> Result<Handle, SelectionError> {
+        <Self as Source>::select_best_match(self, classes, properties)
     }
 }
 

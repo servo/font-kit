@@ -10,6 +10,7 @@
 
 //! A source that encapsulates multiple sources.
 
+use descriptor::{Class, Properties};
 use error::SelectionError;
 use family::FamilyHandle;
 use handle::Handle;
@@ -58,6 +59,12 @@ impl MultiSource {
             }
         }
         Err(SelectionError::NotFound)
+    }
+
+    #[inline]
+    pub fn select_best_match(&self, classes: &[Class], properties: &Properties)
+                             -> Result<Handle, SelectionError> {
+        <Self as Source>::select_best_match(self, classes, properties)
     }
 }
 
