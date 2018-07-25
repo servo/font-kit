@@ -21,11 +21,12 @@ use winapi::shared::minwindef::{MAX_PATH, UINT};
 #[cfg(target_family = "windows")]
 use winapi::um::sysinfoapi;
 
-use descriptor::{Class, Properties};
+use descriptor::Class;
 use error::{FontLoadingError, SelectionError};
 use family::FamilyHandle;
 use font::Font;
 use handle::Handle;
+use properties::Properties;
 use source::Source;
 
 pub struct MemSource {

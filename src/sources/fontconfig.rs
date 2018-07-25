@@ -29,11 +29,12 @@ use std::ptr;
 use std::slice;
 use std::sync::Arc;
 
-use descriptor::{Class, Properties};
+use descriptor::Class;
 use error::SelectionError;
 use family::{Family, FamilyHandle};
 use font::Font;
 use handle::Handle;
+use properties::Properties;
 use source::Source;
 
 #[allow(dead_code, non_upper_case_globals)]

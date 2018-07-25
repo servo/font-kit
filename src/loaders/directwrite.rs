@@ -32,13 +32,13 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use winapi::shared::minwindef::FALSE;
 
 use canvas::{Canvas, Format, RasterizationOptions};
-use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use error::{FontLoadingError, GlyphLoadingError};
 use font::Type;
 use handle::Handle;
 use hinting::HintingOptions;
 use loader::Loader;
 use metrics::Metrics;
+use properties::{Properties, Stretch, Style, Weight};
 
 pub struct NativeFont {
     pub dwrite_font: DWriteFont,
@@ -145,7 +145,7 @@ impl Font {
         let dwrite_font = &self.dwrite_font;
         Properties {
             style: style_for_dwrite_style(dwrite_font.style()),
-            stretch: Stretch(FONT_STRETCH_MAPPING[(dwrite_font.stretch() as usize) - 1]),
+            stretch: Stretch(Stretch::MAPPING[(dwrite_font.stretch() as usize) - 1]),
             weight: Weight(dwrite_font.weight() as u32 as f32),
         }
     }

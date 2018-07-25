@@ -41,13 +41,13 @@ use std::ptr;
 use std::slice;
 use std::sync::Arc;
 
-use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use error::{FontLoadingError, GlyphLoadingError};
 use font::Type;
 use handle::Handle;
 use hinting::HintingOptions;
 use loader::Loader;
 use metrics::Metrics;
+use properties::{Properties, Stretch, Style, Weight};
 
 const PS_DICT_FULL_NAME: u32 = 38;
 const TT_NAME_ID_FULL_NAME: u16 = 4;
@@ -257,7 +257,7 @@ impl Font {
             };
             let stretch = match os2_table {
                 Some(os2_table) if (*os2_table).usWidthClass > 0 => {
-                    Stretch(FONT_STRETCH_MAPPING[((*os2_table).usWidthClass as usize) - 1])
+                    Stretch(Stretch::MAPPING[((*os2_table).usWidthClass as usize) - 1])
                 }
                 _ => Stretch::NORMAL,
             };

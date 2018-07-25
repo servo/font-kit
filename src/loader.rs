@@ -15,12 +15,12 @@ use std::path::Path;
 use std::sync::Arc;
 
 use canvas::{Canvas, RasterizationOptions};
-use descriptor::Properties;
 use error::{FontLoadingError, GlyphLoadingError};
 use font::Type;
 use handle::Handle;
 use hinting::HintingOptions;
 use metrics::Metrics;
+use properties::Properties;
 
 /// Provides a common interface to the platform-specific API that loads, parses, and rasterizes
 /// fonts.

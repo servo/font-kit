@@ -16,11 +16,12 @@ use dwrote::InformationalStringId as DWriteInformationalStringId;
 use std::ops::Deref;
 use std::sync::{Arc, MutexGuard};
 
-use descriptor::{Class, FONT_STRETCH_MAPPING, Properties};
+use descriptor::Class;
 use error::SelectionError;
 use family::{Family, FamilyHandle};
 use font::Font;
 use handle::Handle;
+use properties::Properties;
 use source::Source;
 
 pub struct DirectWriteSource {

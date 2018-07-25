@@ -27,11 +27,12 @@ use winapi::shared::minwindef::{MAX_PATH, UINT};
 #[cfg(target_family = "windows")]
 use winapi::um::sysinfoapi;
 
-use descriptor::{Class, Properties};
+use descriptor::Class;
 use error::SelectionError;
 use family::FamilyHandle;
 use font::{Font, Type};
 use handle::Handle;
+use properties::Properties;
 use source::Source;
 use sources::mem::MemSource;
 

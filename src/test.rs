@@ -16,9 +16,10 @@ use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
 
-use descriptor::{Class, Properties, Stretch, Style, Weight};
+use descriptor::Class;
 use font::{Font, Type};
 use hinting::HintingOptions;
+use properties::{Properties, Stretch, Style, Weight};
 use source::SystemSource;
 use sources::fs::FsSource;
 use utils;

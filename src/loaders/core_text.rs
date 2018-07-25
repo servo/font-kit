@@ -34,13 +34,13 @@ use std::path::Path;
 use std::sync::Arc;
 
 use canvas::{Canvas, Format, RasterizationOptions};
-use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use error::{FontLoadingError, GlyphLoadingError};
 use font::Type;
 use handle::Handle;
 use hinting::HintingOptions;
 use loader::Loader;
 use metrics::Metrics;
+use properties::{Properties, Stretch, Style, Weight};
 use sources;
 use utils;
 
@@ -254,22 +254,26 @@ impl Font {
 
     pub fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError> {
         // FIXME(pcwalton): Apple's docs don't say what happens when the glyph is out of range!
-        let (glyph_id, mut advance) = (glyph_id as u16, CG_ZERO_SIZE);
-        self.core_text_font
-            .get_advances_for_glyphs(kCTFontDefaultOrientation, &glyph_id, &mut advance, 1);
-        Ok(Vector2D::new((advance.width * self.units_per_point()) as f32,
-                         (advance.height * self.units_per_point()) as f32))
+        unsafe {
+            let (glyph_id, mut advance) = (glyph_id as u16, CG_ZERO_SIZE);
+            self.core_text_font
+                .get_advances_for_glyphs(kCTFontDefaultOrientation, &glyph_id, &mut advance, 1);
+            Ok(Vector2D::new((advance.width * self.units_per_point()) as f32,
+                            (advance.height * self.units_per_point()) as f32))
+        }
     }
 
     pub fn origin(&self, glyph_id: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
-        // FIXME(pcwalton): Apple's docs don't say what happens when the glyph is out of range!
-        let (glyph_id, mut translation) = (glyph_id as u16, CG_ZERO_SIZE);
-        self.core_text_font.get_vertical_translations_for_glyphs(kCTFontDefaultOrientation,
-                                                                 &glyph_id,
-                                                                 &mut translation,
-                                                                 1);
-        Ok(Point2D::new((translation.width * self.units_per_point()) as f32,
-                        (translation.height * self.units_per_point()) as f32))
+        unsafe {
+            // FIXME(pcwalton): Apple's docs don't say what happens when the glyph is out of range!
+            let (glyph_id, mut translation) = (glyph_id as u16, CG_ZERO_SIZE);
+            self.core_text_font.get_vertical_translations_for_glyphs(kCTFontDefaultOrientation,
+                                                                    &glyph_id,
+                                                                    &mut translation,
+                                                                    1);
+            Ok(Point2D::new((translation.width * self.units_per_point()) as f32,
+                            (translation.height * self.units_per_point()) as f32))
+        }
     }
 
     pub fn metrics(&self) -> Metrics {
@@ -541,7 +545,7 @@ fn core_text_to_css_font_weight(core_text_weight: f32) -> Weight {
 
 fn core_text_width_to_css_stretchiness(core_text_width: f32) -> Stretch {
     Stretch(sources::core_text::piecewise_linear_lookup((core_text_width + 1.0) * 4.0,
-                                                        &FONT_STRETCH_MAPPING))
+                                                        &Stretch::MAPPING))
 }
 
 fn font_is_collection(header: &[u8]) -> bool {
@@ -595,7 +599,7 @@ fn format_to_cg_image_format(format: Format) -> u32 {
 
 #[cfg(test)]
 mod test {
-    use descriptor::{Stretch, Weight};
+    use properties::{Stretch, Weight};
 
     #[test]
     fn test_core_text_to_css_font_weight() {

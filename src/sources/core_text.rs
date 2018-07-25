@@ -18,11 +18,12 @@ use core_text::font_manager;
 use std::cmp::Ordering;
 use std::f32;
 
-use descriptor::{Class, FONT_STRETCH_MAPPING, Properties, Stretch, Weight};
+use descriptor::Class;
 use error::SelectionError;
 use family::{FamilyHandle};
 use handle::Handle;
 use source::Source;
+use properties::{Properties, Stretch, Weight};
 use utils;
 
 pub static FONT_WEIGHT_MAPPING: [f32; 9] = [-0.7, -0.5, -0.23, 0.0, 0.2, 0.3, 0.4, 0.6, 0.8];
@@ -126,7 +127,7 @@ fn css_to_core_text_font_weight(css_weight: Weight) -> f32 {
 #[allow(dead_code)]
 fn css_stretchiness_to_core_text_width(css_stretchiness: Stretch) -> f32 {
     let css_stretchiness = utils::clamp(css_stretchiness.0, 0.5, 2.0);
-    0.25 * piecewise_linear_find_index(css_stretchiness, &FONT_STRETCH_MAPPING) - 1.0
+    0.25 * piecewise_linear_find_index(css_stretchiness, &Stretch::MAPPING) - 1.0
 }
 
 fn create_handles_from_core_text_collection(collection: CTFontCollection) -> Vec<Handle> {
@@ -149,7 +150,7 @@ fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Handle {
 
 #[cfg(test)]
 mod test {
-    use descriptor::{Stretch, Weight};
+    use properties::{Stretch, Weight};
 
     #[test]
     fn test_css_to_core_text_font_weight() {

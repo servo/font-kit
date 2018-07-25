@@ -10,10 +10,11 @@
 
 //! A source that encapsulates multiple sources.
 
-use descriptor::{Class, Properties};
+use descriptor::Class;
 use error::SelectionError;
 use family::FamilyHandle;
 use handle::Handle;
+use properties::Properties;
 use source::Source;
 
 /// FIXME(pcwalton): This API is rather unwieldy for more than two sources. Thankfully, I think

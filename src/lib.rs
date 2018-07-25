@@ -58,6 +58,7 @@ pub mod hinting;
 pub mod loader;
 pub mod loaders;
 pub mod metrics;
+pub mod properties;
 pub mod source;
 pub mod sources;
 

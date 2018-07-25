@@ -8,12 +8,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use descriptor::{Class, Properties};
+use descriptor::Class;
 use error::SelectionError;
 use family::{Family, FamilyHandle};
 use font::Font;
 use handle::Handle;
 use matching::{self, MatchFields};
+use properties::Properties;
 
 #[cfg(all(target_os = "macos", not(feature = "source-fontconfig-default")))]
 pub use sources::core_text::CoreTextSource as SystemSource;
@@ -75,7 +76,7 @@ pub trait Source {
     }
 
     /// Performs font matching according to the CSS Fonts Level 3 specification and returns the
-    /// font handle.
+    /// handle.
     #[inline]
     fn select_best_match(&self, classes: &[Class], properties: &Properties)
                          -> Result<Handle, SelectionError> {

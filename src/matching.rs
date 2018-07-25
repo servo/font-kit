@@ -8,9 +8,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use descriptor::{Properties, Stretch, Style, Weight};
-use error::SelectionError;
 use float_ord::FloatOrd;
+
+use error::SelectionError;
+use properties::{Properties, Stretch, Style, Weight};
 
 pub struct MatchFields {
     pub family_name: String,
