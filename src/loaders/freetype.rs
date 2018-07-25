@@ -43,9 +43,10 @@ use std::sync::Arc;
 
 use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use error::{FontLoadingError, GlyphLoadingError};
-use font::{HintingOptions, Metrics, Type};
+use font::{HintingOptions, Type};
 use handle::Handle;
 use loader::Loader;
+use metrics::Metrics;
 
 const PS_DICT_FULL_NAME: u32 = 38;
 const TT_NAME_ID_FULL_NAME: u16 = 4;

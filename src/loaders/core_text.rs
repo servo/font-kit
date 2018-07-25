@@ -36,9 +36,10 @@ use std::sync::Arc;
 use canvas::{Canvas, Format, RasterizationOptions};
 use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use error::{FontLoadingError, GlyphLoadingError};
-use font::{HintingOptions, Metrics, Type};
+use font::{HintingOptions, Type};
 use handle::Handle;
 use loader::Loader;
+use metrics::Metrics;
 use sources;
 use utils;
 

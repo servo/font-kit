@@ -34,9 +34,10 @@ use winapi::shared::minwindef::FALSE;
 use canvas::{Canvas, Format, RasterizationOptions};
 use descriptor::{FONT_STRETCH_MAPPING, Properties, Stretch, Style, Weight};
 use error::{FontLoadingError, GlyphLoadingError};
-use font::{HintingOptions, Metrics, Type};
+use font::{HintingOptions, Type};
 use handle::Handle;
 use loader::Loader;
+use metrics::Metrics;
 
 pub struct NativeFont {
     pub dwrite_font: DWriteFont,

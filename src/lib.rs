@@ -52,6 +52,7 @@ pub mod font;
 pub mod handle;
 pub mod loader;
 pub mod loaders;
+pub mod metrics;
 pub mod source;
 pub mod sources;
 
