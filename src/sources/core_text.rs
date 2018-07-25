@@ -20,7 +20,7 @@ use std::f32;
 
 use descriptor::Class;
 use error::SelectionError;
-use family::{FamilyHandle};
+use family_handle::FamilyHandle;
 use handle::Handle;
 use source::Source;
 use properties::{Properties, Stretch, Weight};

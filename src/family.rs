@@ -11,45 +11,10 @@
 use std::iter;
 
 use error::FontLoadingError;
+use family_handle::FamilyHandle;
 use font::Font;
 use handle::Handle;
 use loader::Loader;
-
-#[derive(Debug)]
-pub struct FamilyHandle {
-    pub fonts: Vec<Handle>,
-}
-
-impl FamilyHandle {
-    #[inline]
-    pub fn new() -> FamilyHandle {
-        FamilyHandle {
-            fonts: vec![],
-        }
-    }
-
-    #[inline]
-    pub fn from_font_handles<I>(fonts: I) -> FamilyHandle where I: Iterator<Item = Handle> {
-        FamilyHandle {
-            fonts: fonts.collect::<Vec<Handle>>(),
-        }
-    }
-
-    #[inline]
-    pub fn push(&mut self, font: Handle) {
-        self.fonts.push(font)
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.fonts.is_empty()
-    }
-
-    #[inline]
-    pub fn fonts(&self) -> &[Handle] {
-        &self.fonts
-    }
-}
 
 #[derive(Debug)]
 pub struct Family<F = Font> where F: Loader {

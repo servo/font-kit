@@ -8,17 +8,22 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! A source that encapsulates multiple sources.
+//! A source that encapsulates multiple sources and allows them to be queried as a group.
+//!
+//! This is useful when an application wants a library of fonts consisting of the installed system
+//! fonts plus some other application-supplied fonts.
 
 use descriptor::Class;
 use error::SelectionError;
-use family::FamilyHandle;
+use family_handle::FamilyHandle;
 use handle::Handle;
 use properties::Properties;
 use source::Source;
 
-/// FIXME(pcwalton): This API is rather unwieldy for more than two sources. Thankfully, I think
-/// only two sources should be needed in most cases.
+/// A source that encapsulates multiple sources and allows them to be queried as a group.
+///
+/// This is useful when an application wants a library of fonts consisting of the installed system
+/// fonts plus some other application-supplied fonts.
 pub struct MultiSource {
     subsources: Vec<Box<Source>>,
 }

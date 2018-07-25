@@ -52,6 +52,7 @@ pub mod canvas;
 pub mod descriptor;
 pub mod error;
 pub mod family;
+pub mod family_handle;
 pub mod font;
 pub mod handle;
 pub mod hinting;

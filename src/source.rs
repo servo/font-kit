@@ -10,7 +10,8 @@
 
 use descriptor::Class;
 use error::SelectionError;
-use family::{Family, FamilyHandle};
+use family::Family;
+use family_handle::FamilyHandle;
 use font::Font;
 use handle::Handle;
 use matching::{self, MatchFields};

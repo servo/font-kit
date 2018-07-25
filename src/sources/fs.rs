@@ -29,7 +29,7 @@ use winapi::um::sysinfoapi;
 
 use descriptor::Class;
 use error::SelectionError;
-use family::FamilyHandle;
+use family_handle::FamilyHandle;
 use font::{Font, Type};
 use handle::Handle;
 use properties::Properties;

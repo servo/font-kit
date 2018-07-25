@@ -23,7 +23,7 @@ use winapi::um::sysinfoapi;
 
 use descriptor::Class;
 use error::{FontLoadingError, SelectionError};
-use family::FamilyHandle;
+use family_handle::FamilyHandle;
 use font::Font;
 use handle::Handle;
 use properties::Properties;
