@@ -8,6 +8,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! Specifies how hinting (grid fitting) is to be performed (or not performed) for a glyph.
+//!
+//! This affects both outlines and rasterization.
+
 /// Specifies how hinting (grid fitting) is to be performed (or not performed) for a glyph.
 ///
 /// This affects both outlines and rasterization.

@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::iter;
+//! Defines a set of faces that vary in weight, width or slope.
 
 use error::FontLoadingError;
 use family_handle::FamilyHandle;
@@ -16,34 +16,15 @@ use font::Font;
 use handle::Handle;
 use loader::Loader;
 
+/// Defines a set of faces that vary in weight, width or slope.
 #[derive(Debug)]
 pub struct Family<F = Font> where F: Loader {
-    pub fonts: Vec<F>,
+    fonts: Vec<F>,
 }
 
 impl<F> Family<F> where F: Loader {
-    #[inline]
-    pub fn new() -> Family<F> {
-        Family {
-            fonts: vec![],
-        }
-    }
-
-    #[inline]
-    pub fn from_fonts<I>(fonts: I) -> Family<F> where I: Iterator<Item = F> {
-        Family {
-            fonts: fonts.collect::<Vec<F>>(),
-        }
-    }
-
-    /// A convenience method to create a family with a single font.
-    #[inline]
-    pub fn from_font(font: F) -> Family<F> {
-        Family::from_fonts(iter::once(font))
-    }
-
-    pub fn from_font_handles<'a, I>(font_handles: I) -> Result<Family<F>, FontLoadingError>
-                                    where I: Iterator<Item = &'a Handle> {
+    pub(crate) fn from_font_handles<'a, I>(font_handles: I) -> Result<Family<F>, FontLoadingError>
+                                           where I: Iterator<Item = &'a Handle> {
         let mut fonts = vec![];
         for font_handle in font_handles {
             fonts.push(try!(F::from_handle(font_handle)))
@@ -54,20 +35,18 @@ impl<F> Family<F> where F: Loader {
     }
 
     #[inline]
-    pub fn from_handle(family_handle: &FamilyHandle) -> Result<Family<F>, FontLoadingError> {
+    pub(crate) fn from_handle(family_handle: &FamilyHandle)
+                              -> Result<Family<F>, FontLoadingError> {
         Family::from_font_handles(family_handle.fonts.iter())
     }
 
+    /// Returns the individual fonts in this family.
     #[inline]
     pub fn fonts(&self) -> &[F] {
         &self.fonts
     }
 
-    #[inline]
-    pub fn push(&mut self, font: F) {
-        self.fonts.push(font)
-    }
-
+    /// Returns true if and only if this family is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.fonts.is_empty()

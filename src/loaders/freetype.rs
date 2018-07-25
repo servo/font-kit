@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! Support for font loading using FreeType.
+//! A cross-platform loader that uses the FreeType library to load and rasterize fonts.
 //!
 //! On macOS and Windows, the Cargo feature `loader-freetype` can be used to opt into this loader.
 //! Because on these platforms FreeType can do everything the native loader can do and more, this
@@ -18,10 +18,10 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use canvas::{Canvas, Format, RasterizationOptions};
 use euclid::{Point2D, Rect, Size2D, Vector2D};
-use freetype::freetype::{FT_Byte, FT_Done_Loader, FT_Error, FT_FACE_FLAG_FIXED_WIDTH, FT_Loader};
+use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_FACE_FLAG_FIXED_WIDTH, FT_Face};
 use freetype::freetype::{FT_Get_Char_Index, FT_Get_Postscript_Name, FT_Get_Sfnt_Table};
 use freetype::freetype::{FT_Init_FreeType, FT_LOAD_DEFAULT, FT_LOAD_NO_HINTING, FT_Library};
-use freetype::freetype::{FT_Load_Glyph, FT_Long, FT_New_Memory_Loader, FT_Reference_Loader};
+use freetype::freetype::{FT_Load_Glyph, FT_Long, FT_New_Memory_Face, FT_Reference_Face};
 use freetype::freetype::{FT_Render_Glyph, FT_Render_Mode, FT_STYLE_FLAG_ITALIC, FT_Set_Char_Size};
 use freetype::freetype::{FT_Set_Transform, FT_Sfnt_Tag, FT_UInt, FT_ULong, FT_UShort, FT_Vector};
 use freetype::tt_os2::TT_OS2;
@@ -84,10 +84,16 @@ thread_local! {
     };
 }
 
-pub type NativeFont = FT_Loader;
+pub type NativeFont = FT_Face;
 
+/// A cross-platform loader that uses the FreeType library to load and rasterize fonts.
+///
+/// On macOS and Windows, the Cargo feature `loader-freetype` can be used to opt into this loader.
+/// Because on these platforms FreeType can do everything the native loader can do and more, this
+/// Cargo feature completely disables native font loading. In particular, this feature enables
+/// support for retrieving hinted outlines.
 pub struct Font {
-    freetype_face: FT_Loader,
+    freetype_face: FT_Face,
     font_data: FontData<'static>,
 }
 
@@ -96,7 +102,7 @@ impl Font {
         FREETYPE_LIBRARY.with(|freetype_library| {
             unsafe {
                 let mut freetype_face = ptr::null_mut();
-                if FT_New_Memory_Loader(*freetype_library,
+                if FT_New_Memory_Face(*freetype_library,
                                       (*font_data).as_ptr(),
                                       font_data.len() as i64,
                                       font_index as FT_Long,
@@ -119,7 +125,7 @@ impl Font {
             let mmap = try!(Mmap::map(&file));
             FREETYPE_LIBRARY.with(|freetype_library| {
                 let mut freetype_face = ptr::null_mut();
-                if FT_New_Memory_Loader(*freetype_library,
+                if FT_New_Memory_Face(*freetype_library,
                                       (*mmap).as_ptr(),
                                       mmap.len() as i64,
                                       font_index as FT_Long,
@@ -173,7 +179,7 @@ impl Font {
         FREETYPE_LIBRARY.with(|freetype_library| {
             unsafe {
                 let mut freetype_face = ptr::null_mut();
-                if FT_New_Memory_Loader(*freetype_library,
+                if FT_New_Memory_Face(*freetype_library,
                                       (*font_data).as_ptr(),
                                       font_data.len() as i64,
                                       0,
@@ -185,7 +191,7 @@ impl Font {
                     1 => FileType::Single,
                     num_faces => FileType::Collection(num_faces as u32),
                 };
-                FT_Done_Loader(freetype_face);
+                FT_Done_Face(freetype_face);
                 Ok(font_type)
             }
         })
@@ -196,7 +202,7 @@ impl Font {
             unsafe {
                 let mmap = try!(Mmap::map(&file));
                 let mut freetype_face = ptr::null_mut();
-                if FT_New_Memory_Loader(*freetype_library,
+                if FT_New_Memory_Face(*freetype_library,
                                       (*mmap).as_ptr(),
                                       mmap.len() as i64,
                                       0,
@@ -208,7 +214,7 @@ impl Font {
                     1 => FileType::Single,
                     num_faces => FileType::Collection(num_faces as u32),
                 };
-                FT_Done_Loader(freetype_face);
+                FT_Done_Face(freetype_face);
                 Ok(font_type)
             }
         })
@@ -619,7 +625,7 @@ impl Font {
 impl Clone for Font {
     fn clone(&self) -> Font {
         unsafe {
-            assert_eq!(FT_Reference_Loader(self.freetype_face), 0);
+            assert_eq!(FT_Reference_Face(self.freetype_face), 0);
             Font {
                 freetype_face: self.freetype_face,
                 font_data: self.font_data.clone(),
@@ -632,7 +638,7 @@ impl Drop for Font {
     fn drop(&mut self) {
         unsafe {
             if !self.freetype_face.is_null() {
-                assert_eq!(FT_Done_Loader(self.freetype_face), 0);
+                assert_eq!(FT_Done_Face(self.freetype_face), 0);
             }
         }
     }
@@ -770,11 +776,11 @@ impl<'a> Deref for FontData<'a> {
     }
 }
 
-unsafe fn setup_freetype_face(face: FT_Loader) {
+unsafe fn setup_freetype_face(face: FT_Face) {
     reset_freetype_face_char_size(face);
 }
 
-unsafe fn reset_freetype_face_char_size(face: FT_Loader) {
+unsafe fn reset_freetype_face_char_size(face: FT_Face) {
     // Apple Color Emoji has 0 units per em. Whee!
     let units_per_em = (*face).units_per_EM as i64;
     if units_per_em > 0 {
@@ -801,12 +807,12 @@ fn f32_to_ft_fixed_26_6(float: f32) -> i64 {
 }
 
 extern "C" {
-    fn FT_Get_PS_Font_Value(face: FT_Loader,
+    fn FT_Get_PS_Font_Value(face: FT_Face,
                             key: u32,
                             idx: FT_UInt,
                             value: *mut c_void,
                             value_len: FT_Long)
                             -> FT_Long;
-    fn FT_Get_Sfnt_Name(face: FT_Loader, idx: FT_UInt, aname: *mut FT_SfntName) -> FT_Error;
-    fn FT_Get_Sfnt_Name_Count(face: FT_Loader) -> FT_UInt;
+    fn FT_Get_Sfnt_Name(face: FT_Face, idx: FT_UInt, aname: *mut FT_SfntName) -> FT_Error;
+    fn FT_Get_Sfnt_Name_Count(face: FT_Face) -> FT_UInt;
 }

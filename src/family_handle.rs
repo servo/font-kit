@@ -8,15 +8,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! The set of handles pointing to fonts in a family.
-//!
-//! Handles encapsulate the information needed to locate and open a font.
+//! Encapsulates the information needed to locate and open the fonts in a family.
 
 use handle::Handle;
 
-/// The set of handles pointing to fonts in a family.
-///
-/// Handles encapsulate the information needed to locate and open a font.
+/// Encapsulates the information needed to locate and open the fonts in a family.
 #[derive(Debug)]
 pub struct FamilyHandle {
     pub fonts: Vec<Handle>,

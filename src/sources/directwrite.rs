@@ -8,6 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! A source that contains the installed fonts on Windows.
+
 use dwrote::Font as DWriteFont;
 use dwrote::FontCollection as DWriteFontCollection;
 use dwrote::FontSimulations as DWriteFontSimulations;
@@ -25,6 +27,7 @@ use handle::Handle;
 use properties::Properties;
 use source::Source;
 
+/// A source that contains the installed fonts on Windows.
 pub struct DirectWriteSource {
     system_font_collection: DWriteFontCollection,
 }

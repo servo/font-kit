@@ -184,7 +184,7 @@ pub fn get_vertically_hinted_glyph_outline() {
 #[test]
 pub fn get_fully_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
-    let font = SystemSource::new().select_best_match(&Spec::new().sans_serif())
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
                                   .unwrap()
                                   .load()
                                   .unwrap();

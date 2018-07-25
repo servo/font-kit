@@ -8,6 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! A source that contains the installed fonts on macOS.
+
 use core_foundation::array::CFArray;
 use core_foundation::base::{CFType, TCFType};
 use core_foundation::dictionary::CFDictionary;
@@ -26,8 +28,10 @@ use source::Source;
 use properties::{Properties, Stretch, Weight};
 use utils;
 
-pub static FONT_WEIGHT_MAPPING: [f32; 9] = [-0.7, -0.5, -0.23, 0.0, 0.2, 0.3, 0.4, 0.6, 0.8];
+pub(crate) static FONT_WEIGHT_MAPPING: [f32; 9] =
+    [-0.7, -0.5, -0.23, 0.0, 0.2, 0.3, 0.4, 0.6, 0.8];
 
+/// A source that contains the installed fonts on macOS.
 pub struct CoreTextSource;
 
 impl CoreTextSource {

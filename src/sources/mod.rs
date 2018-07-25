@@ -8,13 +8,18 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! Various databases of installed fonts that can be queried.
+//!
+//! The system-specific sources (Core Text, DirectWrite, and Fontconfig) contain the fonts that are
+//! installed on the system. The remaining databases (`fs`, `mem`, and `multi`) allow `font-kit` to
+//! query fonts not installed on the system.
+
 #[cfg(target_os = "macos")]
 pub mod core_text;
 #[cfg(target_family = "windows")]
 pub mod directwrite;
 #[cfg(any(not(any(target_os = "macos", target_family = "windows")),
           feature = "source-fontconfig"))]
-
 pub mod fontconfig;
 pub mod fs;
 pub mod mem;

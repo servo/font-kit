@@ -8,6 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! A loader that uses the Windows DirectWrite API to load and rasterize fonts.
+
 use dwrote::CustomFontCollectionLoaderImpl;
 use dwrote::Font as DWriteFont;
 use dwrote::FontCollection as DWriteFontCollection;
@@ -40,11 +42,13 @@ use loader::Loader;
 use metrics::Metrics;
 use properties::{Properties, Stretch, Style, Weight};
 
+/// DirectWrite's representation of a font.
 pub struct NativeFont {
     pub dwrite_font: DWriteFont,
     pub dwrite_font_face: DWriteFontLoader,
 }
 
+/// A loader that uses the Windows DirectWrite API to load and rasterize fonts.
 pub struct Font {
     dwrite_font: DWriteFont,
     dwrite_font_face: DWriteFontLoader,

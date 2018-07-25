@@ -8,4 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! A font face loaded into memory.
+//!
+//! The Font type in this crate represents the default loader.
+
 pub use loaders::default::Font;

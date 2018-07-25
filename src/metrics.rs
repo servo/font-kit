@@ -8,6 +8,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! Various metrics that apply to the entire font.
+//!
+//! For OpenType fonts, these mostly come from the `OS/2` table.
+
 /// Various metrics that apply to the entire font.
 ///
 /// For OpenType fonts, these mostly come from the `OS/2` table.
@@ -31,8 +35,11 @@ pub struct Metrics {
     /// Distance between baselines, in font units.
     pub line_gap: f32,
 
+    /// The suggested distance of the top of the underline from the baseline (negative values
+    /// indicate below baseline), in font units.
     pub underline_position: f32,
 
+    /// Suggested values for the underline thickness, in font units.
     pub underline_thickness: f32,
 
     /// The approximate amount that uppercase letters rise above the baseline, in font units.

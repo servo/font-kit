@@ -8,6 +8,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! Provides a common interface to the platform-specific API that loads, parses, and rasterizes
+//! fonts.
+
 use euclid::{Point2D, Rect, Vector2D};
 use lyon_path::builder::PathBuilder;
 use std::fs::File;

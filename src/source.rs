@@ -8,6 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! A database of installed fonts that can be queried.
+
 use error::SelectionError;
 use family::Family;
 use family_handle::FamilyHandle;

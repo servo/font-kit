@@ -8,17 +8,28 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! An in-memory bitmap surface for glyph rasterization.
+
 use euclid::Size2D;
 use std::cmp;
 
+/// An in-memory bitmap surface for glyph rasterization.
 pub struct Canvas {
+    /// The raw pixel data.
     pub pixels: Vec<u8>,
+    /// The size of the buffer, in pixels.
     pub size: Size2D<u32>,
+    /// The number of *bytes* between successive rows.
     pub stride: usize,
+    /// The image format of the canvas.
     pub format: Format,
 }
 
 impl Canvas {
+    /// Creates a new blank canvas with the given pixel size, stride (number of bytes between
+    /// successive rows), and format.
+    ///
+    /// The canvas is initialized with transparent black (all values 0).
     pub fn new(size: &Size2D<u32>, stride: usize, format: Format) -> Canvas {
         Canvas {
             pixels: vec![0; stride * size.height as usize * format.bytes_per_pixel() as usize],
@@ -71,15 +82,19 @@ impl Canvas {
     }
 }
 
+/// The image format for the canvas.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Format {
     /// Premultiplied R8G8B8A8, little-endian.
     Rgba32,
+    /// R8G8B8, little-endian.
     Rgb24,
+    /// A8.
     A8,
 }
 
 impl Format {
+    /// Returns the number of bits per pixel that this image format corresponds to.
     #[inline]
     pub fn bits_per_pixel(self) -> u8 {
         match self {
@@ -89,6 +104,7 @@ impl Format {
         }
     }
 
+    /// Returns the number of color channels per pixel that this image format corresponds to.
     #[inline]
     pub fn components_per_pixel(self) -> u8 {
         match self {
@@ -98,21 +114,27 @@ impl Format {
         }
     }
 
+    /// Returns the number of bits per color channel that this image format contains.
     #[inline]
     pub fn bits_per_component(self) -> u8 {
         self.bits_per_pixel() / self.components_per_pixel()
     }
 
+    /// Returns the number of bytes per pixel that this image format corresponds to.
     #[inline]
     pub fn bytes_per_pixel(self) -> u8 {
         self.bits_per_pixel() / 8
     }
 }
 
+/// The antialiasing strategy that should be used when rasterizing glyphs.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RasterizationOptions {
+    /// "Black-and-white" rendering. Each pixel is either entirely on or off.
     Bilevel,
+    /// Grayscale antialiasing. Only one channel is used.
     GrayscaleAa,
+    /// Subpixel RGB antialiasing, for LCD screens.
     SubpixelAa,
 }
 

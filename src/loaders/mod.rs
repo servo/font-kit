@@ -8,6 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! The different system services that can load and rasterize fonts.
+
 #[cfg(all(target_os = "macos", not(feature = "loader-freetype-default")))]
 pub use loaders::core_text as default;
 #[cfg(all(target_family = "windows", not(feature = "loader-freetype-default")))]

@@ -8,6 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! A loader that uses Apple's Core Text API to load and rasterize fonts.
+
 use byteorder::{BigEndian, ReadBytesExt};
 use core_graphics::base::{CGFloat, kCGImageAlphaNoneSkipLast, kCGImageAlphaPremultipliedLast};
 use core_graphics::color_space::CGColorSpace;
@@ -49,8 +51,10 @@ const TTC_TAG: [u8; 4] = [b't', b't', b'c', b'f'];
 #[allow(non_upper_case_globals)]
 const kCGImageAlphaOnly: u32 = 7;
 
+/// Core Text's representation of a font.
 pub type NativeFont = CTFont;
 
+/// A loader that uses Apple's Core Text API to load and rasterize fonts.
 #[derive(Clone)]
 pub struct Font {
     core_text_font: CTFont,

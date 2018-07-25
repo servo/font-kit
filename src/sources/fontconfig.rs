@@ -8,7 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! Support for generic Unix systems via fontconfig.
+//! A source that contains the fonts installed on the system, as reported by the Fontconfig
+//! library.
 //!
 //! On macOS and Windows, the Cargo feature `source-fontconfig` can be used to opt into fontconfig
 //! support. To prefer it over the native font source (only if you know what you're doing), use the
@@ -48,6 +49,12 @@ const FC_FILE: &'static [u8] = b"file\0";
 const FC_INDEX: &'static [u8] = b"index\0";
 const FC_POSTSCRIPT_NAME: &'static [u8] = b"postscriptname\0";
 
+/// A source that contains the fonts installed on the system, as reported by the Fontconfig
+/// library.
+///
+/// On macOS and Windows, the Cargo feature `source-fontconfig` can be used to opt into fontconfig
+/// support. To prefer it over the native font source (only if you know what you're doing), use the
+/// `source-fontconfig-default` feature.
 pub struct FontconfigSource {
     fontconfig: *mut FcConfig,
 }
