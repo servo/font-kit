@@ -10,10 +10,8 @@
 
 //! A cross-platform loader that uses the FreeType library to load and rasterize fonts.
 //!
-//! On macOS and Windows, the Cargo feature `loader-freetype` can be used to opt into this loader.
-//! Because on these platforms FreeType can do everything the native loader can do and more, this
-//! Cargo feature completely disables native font loading. In particular, this feature enables
-//! support for retrieving hinted outlines.
+//! On macOS and Windows, the Cargo feature `loader-freetype-default` can be used to opt into this
+//! loader by default.
 
 use byteorder::{BigEndian, ReadBytesExt};
 use canvas::{Canvas, Format, RasterizationOptions};
@@ -32,7 +30,6 @@ use std::ffi::CStr;
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
 use std::iter;
-use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
 use std::os::raw::{c_char, c_void};
@@ -84,20 +81,24 @@ thread_local! {
     };
 }
 
+/// The handle that the FreeType API natively uses to represent a font.
 pub type NativeFont = FT_Face;
 
 /// A cross-platform loader that uses the FreeType library to load and rasterize fonts.
 ///
-/// On macOS and Windows, the Cargo feature `loader-freetype` can be used to opt into this loader.
-/// Because on these platforms FreeType can do everything the native loader can do and more, this
-/// Cargo feature completely disables native font loading. In particular, this feature enables
-/// support for retrieving hinted outlines.
+///
+/// On macOS and Windows, the Cargo feature `loader-freetype-default` can be used to opt into this
+/// loader by default.
 pub struct Font {
     freetype_face: FT_Face,
-    font_data: FontData<'static>,
+    font_data: FontData,
 }
 
 impl Font {
+    /// Loads a font from raw font data (the contents of a `.ttf`/`.otf`/etc. file).
+    ///
+    /// If the data represents a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index
+    /// of the font to load from it. If the data represents a single font, pass 0 for `font_index`.
     pub fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Font, FontLoadingError> {
         FREETYPE_LIBRARY.with(|freetype_library| {
             unsafe {
@@ -120,6 +121,10 @@ impl Font {
         })
     }
 
+    /// Loads a font from a `.ttf`/`.otf`/etc. file.
+    ///
+    /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
+    /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
         unsafe {
             let mmap = try!(Mmap::map(&file));
@@ -143,6 +148,10 @@ impl Font {
         }
     }
 
+    /// Loads a font from the path to a `.ttf`/`.otf`/etc. file.
+    ///
+    /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
+    /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     #[inline]
     pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, FontLoadingError>
                         where P: AsRef<Path> {
@@ -150,6 +159,7 @@ impl Font {
         <Font as Loader>::from_path(path, font_index)
     }
 
+    /// Creates a font from a native API handle.
     pub unsafe fn from_native_font(freetype_face: NativeFont) -> Font {
         // We make an in-memory copy of the underlying font data. This is because the native font
         // does not necessarily hold a strong reference to the memory backing it.
@@ -170,11 +180,14 @@ impl Font {
         Font::from_bytes(Arc::new(font_data), (*freetype_face).face_index as u32).unwrap()
     }
 
+    /// Loads the font pointed to by a handle.
     #[inline]
     pub fn from_handle(handle: &Handle) -> Result<Self, FontLoadingError> {
         <Self as Loader>::from_handle(handle)
     }
 
+    /// Determines whether a blob of raw font data represents a supported font, and, if so, what
+    /// type of font it is.
     pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<FileType, FontLoadingError> {
         FREETYPE_LIBRARY.with(|freetype_library| {
             unsafe {
@@ -197,6 +210,7 @@ impl Font {
         })
     }
 
+    /// Determines whether a file represents a supported font, and, if so, what type of font it is.
     pub fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         FREETYPE_LIBRARY.with(|freetype_library| {
             unsafe {
@@ -220,11 +234,25 @@ impl Font {
         })
     }
 
+    /// Determines whether a path points to a supported font, and, if so, what type of font it is.
     #[inline]
     pub fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
         <Self as Loader>::analyze_path(path)
     }
 
+
+    /// Returns the wrapped native font handle.
+    ///
+    /// This function increments the reference count of the FreeType face before returning it.
+    /// Therefore, it is the caller's responsibility to free it with `FT_Done_Face`.
+    pub fn native_font(&self) -> NativeFont {
+        unsafe {
+            assert_eq!(FT_Reference_Face(self.freetype_face), 0);
+            self.freetype_face
+        }
+    }
+
+    /// Returns the PostScript name of the font. This should be globally unique.
     pub fn postscript_name(&self) -> String {
         unsafe {
             let postscript_name = FT_Get_Postscript_Name(self.freetype_face);
@@ -232,23 +260,27 @@ impl Font {
         }
     }
 
+    /// Returns the full name of the font (also known as "display name" on macOS).
     pub fn full_name(&self) -> String {
         self.get_type_1_or_sfnt_name(PS_DICT_FULL_NAME, TT_NAME_ID_FULL_NAME)
             .unwrap_or_else(|| self.family_name())
     }
 
+    /// Returns the name of the font family.
     pub fn family_name(&self) -> String {
         unsafe {
             CStr::from_ptr((*self.freetype_face).family_name).to_str().unwrap().to_owned()
         }
     }
 
+    /// Returns true if and only if the font is monospace (fixed-width).
     pub fn is_monospace(&self) -> bool {
         unsafe {
             (*self.freetype_face).face_flags & (FT_FACE_FLAG_FIXED_WIDTH as i64) != 0
         }
     }
 
+    /// Returns the values of various font properties, corresponding to those defined in CSS.
     pub fn properties(&self) -> Properties {
         unsafe {
             let os2_table = self.get_os2_table();
@@ -279,12 +311,23 @@ impl Font {
         }
     }
 
+    /// Returns the usual glyph ID for a Unicode character.
+    ///
+    /// Be careful with this function; typographically correct character-to-glyph mapping must be
+    /// done using a *shaper* such as HarfBuzz. This function is only useful for best-effort simple
+    /// use cases like "what does character X look like on its own".
     pub fn glyph_for_char(&self, character: char) -> Option<u32> {
         unsafe {
             Some(FT_Get_Char_Index(self.freetype_face, character as FT_ULong))
         }
     }
 
+    /// Sends the vector path for a glyph to a path builder.
+    ///
+    /// If `hinting_mode` is not None, this function performs grid-fitting as requested before
+    /// sending the hinding outlines to the builder.
+    ///
+    /// TODO(pcwalton): What should we do for bitmap glyphs?
     pub fn outline<B>(&self, glyph_id: u32, hinting: HintingOptions, path_builder: &mut B)
                       -> Result<(), GlyphLoadingError>
                       where B: PathBuilder {
@@ -384,6 +427,7 @@ impl Font {
         }
     }
 
+    /// Returns the boundaries of a glyph in font units.
     pub fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError> {
         unsafe {
             if FT_Load_Glyph(self.freetype_face,
@@ -400,6 +444,8 @@ impl Font {
         }
     }
 
+    /// Returns the distance from the origin of the glyph with the given ID to the next, in font
+    /// units.
     pub fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError> {
         unsafe {
             if FT_Load_Glyph(self.freetype_face,
@@ -413,11 +459,14 @@ impl Font {
         }
     }
 
+    /// Returns the amount that the given glyph should be displaced from the origin.
+    ///
+    /// FIXME(pcwalton): This always returns zero on FreeType.
     pub fn origin(&self, _: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
-        // FIXME(pcwalton): This can't be right!
         Ok(Point2D::zero())
     }
 
+    /// Retrieves various metrics that apply to the entire font.
     pub fn metrics(&self) -> Metrics {
         let os2_table = self.get_os2_table();
         unsafe {
@@ -438,14 +487,12 @@ impl Font {
         }
     }
 
-    #[inline]
-    pub fn font_data(&self) -> Option<FontData> {
-        match self.font_data {
-            FontData::File(_) | FontData::Memory(_) => Some(self.font_data.clone()),
-            FontData::Unused(_) => unreachable!(),
-        }
-    }
-
+    /// Returns true if and only if the font loader can perform hinting in the requested way.
+    ///
+    /// Some APIs support only rasterizing glyphs with hinting, not retriving hinted outlines. If
+    /// `for_rasterization` is false, this function returns true if and only if the loader supports
+    /// retrieval of hinted *outlines*. If `for_rasterization` is true, this function returns true
+    /// if and only if the loader supports *rasterizing* hinted glyphs.
     #[inline]
     pub fn supports_hinting_options(&self,
                                     hinting_options: HintingOptions,
@@ -524,6 +571,8 @@ impl Font {
         }
     }
 
+    /// Returns the pixel boundaries that the glyph will take up when rendered using this loader's
+    /// rasterizer at the given size and origin.
     #[inline]
     pub fn raster_bounds(&self,
                          glyph_id: u32,
@@ -540,8 +589,15 @@ impl Font {
                                         rasterization_options)
     }
 
-    // TODO(pcwalton): This is woefully incomplete. See WebRender's code for a more complete
-    // implementation.
+    /// Rasterizes a glyph to a canvas with the given size and origin.
+    ///
+    /// Format conversion will be performed if the canvas format does not match the rasterization
+    /// options. For example, if bilevel (black and white) rendering is requested to an RGBA
+    /// surface, this function will automatically convert the 1-bit raster image to the 32-bit
+    /// format of the canvas. Note that this may result in a performance penalty, depending on the
+    /// loader.
+    ///
+    /// If `hinting_options` is not None, the requested grid fitting is performed.
     pub fn rasterize_glyph(&self,
                            canvas: &mut Canvas,
                            glyph_id: u32,
@@ -550,6 +606,8 @@ impl Font {
                            hinting_options: HintingOptions,
                            rasterization_options: RasterizationOptions)
                            -> Result<(), GlyphLoadingError> {
+        // TODO(pcwalton): This is woefully incomplete. See WebRender's code for a more complete
+        // implementation.
         unsafe {
             let mut delta = FT_Vector {
                 x: f32_to_ft_fixed_26_6(origin.x),
@@ -613,11 +671,14 @@ impl Font {
         }
     }
 
+    /// Attempts to return the raw font data (contents of the font file).
+    ///
+    /// If this font is a member of a collection, this function returns the data for the entire
+    /// collection.
     pub fn copy_font_data(&self) -> Option<Arc<Vec<u8>>> {
         match self.font_data {
             FontData::File(ref file) => Some(Arc::new((*file).to_vec())),
             FontData::Memory(ref memory) => Some((*memory).clone()),
-            FontData::Unused(_) => unreachable!(),
         }
     }
 }
@@ -663,8 +724,18 @@ impl Loader for Font {
         Font::from_file(file, font_index)
     }
 
+    #[inline]
+    fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<FileType, FontLoadingError> {
+        Font::analyze_bytes(font_data)
+    }
+
     fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         Font::analyze_file(file)
+    }
+
+    #[inline]
+    fn native_font(&self) -> Self::NativeFont {
+        self.native_font()
     }
 
     #[inline]
@@ -759,19 +830,17 @@ impl Loader for Font {
 }
 
 #[derive(Clone)]
-pub enum FontData<'a> {
+enum FontData {
     Memory(Arc<Vec<u8>>),
     File(Arc<Mmap>),
-    Unused(PhantomData<&'a u8>),
 }
 
-impl<'a> Deref for FontData<'a> {
+impl Deref for FontData {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
         match *self {
             FontData::File(ref mmap) => &***mmap,
             FontData::Memory(ref data) => &***data,
-            FontData::Unused(_) => unreachable!(),
         }
     }
 }

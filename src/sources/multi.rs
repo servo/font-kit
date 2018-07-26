@@ -29,12 +29,14 @@ pub struct MultiSource {
 }
 
 impl MultiSource {
+    /// Creates a new source that contains all the fonts in the supplied sources.
     pub fn from_sources(subsources: Vec<Box<Source>>) -> MultiSource {
         MultiSource {
             subsources,
         }
     }
 
+    /// Returns the names of all families installed on the system.
     pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         let mut families = vec![];
         for subsource in &self.subsources {
@@ -43,6 +45,7 @@ impl MultiSource {
         Ok(families)
     }
 
+    /// Looks up a font family by name and returns the handles of all the fonts in that family.
     pub fn select_family_by_name(&self, family_name: &str)
                                  -> Result<FamilyHandle, SelectionError> {
         for subsource in &self.subsources {
@@ -55,6 +58,7 @@ impl MultiSource {
         Err(SelectionError::NotFound)
     }
 
+    /// Selects a font by PostScript name, which should be a unique identifier.
     pub fn select_by_postscript_name(&self, postscript_name: &str)
                                      -> Result<Handle, SelectionError> {
         for subsource in &self.subsources {
@@ -67,6 +71,8 @@ impl MultiSource {
         Err(SelectionError::NotFound)
     }
 
+    /// Performs font matching according to the CSS Fonts Level 3 specification and returns the
+    /// handle.
     #[inline]
     pub fn select_best_match(&self, family_names: &[FamilyName], properties: &Properties)
                              -> Result<Handle, SelectionError> {

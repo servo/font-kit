@@ -35,11 +35,16 @@ pub(crate) static FONT_WEIGHT_MAPPING: [f32; 9] =
 pub struct CoreTextSource;
 
 impl CoreTextSource {
+    /// Opens a new connection to the system font source.
+    ///
+    /// (Note that this doesn't actually do any Mach communication to the font server; that is done
+    /// lazily on demand by the Core Text/Core Graphics API.)
     #[inline]
     pub fn new() -> CoreTextSource {
         CoreTextSource
     }
 
+    /// Returns the names of all families installed on the system.
     pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         let core_text_family_names = font_manager::copy_available_font_family_names();
         let mut families = Vec::with_capacity(core_text_family_names.len() as usize);
@@ -49,6 +54,7 @@ impl CoreTextSource {
         Ok(families)
     }
 
+    /// Looks up a font family by name and returns the handles of all the fonts in that family.
     pub fn select_family_by_name(&self, family_name: &str)
                                  -> Result<FamilyHandle, SelectionError> {
         let attributes: CFDictionary<CFString, CFType> = CFDictionary::from_CFType_pairs(&[
@@ -62,6 +68,7 @@ impl CoreTextSource {
         Ok(FamilyHandle::from_font_handles(handles.into_iter()))
     }
 
+    /// Selects a font by PostScript name, which should be a unique identifier.
     pub fn select_by_postscript_name(&self, postscript_name: &str)
                                      -> Result<Handle, SelectionError> {
         let attributes: CFDictionary<CFString, CFType> = CFDictionary::from_CFType_pairs(&[
@@ -80,6 +87,8 @@ impl CoreTextSource {
         }
     }
 
+    /// Performs font matching according to the CSS Fonts Level 3 specification and returns the
+    /// handle.
     #[inline]
     pub fn select_best_match(&self, family_names: &[FamilyName], properties: &Properties)
                              -> Result<Handle, SelectionError> {

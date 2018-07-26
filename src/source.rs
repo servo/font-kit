@@ -37,8 +37,10 @@ const DEFAULT_FONT_FAMILY_CURSIVE: &'static str = "Comic Sans MS";
 const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "Papyrus";
 
 /// A database of installed fonts that can be queried.
+///
+/// This trait is object-safe.
 pub trait Source {
-    /// Returns all families installed on the system.
+    /// Returns the names of all families installed on the system.
     fn all_families(&self) -> Result<Vec<String>, SelectionError>;
 
     /// Looks up a font family by name and returns the handles of all the fonts in that family.

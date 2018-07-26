@@ -60,6 +60,7 @@ pub struct FontconfigSource {
 }
 
 impl FontconfigSource {
+    /// Initializes Fontconfig and prepares it for queries.
     pub fn new() -> FontconfigSource {
         unsafe {
             FontconfigSource {
@@ -68,6 +69,7 @@ impl FontconfigSource {
         }
     }
 
+    /// Returns the names of all families installed on the system.
     pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         unsafe {
             let pattern = FcPatternObject::new();
@@ -104,6 +106,7 @@ impl FontconfigSource {
         }
     }
 
+    /// Looks up a font family by name and returns the handles of all the fonts in that family.
     pub fn select_family_by_name(&self, family_name: &str)
                                  -> Result<FamilyHandle, SelectionError> {
         unsafe {
@@ -134,6 +137,10 @@ impl FontconfigSource {
         }
     }
 
+    /// Selects a font by PostScript name, which should be a unique identifier.
+    ///
+    /// The default implementation, which is used by the DirectWrite and the filesystem backends,
+    /// does a brute-force search of installed fonts to find the one that matches.
     pub fn select_by_postscript_name(&self, postscript_name: &str)
                                      -> Result<Handle, SelectionError> {
         unsafe {
@@ -158,6 +165,8 @@ impl FontconfigSource {
         }
     }
 
+    /// Performs font matching according to the CSS Fonts Level 3 specification and returns the
+    /// handle.
     #[inline]
     pub fn select_best_match(&self, family_names: &[FamilyName], properties: &Properties)
                              -> Result<Handle, SelectionError> {
@@ -245,24 +254,6 @@ impl FcObjectSetObject {
 
     unsafe fn push_string(&mut self, object: &'static [u8]) {
         assert_eq!(FcObjectSetAdd(self.object_set, object.as_ptr() as *const c_char), FcTrue);
-    }
-}
-
-#[derive(Clone)]
-pub enum FontData<'a> {
-    Memory(Arc<Vec<u8>>),
-    File(Arc<Mmap>),
-    Unused(PhantomData<&'a u8>),
-}
-
-impl<'a> Deref for FontData<'a> {
-    type Target = [u8];
-    fn deref(&self) -> &[u8] {
-        match *self {
-            FontData::File(ref mmap) => &***mmap,
-            FontData::Memory(ref data) => &***data,
-            FontData::Unused(_) => unreachable!(),
-        }
     }
 }
 

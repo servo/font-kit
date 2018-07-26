@@ -69,14 +69,21 @@ pub trait Loader: Clone + Sized {
         }
     }
 
-    /// Determines whether a file represents a supported font, and if so, what type of font it is.
+    /// Determines whether a blob of raw font data represents a supported font, and, if so, what
+    /// type of font it is.
+    fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<FileType, FontLoadingError>;
+
+    /// Determines whether a file represents a supported font, and, if so, what type of font it is.
     fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError>;
 
-    /// Determines whether a path points to a supported font, and if so, what type of font it is.
+    /// Determines whether a path points to a supported font, and, if so, what type of font it is.
     #[inline]
     fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
         <Self as Loader>::analyze_file(&mut try!(File::open(path)))
     }
+
+    /// Returns the wrapped native font handle.
+    fn native_font(&self) -> Self::NativeFont;
 
     /// Returns the PostScript name of the font. This should be globally unique.
     fn postscript_name(&self) -> String;
@@ -90,7 +97,7 @@ pub trait Loader: Clone + Sized {
     /// Returns true if and only if the font is monospace (fixed-width).
     fn is_monospace(&self) -> bool;
 
-    /// Returns various font properties, corresponding to those defined in CSS.
+    /// Returns the values of various font properties, corresponding to those defined in CSS.
     fn properties(&self) -> Properties;
 
     /// Returns the usual glyph ID for a Unicode character.
@@ -113,7 +120,8 @@ pub trait Loader: Clone + Sized {
     /// Returns the boundaries of a glyph in font units.
     fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError>;
 
-    /// Returns the distance from the origin of the given glyph ID to the next, in font units.
+    /// Returns the distance from the origin of the glyph with the given ID to the next, in font
+    /// units.
     fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError>;
 
     /// Returns the amount that the given glyph should be displaced from the origin.
@@ -128,7 +136,7 @@ pub trait Loader: Clone + Sized {
     /// collection.
     fn copy_font_data(&self) -> Option<Arc<Vec<u8>>>;
 
-    /// Returns true if and only if the font loader can perform hinting in the desired way.
+    /// Returns true if and only if the font loader can perform hinting in the requested way.
     ///
     /// Some APIs support only rasterizing glyphs with hinting, not retriving hinted outlines. If
     /// `for_rasterization` is false, this function returns true if and only if the loader supports

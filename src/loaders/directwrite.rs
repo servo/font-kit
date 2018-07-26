@@ -13,7 +13,7 @@
 use dwrote::CustomFontCollectionLoaderImpl;
 use dwrote::Font as DWriteFont;
 use dwrote::FontCollection as DWriteFontCollection;
-use dwrote::FontLoader as DWriteFontLoader;
+use dwrote::FontLoader as DWriteFontFace;
 use dwrote::FontFile as DWriteFontFile;
 use dwrote::FontStyle as DWriteFontStyle;
 use dwrote::GlyphOffset as DWriteGlyphOffset;
@@ -44,18 +44,24 @@ use properties::{Properties, Stretch, Style, Weight};
 
 /// DirectWrite's representation of a font.
 pub struct NativeFont {
+    /// The native DirectWrite font object.
     pub dwrite_font: DWriteFont,
-    pub dwrite_font_face: DWriteFontLoader,
+    /// The native DirectWrite font face object.
+    pub dwrite_font_face: DWriteFontFace,
 }
 
 /// A loader that uses the Windows DirectWrite API to load and rasterize fonts.
 pub struct Font {
     dwrite_font: DWriteFont,
-    dwrite_font_face: DWriteFontLoader,
+    dwrite_font_face: DWriteFontFace,
     cached_data: Mutex<Option<Arc<Vec<u8>>>>,
 }
 
 impl Font {
+    /// Loads a font from raw font data (the contents of a `.ttf`/`.otf`/etc. file).
+    ///
+    /// If the data represents a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index
+    /// of the font to load from it. If the data represents a single font, pass 0 for `font_index`.
     pub fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Font, FontLoadingError> {
         let font_file =
             try!(DWriteFontFile::new_from_data(&**font_data).ok_or(FontLoadingError::Parse));
@@ -71,6 +77,10 @@ impl Font {
         })
     }
 
+    /// Loads a font from a `.ttf`/`.otf`/etc. file.
+    ///
+    /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
+    /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
         let mut font_data = vec![];
         try!(file.seek(SeekFrom::Start(0)).map_err(FontLoadingError::Io));
@@ -78,12 +88,17 @@ impl Font {
         Font::from_bytes(Arc::new(font_data), font_index)
     }
 
+    /// Loads a font from the path to a `.ttf`/`.otf`/etc. file.
+    ///
+    /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
+    /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     #[inline]
     pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, FontLoadingError>
                         where P: AsRef<Path> {
         <Font as Loader>::from_path(path, font_index)
     }
 
+    /// Creates a font from a native API handle.
     #[inline]
     pub unsafe fn from_native_font(native_font: NativeFont) -> Font {
         Font {
@@ -93,11 +108,14 @@ impl Font {
         }
     }
 
+    /// Loads the font pointed to by a handle.
     #[inline]
     pub fn from_handle(handle: &Handle) -> Result<Self, FontLoadingError> {
         <Self as Loader>::from_handle(handle)
     }
 
+    /// Determines whether a blob of raw font data represents a supported font, and, if so, what
+    /// type of font it is.
     pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<FileType, FontLoadingError> {
         match DWriteFontFile::analyze_data(&**font_data) {
             0 => Err(FontLoadingError::Parse),
@@ -106,6 +124,7 @@ impl Font {
         }
     }
 
+    /// Determines whether a file represents a supported font, and, if so, what type of font it is.
     pub fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         let mut font_data = vec![];
         try!(file.seek(SeekFrom::Start(0)).map_err(FontLoadingError::Io));
@@ -115,11 +134,21 @@ impl Font {
         }
     }
 
+    /// Returns the wrapped native font handle.
+    pub fn native_font(&self) -> NativeFont {
+        NativeFont {
+            dwrite_font: self.dwrite_font.clone(),
+            dwrite_font_face: self.dwrite_font_face.clone(),
+        }
+    }
+
+    /// Determines whether a path points to a supported font, and, if so, what type of font it is.
     #[inline]
     pub fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
         <Self as Loader>::analyze_path(path)
     }
 
+    /// Returns the PostScript name of the font. This should be globally unique.
     #[inline]
     pub fn postscript_name(&self) -> String {
         let dwrite_font = &self.dwrite_font;
@@ -127,6 +156,7 @@ impl Font {
                    .unwrap_or_else(|| dwrite_font.family_name())
     }
 
+    /// Returns the full name of the font (also known as "display name" on macOS).
     #[inline]
     pub fn full_name(&self) -> String {
         let dwrite_font = &self.dwrite_font;
@@ -134,17 +164,21 @@ impl Font {
                    .unwrap_or_else(|| dwrite_font.family_name())
     }
 
+    /// Returns the name of the font family.
     #[inline]
     pub fn family_name(&self) -> String {
         self.dwrite_font.family_name()
     }
 
-    // FIXME(pcwalton)
+    /// Returns true if and only if the font is monospace (fixed-width).
+    ///
+    /// FIXME(pcwalton): This always returns false on DirectWrite.
     #[inline]
     pub fn is_monospace(&self) -> bool {
-        true
+        false
     }
 
+    /// Returns the values of various font properties, corresponding to those defined in CSS.
     pub fn properties(&self) -> Properties {
         let dwrite_font = &self.dwrite_font;
         Properties {
@@ -154,11 +188,22 @@ impl Font {
         }
     }
 
+    /// Returns the usual glyph ID for a Unicode character.
+    ///
+    /// Be careful with this function; typographically correct character-to-glyph mapping must be
+    /// done using a *shaper* such as HarfBuzz. This function is only useful for best-effort simple
+    /// use cases like "what does character X look like on its own".
     pub fn glyph_for_char(&self, character: char) -> Option<u32> {
         let chars = [character as u32];
         self.dwrite_font_face.get_glyph_indices(&chars).into_iter().next().map(|g| g as u32)
     }
 
+    /// Sends the vector path for a glyph to a path builder.
+    ///
+    /// If `hinting_mode` is not None, this function performs grid-fitting as requested before
+    /// sending the hinding outlines to the builder.
+    ///
+    /// TODO(pcwalton): What should we do for bitmap glyphs?
     pub fn outline<B>(&self, glyph_id: u32, _: HintingOptions, path_builder: &mut B)
                       -> Result<(), GlyphLoadingError>
                       where B: PathBuilder {
@@ -174,6 +219,7 @@ impl Font {
         Ok(())
     }
 
+    /// Returns the boundaries of a glyph in font units.
     pub fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError> {
         let metrics = self.dwrite_font_face.get_design_glyph_metrics(&[glyph_id as u16], false);
 
@@ -194,17 +240,22 @@ impl Font {
                      Size2D::new(width as f32, height as f32)))
     }
 
+    /// Returns the distance from the origin of the glyph with the given ID to the next, in font
+    /// units.
     pub fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError> {
         let metrics = self.dwrite_font_face.get_design_glyph_metrics(&[glyph_id as u16], false);
         let metrics = &metrics[0];
         Ok(Vector2D::new(metrics.advanceWidth as f32, 0.0))
     }
 
+    /// Returns the amount that the given glyph should be displaced from the origin.
+    ///
+    /// FIXME(pcwalton): This always returns zero on DirectWrite.
     pub fn origin(&self, _: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
-        // FIXME(pcwalton): This can't be right!
         Ok(Point2D::zero())
     }
 
+    /// Retrieves various metrics that apply to the entire font.
     pub fn metrics(&self) -> Metrics {
         let dwrite_font = &self.dwrite_font;
         let dwrite_metrics = dwrite_font.metrics();
@@ -220,6 +271,10 @@ impl Font {
         }
     }
 
+    /// Attempts to return the raw font data (contents of the font file).
+    ///
+    /// If this font is a member of a collection, this function returns the data for the entire
+    /// collection.
     pub fn copy_font_data(&self) -> Option<Arc<Vec<u8>>> {
         let mut font_data = self.cached_data.lock().unwrap();
         if font_data.is_none() {
@@ -232,6 +287,8 @@ impl Font {
         (*font_data).clone()
     }
 
+    /// Returns the pixel boundaries that the glyph will take up when rendered using this loader's
+    /// rasterizer at the given size and origin.
     #[inline]
     pub fn raster_bounds(&self,
                          glyph_id: u32,
@@ -248,8 +305,15 @@ impl Font {
                                         rasterization_options)
     }
 
-    // TODO(pcwalton): This is woefully incomplete. See WebRender's code for a more complete
-    // implementation.
+    /// Rasterizes a glyph to a canvas with the given size and origin.
+    ///
+    /// Format conversion will be performed if the canvas format does not match the rasterization
+    /// options. For example, if bilevel (black and white) rendering is requested to an RGBA
+    /// surface, this function will automatically convert the 1-bit raster image to the 32-bit
+    /// format of the canvas. Note that this may result in a performance penalty, depending on the
+    /// loader.
+    ///
+    /// If `hinting_options` is not None, the requested grid fitting is performed.
     pub fn rasterize_glyph(&self,
                            canvas: &mut Canvas,
                            glyph_id: u32,
@@ -258,6 +322,9 @@ impl Font {
                            hinting_options: HintingOptions,
                            rasterization_options: RasterizationOptions)
                            -> Result<(), GlyphLoadingError> {
+        // TODO(pcwalton): This is woefully incomplete. See WebRender's code for a more complete
+        // implementation.
+
         let dwrite_analysis = self.build_glyph_analysis(glyph_id,
                                                         point_size,
                                                         origin,
@@ -294,6 +361,12 @@ impl Font {
         Ok(())
     }
 
+    /// Returns true if and only if the font loader can perform hinting in the requested way.
+    ///
+    /// Some APIs support only rasterizing glyphs with hinting, not retriving hinted outlines. If
+    /// `for_rasterization` is false, this function returns true if and only if the loader supports
+    /// retrieval of hinted *outlines*. If `for_rasterization` is true, this function returns true
+    /// if and only if the loader supports *rasterizing* hinted glyphs.
     pub fn supports_hinting_options(&self,
                                     hinting_options: HintingOptions,
                                     for_rasterization: bool)
@@ -387,8 +460,18 @@ impl Loader for Font {
     }
 
     #[inline]
+    fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<FileType, FontLoadingError> {
+        Font::analyze_bytes(font_data)
+    }
+
+    #[inline]
     fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         Font::analyze_file(file)
+    }
+
+    #[inline]
+    fn native_font(&self) -> Self::NativeFont {
+        self.native_font()
     }
 
     #[inline]
@@ -474,18 +557,6 @@ impl Loader for Font {
                              origin,
                              hinting_options,
                              rasterization_options)
-    }
-}
-
-pub struct FontData<'a> {
-    font_data: MutexGuard<'a, Option<Arc<Vec<u8>>>>,
-}
-
-impl<'a> Deref for FontData<'a> {
-    type Target = [u8];
-    #[inline]
-    fn deref(&self) -> &[u8] {
-        &***self.font_data.as_ref().unwrap()
     }
 }
 

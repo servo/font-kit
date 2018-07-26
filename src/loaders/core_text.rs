@@ -30,7 +30,6 @@ use std::f32;
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
-use std::marker::PhantomData;
 use std::ops::Deref;
 use std::path::Path;
 use std::sync::Arc;
@@ -58,10 +57,14 @@ pub type NativeFont = CTFont;
 #[derive(Clone)]
 pub struct Font {
     core_text_font: CTFont,
-    font_data: FontData<'static>,
+    font_data: FontData,
 }
 
 impl Font {
+    /// Loads a font from raw font data (the contents of a `.ttf`/`.otf`/etc. file).
+    ///
+    /// If the data represents a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index
+    /// of the font to load from it. If the data represents a single font, pass 0 for `font_index`.
     pub fn from_bytes(mut font_data: Arc<Vec<u8>>, font_index: u32)
                       -> Result<Font, FontLoadingError> {
         // Sadly, there's no API to load OpenType collections on macOS, I don't believe…
@@ -81,6 +84,10 @@ impl Font {
         })
     }
 
+    /// Loads a font from a `.ttf`/`.otf`/etc. file.
+    ///
+    /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
+    /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
         let mut font_data = vec![];
         try!(file.seek(SeekFrom::Start(0)));
@@ -88,12 +95,17 @@ impl Font {
         Font::from_bytes(Arc::new(font_data), font_index)
     }
 
+    /// Loads a font from the path to a `.ttf`/`.otf`/etc. file.
+    ///
+    /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
+    /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     #[inline]
     pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, FontLoadingError>
                         where P: AsRef<Path> {
         <Font as Loader>::from_path(path, font_index)
     }
 
+    /// Creates a font from a native API handle.
     pub unsafe fn from_native_font(core_text_font: NativeFont) -> Font {
         Font::from_core_text_font(core_text_font)
     }
@@ -126,11 +138,13 @@ impl Font {
         }
     }
 
+    /// Loads the font pointed to by a handle.
     #[inline]
     pub fn from_handle(handle: &Handle) -> Result<Self, FontLoadingError> {
         <Self as Loader>::from_handle(handle)
     }
 
+    /// Determines whether a file represents a supported font, and if so, what type of font it is.
     pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<FileType, FontLoadingError> {
         if let Ok(font_count) = read_number_of_fonts_from_otc_header(&font_data) {
             return Ok(FileType::Collection(font_count))
@@ -142,6 +156,7 @@ impl Font {
         }
     }
 
+    /// Determines whether a file represents a supported font, and if so, what type of font it is.
     pub fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         let mut font_data = vec![];
         try!(file.seek(SeekFrom::Start(0)));
@@ -149,41 +164,51 @@ impl Font {
         Font::analyze_bytes(Arc::new(font_data))
     }
 
+    /// Determines whether a path points to a supported font, and if so, what type of font it is.
     #[inline]
     pub fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
         <Self as Loader>::analyze_path(path)
     }
 
+    /// Returns the wrapped native font handle.
     #[inline]
-    pub fn as_native_font(&self) -> NativeFont {
+    pub fn native_font(&self) -> NativeFont {
         self.core_text_font.clone()
     }
 
+    /// Returns the PostScript name of the font. This should be globally unique.
     #[inline]
     pub fn postscript_name(&self) -> String {
         self.core_text_font.postscript_name()
     }
 
+    /// Returns the full name of the font (also known as "display name" on macOS).
     #[inline]
     pub fn full_name(&self) -> String {
         self.core_text_font.display_name()
     }
 
+    /// Returns the name of the font family.
     #[inline]
     pub fn family_name(&self) -> String {
         self.core_text_font.family_name()
     }
 
+    /// Returns the name of the font style, according to Core Text.
+    ///
+    /// NB: This function is only available on the Core Text backend.
     #[inline]
     pub fn style_name(&self) -> String {
         self.core_text_font.style_name()
     }
 
+    /// Returns true if and only if the font is monospace (fixed-width).
     #[inline]
     pub fn is_monospace(&self) -> bool {
         self.core_text_font.symbolic_traits().is_monospace()
     }
 
+    /// Returns the values of various font properties, corresponding to those defined in CSS.
     pub fn properties(&self) -> Properties {
         let symbolic_traits = self.core_text_font.symbolic_traits();
         let all_traits = self.core_text_font.all_traits();
@@ -206,6 +231,11 @@ impl Font {
         }
     }
 
+    /// Returns the usual glyph ID for a Unicode character.
+    ///
+    /// Be careful with this function; typographically correct character-to-glyph mapping must be
+    /// done using a *shaper* such as HarfBuzz. This function is only useful for best-effort simple
+    /// use cases like "what does character X look like on its own".
     pub fn glyph_for_char(&self, character: char) -> Option<u32> {
         unsafe {
             let (mut dest, mut src) = ([0, 0], [0, 0]);
@@ -215,6 +245,12 @@ impl Font {
         }
     }
 
+    /// Sends the vector path for a glyph to a path builder.
+    ///
+    /// If `hinting_mode` is not None, this function performs grid-fitting as requested before
+    /// sending the hinding outlines to the builder.
+    ///
+    /// TODO(pcwalton): What should we do for bitmap glyphs?
     pub fn outline<B>(&self, glyph_id: u32, _: HintingOptions, path_builder: &mut B)
                       -> Result<(), GlyphLoadingError>
                       where B: PathBuilder {
@@ -246,6 +282,7 @@ impl Font {
         Ok(())
     }
 
+    /// Returns the boundaries of a glyph in font units.
     pub fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError> {
         let rect = self.core_text_font.get_bounding_rects_for_glyphs(kCTFontDefaultOrientation,
                                                                      &[glyph_id as u16]);
@@ -256,6 +293,8 @@ impl Font {
                                  (rect.size.height * units_per_point) as f32)))
     }
 
+    /// Returns the distance from the origin of the glyph with the given ID to the next, in font
+    /// units.
     pub fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError> {
         // FIXME(pcwalton): Apple's docs don't say what happens when the glyph is out of range!
         unsafe {
@@ -267,6 +306,7 @@ impl Font {
         }
     }
 
+    /// Returns the amount that the given glyph should be displaced from the origin.
     pub fn origin(&self, glyph_id: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
         unsafe {
             // FIXME(pcwalton): Apple's docs don't say what happens when the glyph is out of range!
@@ -280,6 +320,7 @@ impl Font {
         }
     }
 
+    /// Retrieves various metrics that apply to the entire font.
     pub fn metrics(&self) -> Metrics {
         let units_per_em = self.core_text_font.units_per_em();
         let units_per_point = (units_per_em as f64) / self.core_text_font.pt_size();
@@ -297,15 +338,20 @@ impl Font {
         }
     }
 
+    /// Attempts to return the raw font data (contents of the font file).
+    ///
+    /// If this font is a member of a collection, this function returns the data for the entire
+    /// collection.
     pub fn copy_font_data(&self) -> Option<Arc<Vec<u8>>> {
         match self.font_data {
             FontData::Unavailable => None,
             FontData::File(ref file) => Some(Arc::new((*file).to_vec())),
             FontData::Memory(ref memory) => Some((*memory).clone()),
-            FontData::Unused(_) => unreachable!(),
         }
     }
 
+    /// Returns the pixel boundaries that the glyph will take up when rendered using this loader's
+    /// rasterizer at the given size and origin.
     #[inline]
     pub fn raster_bounds(&self,
                          glyph_id: u32,
@@ -322,8 +368,18 @@ impl Font {
                                         rasterization_options)
     }
 
-    // TODO(pcwalton): This is woefully incomplete. See WebRender's code for a more complete
-    // implementation.
+    /// Rasterizes a glyph to a canvas with the given size and origin.
+    ///
+    /// Format conversion will be performed if the canvas format does not match the rasterization
+    /// options. For example, if bilevel (black and white) rendering is requested to an RGBA
+    /// surface, this function will automatically convert the 1-bit raster image to the 32-bit
+    /// format of the canvas. Note that this may result in a performance penalty, depending on the
+    /// loader.
+    ///
+    /// If `hinting_options` is not None, the requested grid fitting is performed.
+    ///
+    /// TODO(pcwalton): This is woefully incomplete. See WebRender's code for a more complete
+    /// implementation.
     pub fn rasterize_glyph(&self,
                            canvas: &mut Canvas,
                            glyph_id: u32,
@@ -380,6 +436,12 @@ impl Font {
         Ok(())
     }
 
+    /// Returns true if and only if the font loader can perform hinting in the requested way.
+    ///
+    /// Some APIs support only rasterizing glyphs with hinting, not retriving hinted outlines. If
+    /// `for_rasterization` is false, this function returns true if and only if the loader supports
+    /// retrieval of hinted *outlines*. If `for_rasterization` is true, this function returns true
+    /// if and only if the loader supports *rasterizing* hinted glyphs.
     #[inline]
     pub fn supports_hinting_options(&self, hinting_options: HintingOptions, _: bool) -> bool {
         match hinting_options {
@@ -414,8 +476,19 @@ impl Loader for Font {
         Font::from_native_font(native_font)
     }
 
+    #[inline]
+    fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<FileType, FontLoadingError> {
+        Font::analyze_bytes(font_data)
+    }
+
+    #[inline]
     fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         Font::analyze_file(file)
+    }
+
+    #[inline]
+    fn native_font(&self) -> Self::NativeFont {
+        self.native_font()
     }
 
     #[inline]
@@ -511,21 +584,19 @@ impl Debug for Font {
 }
 
 #[derive(Clone)]
-pub enum FontData<'a> {
+enum FontData {
     Unavailable,
     Memory(Arc<Vec<u8>>),
     File(Arc<Mmap>),
-    Unused(PhantomData<&'a u8>),
 }
 
-impl<'a> Deref for FontData<'a> {
+impl Deref for FontData {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
         match *self {
             FontData::Unavailable => panic!("Font data unavailable!"),
             FontData::File(ref mmap) => &***mmap,
             FontData::Memory(ref data) => &***data,
-            FontData::Unused(_) => unreachable!(),
         }
     }
 }

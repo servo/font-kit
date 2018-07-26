@@ -33,12 +33,14 @@ pub struct DirectWriteSource {
 }
 
 impl DirectWriteSource {
+    /// Opens the system font collection.
     pub fn new() -> DirectWriteSource {
         DirectWriteSource {
             system_font_collection: DWriteFontCollection::system(),
         }
     }
 
+    /// Returns the names of all families installed on the system.
     pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         Ok(self.system_font_collection
                .families_iter()
@@ -46,7 +48,9 @@ impl DirectWriteSource {
                .collect())
     }
 
-    // TODO(pcwalton): Case-insensitivity.
+    /// Looks up a font family by name and returns the handles of all the fonts in that family.
+    ///
+    /// TODO(pcwalton): Case-insensitivity.
     pub fn select_family_by_name(&self, family_name: &str)
                                  -> Result<FamilyHandle, SelectionError> {
         let mut family = FamilyHandle::new();
@@ -64,11 +68,17 @@ impl DirectWriteSource {
         Ok(family)
     }
 
+    /// Selects a font by PostScript name, which should be a unique identifier.
+    ///
+    /// On the DirectWrite backend, this does a brute-force search of installed fonts to find the
+    /// one that matches.
     pub fn select_by_postscript_name(&self, postscript_name: &str)
                                      -> Result<Handle, SelectionError> {
         <Self as Source>::select_by_postscript_name(self, postscript_name)
     }
 
+    /// Performs font matching according to the CSS Fonts Level 3 specification and returns the
+    /// handle.
     #[inline]
     pub fn select_best_match(&self, family_names: &[FamilyName], properties: &Properties)
                              -> Result<Handle, SelectionError> {
@@ -94,18 +104,6 @@ impl Source for DirectWriteSource {
     #[inline]
     fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
         self.select_family_by_name(family_name)
-    }
-}
-
-pub struct FontData<'a> {
-    font_data: MutexGuard<'a, Option<Arc<Vec<u8>>>>,
-}
-
-impl<'a> Deref for FontData<'a> {
-    type Target = [u8];
-    #[inline]
-    fn deref(&self) -> &[u8] {
-        &***self.font_data.as_ref().unwrap()
     }
 }
 

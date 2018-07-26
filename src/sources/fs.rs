@@ -8,7 +8,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! A source that loads fonts from a directory on the filesystem.
+//! A source that loads fonts from a directory or directories on disk.
+//!
+//! This source uses the WalkDir abstraction from the `walkdir` crate to locate fonts.
 //!
 //! This is the native source on Android.
 
@@ -37,11 +39,18 @@ use properties::Properties;
 use source::Source;
 use sources::mem::MemSource;
 
+/// A source that loads fonts from a directory or directories on disk.
+///
+/// This source uses the WalkDir abstraction from the `walkdir` crate to locate fonts.
+///
+/// This is the native source on Android.
 pub struct FsSource {
     mem_source: MemSource,
 }
 
 impl FsSource {
+    /// Opens the default set of directories on this platform and indexes the fonts found within.
+    ///
     /// Do not rely on this function for systems other than Android. It makes a best effort to
     /// locate fonts in the typical platform directories, but it is too simple to pick up fonts
     /// that are stored in unusual locations but nevertheless properly installed.
@@ -75,20 +84,28 @@ impl FsSource {
         }
     }
 
+    /// Returns the names of all families installed on the system.
     pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         self.mem_source.all_families()
     }
 
+    /// Looks up a font family by name and returns the handles of all the fonts in that family.
     pub fn select_family_by_name(&self, family_name: &str)
                                  -> Result<FamilyHandle, SelectionError> {
         self.mem_source.select_family_by_name(family_name)
     }
 
+    /// Selects a font by PostScript name, which should be a unique identifier.
+    ///
+    /// This implementation does a brute-force search of installed fonts to find the one that
+    /// matches.
     pub fn select_by_postscript_name(&self, postscript_name: &str)
                                      -> Result<Handle, SelectionError> {
         self.mem_source.select_by_postscript_name(postscript_name)
     }
 
+    /// Performs font matching according to the CSS Fonts Level 3 specification and returns the
+    /// handle.
     #[inline]
     pub fn select_best_match(&self, family_names: &[FamilyName], properties: &Properties)
                              -> Result<Handle, SelectionError> {
