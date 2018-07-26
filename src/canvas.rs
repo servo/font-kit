@@ -26,13 +26,23 @@ pub struct Canvas {
 }
 
 impl Canvas {
+    /// Creates a new blank canvas with the given pixel size and format.
+    ///
+    /// Stride is automatically calculated from width.
+    ///
+    /// The canvas is initialized with transparent black (all values 0).
+    #[inline]
+    pub fn new(size: &Size2D<u32>, format: Format) -> Canvas {
+        Canvas::with_stride(size, size.width as usize * format.bytes_per_pixel() as usize, format)
+    }
+
     /// Creates a new blank canvas with the given pixel size, stride (number of bytes between
     /// successive rows), and format.
     ///
     /// The canvas is initialized with transparent black (all values 0).
-    pub fn new(size: &Size2D<u32>, stride: usize, format: Format) -> Canvas {
+    pub fn with_stride(size: &Size2D<u32>, stride: usize, format: Format) -> Canvas {
         Canvas {
-            pixels: vec![0; stride * size.height as usize * format.bytes_per_pixel() as usize],
+            pixels: vec![0; stride * size.height as usize],
             size: *size,
             stride,
             format,

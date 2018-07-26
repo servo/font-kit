@@ -51,13 +51,13 @@ fn main() {
                                          RasterizationOptions::GrayscaleAa)
                           .unwrap();
 
-    let stride = raster_rect.size.width as usize;
-    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), stride, Format::A8);
+    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
 
+    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
     font.rasterize_glyph(&mut canvas,
                          glyph_id,
                          size,
-                         &Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32(),
+                         &origin,
                          HintingOptions::None,
                          RasterizationOptions::GrayscaleAa)
         .unwrap();
@@ -66,7 +66,7 @@ fn main() {
     for y in 0..raster_rect.size.height {
         let mut line = String::new();
         for x in 0..raster_rect.size.width {
-            let character = match canvas.pixels[y as usize * stride + x as usize] {
+            let character = match canvas.pixels[y as usize * canvas.stride + x as usize] {
                 0 => ' ',
                 1...84 => '░',
                 85...169 => '▒',

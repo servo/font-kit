@@ -16,6 +16,7 @@ use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
 
+use canvas::{Canvas, Format, RasterizationOptions};
 use family_name::FamilyName;
 use file_type::FileType;
 use font::Font;
@@ -272,4 +273,104 @@ pub fn get_font_data() {
                                   .unwrap();
     let data = font.copy_font_data().unwrap();
     debug_assert!(utils::SFNT_VERSIONS.iter().any(|version| data[0..4] == *version));
+}
+
+#[test]
+pub fn rasterize_glyph_with_grayscale_aa() {
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
+    let glyph_id = font.glyph_for_char('L').unwrap();
+    let size = 32.0;
+    let raster_rect = font.raster_bounds(glyph_id,
+                                         size,
+                                         &Point2D::zero(),
+                                         HintingOptions::None,
+                                         RasterizationOptions::GrayscaleAa)
+                          .unwrap();
+    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
+    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
+    font.rasterize_glyph(&mut canvas,
+                         glyph_id,
+                         size,
+                         &origin,
+                         HintingOptions::None,
+                         RasterizationOptions::GrayscaleAa)
+        .unwrap();
+    check_L_shape(&canvas);
+}
+
+// Makes sure that a canvas has an "L" shape in it.
+#[allow(non_snake_case)]
+fn check_L_shape(canvas: &Canvas) {
+    // Find any empty rows at the start.
+    let mut y = 0;
+    while y < canvas.size.height {
+        let (row_start, row_end) = (canvas.stride * y as usize, canvas.stride * (y + 1) as usize);
+        y += 1;
+        if canvas.pixels[row_start..row_end].iter().any(|&p| p != 0) {
+            break
+        }
+    }
+
+    // Find the top part of the L.
+    let mut top_stripe_width = None;
+    while y < canvas.size.height {
+        let (row_start, row_end) = (canvas.stride * y as usize, canvas.stride * (y + 1) as usize);
+        y += 1;
+        let stripe_width = stripe_width(&canvas.pixels[row_start..row_end]);
+        if let Some(top_stripe_width) = top_stripe_width {
+            if stripe_width > top_stripe_width {
+                break
+            }
+            assert_eq!(stripe_width, top_stripe_width);
+        }
+        top_stripe_width = Some(stripe_width);
+    }
+
+    // Find the bottom part of the L.
+    let mut bottom_stripe_width = None;
+    while y < canvas.size.height {
+        let (row_start, row_end) = (canvas.stride * y as usize, canvas.stride * (y + 1) as usize);
+        y += 1;
+        let stripe_width = stripe_width(&canvas.pixels[row_start..row_end]);
+        if let Some(bottom_stripe_width) = bottom_stripe_width {
+            assert!(bottom_stripe_width > top_stripe_width.unwrap());
+            assert_eq!(stripe_width, bottom_stripe_width);
+        }
+        bottom_stripe_width = Some(stripe_width);
+    }
+
+    // Find any empty rows at the end.
+    while y < canvas.size.height {
+        let (row_start, row_end) = (canvas.stride * y as usize, canvas.stride * (y + 1) as usize);
+        y += 1;
+        if canvas.pixels[row_start..row_end].iter().any(|&p| p != 0) {
+            break
+        }
+    }
+
+    // Make sure we made it to the end.
+    assert_eq!(y, canvas.size.height);
+}
+
+fn stripe_width(pixels: &[u8]) -> u32 {
+    let mut x = 0;
+    // Find the initial empty part.
+    while x < pixels.len() && pixels[x] == 0 {
+        x += 1
+    }
+    // Find the stripe width.
+    let mut stripe_width = 0;
+    while x < pixels.len() && pixels[x] != 0 {
+        x += 1;
+        stripe_width += 1;
+    }
+    // Find the last empty part.
+    while x < pixels.len() && pixels[x] == 0 {
+        x += 1;
+    }
+    assert_eq!(x, pixels.len());
+    stripe_width
 }
