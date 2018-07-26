@@ -13,7 +13,7 @@
 use dwrote::CustomFontCollectionLoaderImpl;
 use dwrote::Font as DWriteFont;
 use dwrote::FontCollection as DWriteFontCollection;
-use dwrote::FontLoader as DWriteFontFace;
+use dwrote::FontFace as DWriteFontFace;
 use dwrote::FontFile as DWriteFontFile;
 use dwrote::FontStyle as DWriteFontStyle;
 use dwrote::GlyphOffset as DWriteGlyphOffset;
@@ -396,7 +396,7 @@ impl Font {
                 ascenderOffset: 0.0,
             };
             let glyph_run = DWRITE_GLYPH_RUN {
-                fontLoader: self.dwrite_font_face.as_ptr(),
+                fontFace: self.dwrite_font_face.as_ptr(),
                 fontEmSize: point_size,
                 glyphCount: 1,
                 glyphIndices: &glyph_id,
