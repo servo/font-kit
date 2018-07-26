@@ -43,6 +43,7 @@ pub enum HintingOptions {
 }
 
 impl HintingOptions {
+    /// Returns the point size that will be used for grid fitting, if any.
     #[inline]
     pub fn grid_fitting_size(&self) -> Option<f32> {
         match *self {

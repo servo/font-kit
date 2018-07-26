@@ -12,6 +12,8 @@
 //! services such as finding fonts on the system, performing nearest-font matching, and rasterizing
 //! glyphs.
 
+#![warn(missing_docs)]
+
 extern crate arrayvec;
 extern crate byteorder;
 extern crate euclid;

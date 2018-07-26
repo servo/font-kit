@@ -27,12 +27,22 @@ use font::Font;
 /// To open the font referenced by a handle, use a loader.
 #[derive(Debug, Clone)]
 pub enum Handle {
+    /// A font on disk referenced by a path.
     Path {
+        /// The path to the font.
         path: PathBuf,
+        /// The index of the font, if the path refers to a collection.
+        ///
+        /// If the path refers to a single font, this value will be 0.
         font_index: u32,
     },
+    /// A font in memory.
     Memory {
+        /// The raw TrueType/OpenType/etc. data that makes up this font.
         bytes: Arc<Vec<u8>>,
+        /// The index of the font, if the memory consists of a collection.
+        ///
+        /// If the memory consists of a single font, this value will be 0.
         font_index: u32,
     },
 }

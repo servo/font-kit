@@ -15,7 +15,7 @@ use handle::Handle;
 /// Encapsulates the information needed to locate and open the fonts in a family.
 #[derive(Debug)]
 pub struct FamilyHandle {
-    pub fonts: Vec<Handle>,
+    pub(crate) fonts: Vec<Handle>,
 }
 
 impl FamilyHandle {
