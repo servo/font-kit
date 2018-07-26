@@ -16,6 +16,8 @@
 
 extern crate arrayvec;
 extern crate byteorder;
+#[allow(unused_imports)]
+extern crate dirs;
 extern crate euclid;
 extern crate float_ord;
 extern crate itertools;

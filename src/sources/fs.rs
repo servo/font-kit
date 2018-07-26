@@ -18,8 +18,8 @@ use std::fs::File;
 use std::path::PathBuf;
 use walkdir::WalkDir;
 
-#[cfg(target_os = "macos")]
-use std::env;
+#[cfg(not(any(target_os = "android", target_family = "windows")))]
+use dirs;
 #[cfg(target_family = "windows")]
 use std::ffi::OsString;
 #[cfg(target_family = "windows")]
@@ -154,7 +154,7 @@ fn default_font_directories() -> Vec<PathBuf> {
         PathBuf::from("/Library/Fonts"),
         PathBuf::from("/Network/Library/Fonts"),
     ];
-    if let Some(mut path) = env::home_dir() {
+    if let Some(mut path) = dirs::home_dir() {
         path.push("Library");
         path.push("Fonts");
         directories.push(path);
@@ -168,10 +168,9 @@ fn default_font_directories() -> Vec<PathBuf> {
         PathBuf::from("/usr/share/fonts"),
         PathBuf::from("/usr/local/share/fonts"),
     ];
-    if let Some(mut path) = env::home_dir() {
+    if let Some(mut path) = dirs::home_dir() {
         path.push(".fonts");
         directories.push(path);
     }
     directories
 }
-
