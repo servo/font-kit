@@ -39,13 +39,13 @@ features = ["minwindef", "winbase"]
 path = "../dwrote-rs"
 
 [target.'cfg(target_os = "macos")'.dependencies.cocoa]
-path = "../core-foundation-rs/cocoa"
+git = "https://github.com/servo/core-foundation-rs"
 
 [target.'cfg(target_os = "macos")'.dependencies.core-foundation]
-path = "../core-foundation-rs/core-foundation"
+git = "https://github.com/servo/core-foundation-rs"
 
 [target.'cfg(target_os = "macos")'.dependencies.core-graphics]
-path = "../core-foundation-rs/core-graphics"
+git = "https://github.com/servo/core-foundation-rs"
 
 [target.'cfg(target_os = "macos")'.dependencies.core-text]
-path = "../core-foundation-rs/core-text"
+git = "https://github.com/servo/core-foundation-rs"

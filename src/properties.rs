@@ -17,7 +17,8 @@
 ///
 /// This object supports a method chaining style for idiomatic initialization; e.g.
 ///
-///     let italic_properties = Properties::new().style(Style::Italic);
+///     # use font_kit::properties::{Properties, Style};
+///     println!("{:?}", Properties::new().style(Style::Italic));
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Properties {
     /// The font style, as defined in CSS.
