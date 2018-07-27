@@ -310,6 +310,67 @@ pub fn rasterize_glyph_with_grayscale_aa() {
     check_L_shape(&canvas);
 }
 
+#[test]
+pub fn rasterize_glyph_bilevel() {
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
+    let glyph_id = font.glyph_for_char('L').unwrap();
+    let size = 16.0;
+    let raster_rect = font.raster_bounds(glyph_id,
+                                         size,
+                                         &Point2D::zero(),
+                                         HintingOptions::None,
+                                         RasterizationOptions::Bilevel)
+                          .unwrap();
+    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
+    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
+    font.rasterize_glyph(&mut canvas,
+                         glyph_id,
+                         size,
+                         &origin,
+                         HintingOptions::None,
+                         RasterizationOptions::Bilevel)
+        .unwrap();
+    assert!(canvas.pixels.iter().all(|&value| value == 0 || value == 0xff));
+    check_L_shape(&canvas);
+}
+
+#[cfg(any(not(any(target_os = "macos", target_family = "windows")),
+          feature = "loader-freetype-default"))]
+#[test]
+pub fn rasterize_glyph_with_full_hinting() {
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
+    let glyph_id = font.glyph_for_char('L').unwrap();
+    let size = 32.0;
+    let raster_rect = font.raster_bounds(glyph_id,
+                                         size,
+                                         &Point2D::zero(),
+                                         HintingOptions::None,
+                                         RasterizationOptions::Bilevel)
+                          .unwrap();
+    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
+    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
+    font.rasterize_glyph(&mut canvas,
+                         glyph_id,
+                         size,
+                         &origin,
+                         HintingOptions::Full(size),
+                         RasterizationOptions::GrayscaleAa)
+        .unwrap();
+    check_L_shape(&canvas);
+
+    // Make sure the top and bottom rows have some fully black pixels in them.
+    let top_row = &canvas.pixels[0..canvas.stride];
+    let bottom_row = &canvas.pixels[((canvas.size.height as usize - 1) * canvas.stride)..];
+    assert!(top_row.iter().any(|&value| value == 0xff));
+    assert!(bottom_row.iter().any(|&value| value == 0xff));
+}
+
 // Makes sure that a canvas has an "L" shape in it.
 #[allow(non_snake_case)]
 fn check_L_shape(canvas: &Canvas) {
