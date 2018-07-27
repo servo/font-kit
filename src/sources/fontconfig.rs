@@ -19,22 +19,15 @@ use fontconfig::fontconfig::{FcBool, FcConfig, FcFontList, FcInitLoadConfigAndFo
 use fontconfig::fontconfig::{FcObjectSetAdd, FcObjectSetCreate, FcObjectSetDestroy, FcPattern};
 use fontconfig::fontconfig::{FcPatternAddString, FcPatternCreate, FcPatternDestroy};
 use fontconfig::fontconfig::{FcPatternGetInteger, FcPatternGetString, FcResultMatch};
-use memmap::Mmap;
 use std::ffi::{CStr, CString};
-use std::fs::File;
-use std::marker::PhantomData;
-use std::ops::Deref;
 use std::os::raw::{c_char, c_uchar};
 use std::path::PathBuf;
 use std::ptr;
 use std::slice;
-use std::sync::Arc;
 
 use error::SelectionError;
-use family::Family;
 use family_handle::FamilyHandle;
 use family_name::FamilyName;
-use font::Font;
 use handle::Handle;
 use properties::Properties;
 use source::Source;

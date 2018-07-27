@@ -64,7 +64,7 @@ impl CoreTextSource {
         let descriptor = font_descriptor::new_from_attributes(&attributes);
         let descriptors = CFArray::from_CFTypes(&[descriptor]);
         let collection = font_collection::new_from_descriptors(&descriptors);
-        let handles = create_handles_from_core_text_collection(collection);
+        let handles = try!(create_handles_from_core_text_collection(collection));
         Ok(FamilyHandle::from_font_handles(handles.into_iter()))
     }
 
@@ -77,13 +77,10 @@ impl CoreTextSource {
 
         let descriptor = font_descriptor::new_from_attributes(&attributes);
         let descriptors = CFArray::from_CFTypes(&[descriptor]);
-
         let collection = font_collection::new_from_descriptors(&descriptors);
-        let descriptors = collection.get_descriptors();
-        if descriptors.len() > 0 {
-            Ok(create_handle_from_descriptor(&*descriptors.get(0).unwrap()))
-        } else {
-            Err(SelectionError::NotFound)
+        match collection.get_descriptors() {
+            None => Err(SelectionError::NotFound),
+            Some(descriptors) => Ok(create_handle_from_descriptor(&*descriptors.get(0).unwrap())),
         }
     }
 
@@ -143,14 +140,20 @@ fn css_stretchiness_to_core_text_width(css_stretchiness: Stretch) -> f32 {
     0.25 * piecewise_linear_find_index(css_stretchiness, &Stretch::MAPPING) - 1.0
 }
 
-fn create_handles_from_core_text_collection(collection: CTFontCollection) -> Vec<Handle> {
+fn create_handles_from_core_text_collection(collection: CTFontCollection)
+                                            -> Result<Vec<Handle>, SelectionError> {
     let mut fonts = vec![];
-    let descriptors = collection.get_descriptors();
-    for index in 0..descriptors.len() {
-        let descriptor = descriptors.get(index).unwrap();
-        fonts.push(create_handle_from_descriptor(&*descriptor));
+    if let Some(descriptors) = collection.get_descriptors() {
+        for index in 0..descriptors.len() {
+            let descriptor = descriptors.get(index).unwrap();
+            fonts.push(create_handle_from_descriptor(&*descriptor));
+        }
     }
-    fonts
+    if fonts.is_empty() {
+        Err(SelectionError::NotFound)
+    } else {
+        Ok(fonts)
+    }
 }
 
 fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Handle {

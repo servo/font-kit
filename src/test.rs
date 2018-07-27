@@ -17,6 +17,7 @@ use std::io::Read;
 use std::sync::Arc;
 
 use canvas::{Canvas, Format, RasterizationOptions};
+use error::SelectionError;
 use family_name::FamilyName;
 use file_type::FileType;
 use font::Font;
@@ -86,6 +87,14 @@ pub fn lookup_font_by_postscript_name() {
                            .load()
                            .unwrap();
     assert_eq!(font.postscript_name(), SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME);
+}
+
+#[test]
+pub fn fail_to_lookup_font_by_postscript_name() {
+    match SystemSource::new().select_by_postscript_name("zxhjfgkadsfhg") {
+        Err(SelectionError::NotFound) => {}
+        other => panic!("unexpected error: {:?}", other),
+    }
 }
 
 #[test]
