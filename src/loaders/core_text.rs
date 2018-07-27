@@ -411,11 +411,13 @@ impl Font {
             RasterizationOptions::Bilevel => {
                 core_graphics_context.set_allows_font_smoothing(false);
                 core_graphics_context.set_should_smooth_fonts(false);
+                core_graphics_context.set_should_antialias(false);
             }
             RasterizationOptions::GrayscaleAa | RasterizationOptions::SubpixelAa => {
                 // FIXME(pcwalton): These shouldn't be handled the same!
                 core_graphics_context.set_allows_font_smoothing(true);
                 core_graphics_context.set_should_smooth_fonts(true);
+                core_graphics_context.set_should_antialias(true);
             }
         }
 

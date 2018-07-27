@@ -8,34 +8,66 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+extern crate clap;
+extern crate colored;
 extern crate euclid;
 extern crate font_kit;
 
+use clap::{App, Arg, ArgGroup, ArgMatches};
+use colored::Colorize;
 use euclid::Point2D;
 use font_kit::canvas::{Canvas, Format, RasterizationOptions};
 use font_kit::hinting::HintingOptions;
 use font_kit::source::SystemSource;
-use std::env;
-use std::process;
+use std::io::{self, Write};
 
-fn usage() -> ! {
-    eprintln!("usage: render-glyph POSTSCRIPT-NAME CHARACTER SIZE");
-    eprintln!("    example: render-glyph ArialMT a 32");
-    process::exit(0)
+fn get_args() -> ArgMatches<'static> {
+    let postscript_name_arg =
+        Arg::with_name("POSTSCRIPT-NAME").help("PostScript name of the font")
+                                         .default_value("ArialMT")
+                                         .index(1);
+    let glyph_arg = Arg::with_name("GLYPH").help("Character to render")
+                                           .default_value("A")
+                                           .index(2);
+    let size_arg = Arg::with_name("SIZE").help("Font size in blocks")
+                                         .default_value("32")
+                                         .index(3);
+    let grayscale_arg = Arg::with_name("grayscale").long("grayscale")
+                                                   .help("Use grayscale antialiasing (default)");
+    let bilevel_arg = Arg::with_name("bilevel").help("Use bilevel (black & white) rasterization")
+                                               .short("b")
+                                               .long("bilevel");
+    let subpixel_arg = Arg::with_name("subpixel").help("Use subpixel (LCD) rasterization")
+                                                 .short("s")
+                                                 .long("subpixel");
+    let rasterization_mode_group =
+        ArgGroup::with_name("rasterization-mode").args(&["grayscale", "bilevel", "subpixel"]);
+    App::new("render-glyph").version("0.1")
+                            .author("The Pathfinder Project Developers")
+                            .about("Simple example tool to render glyphs with `font-kit`")
+                            .arg(postscript_name_arg)
+                            .arg(glyph_arg)
+                            .arg(size_arg)
+                            .arg(grayscale_arg)
+                            .arg(bilevel_arg)
+                            .arg(subpixel_arg)
+                            .group(rasterization_mode_group)
+                            .get_matches()
 }
 
 fn main() {
-    let postscript_name = match env::args().skip(1).next() {
-        None => usage(),
-        Some(postscript_name) => postscript_name,
-    };
-    let character = match env::args().skip(2).next() {
-        Some(ref character) if character.len() > 0 => character.as_bytes()[0] as char,
-        Some(_) | None => usage(),
-    };
-    let size: f32 = match env::args().skip(3).next().and_then(|size| size.parse().ok()) {
-        Some(size) => size,
-        None => usage(),
+    let matches = get_args();
+
+    let postscript_name = matches.value_of("POSTSCRIPT-NAME").unwrap();
+    let character = matches.value_of("GLYPH").unwrap().as_bytes()[0] as char;
+    let size: f32 = matches.value_of("SIZE").unwrap().parse().unwrap();
+
+    let (canvas_format, rasterization_options) = if matches.is_present("bilevel") {
+        (Format::A8, RasterizationOptions::Bilevel)
+    } else if matches.is_present("subpixel") {
+        (Format::Rgb24, RasterizationOptions::SubpixelAa)
+    } else {
+        (Format::A8, RasterizationOptions::GrayscaleAa)
     };
 
     let font = SystemSource::new().select_by_postscript_name(&postscript_name)
@@ -48,10 +80,10 @@ fn main() {
                                          size,
                                          &Point2D::zero(),
                                          HintingOptions::None,
-                                         RasterizationOptions::GrayscaleAa)
+                                         rasterization_options)
                           .unwrap();
 
-    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
+    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), canvas_format);
 
     let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
     font.rasterize_glyph(&mut canvas,
@@ -59,23 +91,39 @@ fn main() {
                          size,
                          &origin,
                          HintingOptions::None,
-                         RasterizationOptions::GrayscaleAa)
+                         rasterization_options)
         .unwrap();
 
     println!("glyph {}:", glyph_id);
     for y in 0..raster_rect.size.height {
         let mut line = String::new();
+        let (row_start, row_end) = (y as usize * canvas.stride, (y + 1) as usize * canvas.stride);
+        let row = &canvas.pixels[row_start..row_end];
         for x in 0..raster_rect.size.width {
-            let character = match canvas.pixels[y as usize * canvas.stride + x as usize] {
-                0 => ' ',
-                1...84 => '░',
-                85...169 => '▒',
-                170...254 => '▓',
-                _ => '█',
-            };
-            line.push(character);
-            line.push(character);
+            match canvas.format {
+                Format::Rgba32 => unimplemented!(),
+                Format::Rgb24 => {
+                    line.push_str(&shade(row[x as usize * 3 + 0]).to_string().red());
+                    line.push_str(&shade(row[x as usize * 3 + 1]).to_string().green());
+                    line.push_str(&shade(row[x as usize * 3 + 2]).to_string().blue());
+                }
+                Format::A8 => {
+                    let shade = shade(row[x as usize]);
+                    line.push(shade);
+                    line.push(shade);
+                }
+            }
         }
-        println!("{}", line);
+        io::stdout().write_all(line.as_bytes()).unwrap();
+    }
+}
+
+fn shade(value: u8) -> char {
+    match value {
+        0 => ' ',
+        1...84 => '░',
+        85...169 => '▒',
+        170...254 => '▓',
+        _ => '█',
     }
 }
