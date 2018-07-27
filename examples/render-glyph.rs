@@ -19,7 +19,7 @@ use euclid::Point2D;
 use font_kit::canvas::{Canvas, Format, RasterizationOptions};
 use font_kit::hinting::HintingOptions;
 use font_kit::source::SystemSource;
-use std::io::{self, Write};
+use std::fmt::Write;
 
 fn get_args() -> ArgMatches<'static> {
     let postscript_name_arg =
@@ -103,9 +103,11 @@ fn main() {
             match canvas.format {
                 Format::Rgba32 => unimplemented!(),
                 Format::Rgb24 => {
-                    line.push_str(&shade(row[x as usize * 3 + 0]).to_string().red());
-                    line.push_str(&shade(row[x as usize * 3 + 1]).to_string().green());
-                    line.push_str(&shade(row[x as usize * 3 + 2]).to_string().blue());
+                    write!(&mut line,
+                           "{}{}{}",
+                           shade(row[x as usize * 3 + 0]).to_string().red(),
+                           shade(row[x as usize * 3 + 1]).to_string().green(),
+                           shade(row[x as usize * 3 + 2]).to_string().blue()).unwrap();
                 }
                 Format::A8 => {
                     let shade = shade(row[x as usize]);
@@ -114,7 +116,7 @@ fn main() {
                 }
             }
         }
-        io::stdout().write_all(line.as_bytes()).unwrap();
+        println!("{}", line);
     }
 }
 

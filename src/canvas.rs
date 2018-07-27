@@ -50,6 +50,11 @@ impl Canvas {
     }
 
     #[allow(dead_code)]
+    pub(crate) fn blit_from_canvas(&mut self, src: &Canvas) {
+        self.blit_from(&src.pixels, &src.size, src.stride, src.format)
+    }
+
+    #[allow(dead_code)]
     pub(crate) fn blit_from(&mut self,
                             src_bytes: &[u8],
                             src_size: &Size2D<u32>,
@@ -68,7 +73,13 @@ impl Canvas {
             (Format::A8, Format::Rgb24) => {
                 self.blit_from_with::<BlitRgb24ToA8>(src_bytes, &size, src_stride, src_format)
             }
-            _ => unimplemented!()
+            (Format::Rgb24, Format::Rgba32) => {
+                self.blit_from_with::<BlitRgba32ToRgb24>(src_bytes, &size, src_stride, src_format)
+            }
+            (Format::Rgba32, Format::Rgb24) |
+            (Format::Rgba32, Format::A8) |
+            (Format::Rgb24, Format::A8) |
+            (Format::A8, Format::Rgba32) => unimplemented!(),
         }
     }
 
@@ -169,6 +180,18 @@ impl Blit for BlitRgb24ToA8 {
         // TODO(pcwalton): SIMD.
         for (dest, src) in dest.iter_mut().zip(src.chunks(3)) {
             *dest = src[1]
+        }
+    }
+}
+
+struct BlitRgba32ToRgb24;
+
+impl Blit for BlitRgba32ToRgb24 {
+    #[inline]
+    fn blit(dest: &mut [u8], src: &[u8]) {
+        // TODO(pcwalton): SIMD.
+        for (dest, src) in dest.chunks_mut(3).zip(src.chunks(4)) {
+            dest.copy_from_slice(&src[0..3])
         }
     }
 }

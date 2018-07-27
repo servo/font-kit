@@ -11,7 +11,7 @@
 //! A loader that uses Apple's Core Text API to load and rasterize fonts.
 
 use byteorder::{BigEndian, ReadBytesExt};
-use core_graphics::base::{CGFloat, kCGImageAlphaNoneSkipLast, kCGImageAlphaPremultipliedLast};
+use core_graphics::base::{CGFloat, kCGImageAlphaPremultipliedLast};
 use core_graphics::color_space::CGColorSpace;
 use core_graphics::context::{CGContext, CGTextDrawingMode};
 use core_graphics::data_provider::CGDataProvider;
@@ -385,17 +385,38 @@ impl Font {
                            glyph_id: u32,
                            point_size: f32,
                            origin: &Point2D<f32>,
-                           _: HintingOptions,
+                           hinting_options: HintingOptions,
                            rasterization_options: RasterizationOptions)
                            -> Result<(), GlyphLoadingError> {
+        let (cg_color_space, cg_image_format) =
+            match format_to_cg_color_space_and_image_format(canvas.format) {
+                None => {
+                    // Core Graphics doesn't support the requested image format. Allocate a
+                    // temporary canvas, then perform color conversion.
+                    //
+                    // FIXME(pcwalton): Could improve this by only allocating a canvas with a tight
+                    // bounding rect and blitting only that part.
+                    let mut temp_canvas = Canvas::new(&canvas.size, Format::Rgba32);
+                    try!(self.rasterize_glyph(&mut temp_canvas,
+                                            glyph_id,
+                                            point_size,
+                                            origin,
+                                            hinting_options,
+                                            rasterization_options));
+                    canvas.blit_from_canvas(&temp_canvas);
+                    return Ok(());
+                }
+                Some(cg_color_space_and_format) => cg_color_space_and_format,
+            };
+
         let core_graphics_context =
             CGContext::create_bitmap_context(Some(canvas.pixels.as_mut_ptr() as *mut _),
                                              canvas.size.width as usize,
                                              canvas.size.height as usize,
                                              canvas.format.bits_per_component() as usize,
                                              canvas.stride,
-                                             &format_to_color_space(canvas.format),
-                                             format_to_cg_image_format(canvas.format));
+                                             &cg_color_space,
+                                             cg_image_format);
 
         match canvas.format {
             Format::Rgba32 | Format::Rgb24 => {
@@ -658,19 +679,17 @@ fn unpack_otc_font(data: &mut [u8], font_index: u32) -> Result<(), FontLoadingEr
     Ok(())
 }
 
-fn format_to_color_space(format: Format) -> CGColorSpace {
-    match format {
-        Format::Rgba32 | Format::Rgb24 => CGColorSpace::create_device_rgb(),
-        Format::A8 => CGColorSpace::create_device_gray(),
-    }
-}
-
 // NB: This assumes little-endian, but that's true for all extant Apple hardware.
-fn format_to_cg_image_format(format: Format) -> u32 {
+fn format_to_cg_color_space_and_image_format(format: Format) -> Option<(CGColorSpace, u32)> {
     match format {
-        Format::Rgba32 => kCGImageAlphaPremultipliedLast,
-        Format::Rgb24 => kCGImageAlphaNoneSkipLast,
-        Format::A8 => kCGImageAlphaOnly,
+        Format::Rgb24 => {
+            // Unsupported by Core Graphics.
+            None
+        }
+        Format::Rgba32 => {
+            Some((CGColorSpace::create_device_rgb(), kCGImageAlphaPremultipliedLast))
+        }
+        Format::A8 => Some((CGColorSpace::create_device_gray(), kCGImageAlphaOnly)),
     }
 }
 
