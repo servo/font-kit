@@ -647,17 +647,20 @@ impl Font {
             let buffer = slice::from_raw_parts(bitmap_buffer, bitmap_length);
 
             // FIXME(pcwalton): This function should return a Result instead.
-            let bitmap_format = match (*bitmap).pixel_mode {
-                FT_PIXEL_MODE_MONO => unimplemented!(),
-                FT_PIXEL_MODE_GRAY => Format::A8,
-                FT_PIXEL_MODE_LCD | FT_PIXEL_MODE_LCD_V => Format::Rgb24,
+            match (*bitmap).pixel_mode {
+                FT_PIXEL_MODE_GRAY => {
+                    canvas.blit_from(buffer, &bitmap_size, bitmap_stride, Format::A8);
+                }
+                FT_PIXEL_MODE_LCD | FT_PIXEL_MODE_LCD_V => {
+                    canvas.blit_from(buffer, &bitmap_size, bitmap_stride, Format::Rgb24);
+                }
+                FT_PIXEL_MODE_MONO => {
+                    canvas.blit_from_bitmap_1bpp(buffer, &bitmap_size, bitmap_stride);
+                }
                 _ => panic!("Unexpected FreeType pixel mode!"),
-            };
-
-            canvas.blit_from(buffer, &bitmap_size, bitmap_stride, bitmap_format);
+            }
 
             FT_Set_Transform(self.freetype_face, ptr::null_mut(), ptr::null_mut());
-
             Ok(())
         }
     }

@@ -13,6 +13,24 @@
 use euclid::Size2D;
 use std::cmp;
 
+use utils;
+
+lazy_static! {
+    static ref BITMAP_1BPP_TO_8BPP_LUT: [[u8; 8]; 256] = {
+        let mut lut = [[0; 8]; 256];
+        for byte in 0..0x100 {
+            let mut value = [0; 8];
+            for bit in 0..8 {
+                if (byte & (0x80 >> bit)) != 0 {
+                    value[bit] = 0xff;
+                }
+            }
+            lut[byte] = value
+        }
+        lut
+    };
+}
+
 /// An in-memory bitmap surface for glyph rasterization.
 pub struct Canvas {
     /// The raw pixel data.
@@ -80,6 +98,39 @@ impl Canvas {
             (Format::Rgba32, Format::A8) |
             (Format::Rgb24, Format::A8) |
             (Format::A8, Format::Rgba32) => unimplemented!(),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn blit_from_bitmap_1bpp(&mut self,
+                                        src_bytes: &[u8],
+                                        src_size: &Size2D<u32>,
+                                        src_stride: usize) {
+        if self.format != Format::A8 {
+            unimplemented!()
+        }
+
+        let width = cmp::min(src_size.width as usize, self.size.width as usize);
+        let height = cmp::min(src_size.height as usize, self.size.height as usize);
+        let size = Size2D::new(width, height);
+
+        let dest_bytes_per_pixel = self.format.bytes_per_pixel() as usize;
+        let dest_row_stride = size.width * dest_bytes_per_pixel;
+        let src_row_stride = utils::div_round_up(size.width, 8);
+
+        for y in 0..size.height {
+            let (dest_row_start, src_row_start) = (y * self.stride, y * src_stride);
+            let dest_row_end = dest_row_start + dest_row_stride;
+            let src_row_end = src_row_start + src_row_stride;
+            let dest_row_pixels = &mut self.pixels[dest_row_start..dest_row_end];
+            let src_row_pixels = &src_bytes[src_row_start..src_row_end];
+            for x in 0..src_row_stride {
+                let pattern = &BITMAP_1BPP_TO_8BPP_LUT[src_row_pixels[x] as usize];
+                let dest_start = x * 8;
+                let dest_end = cmp::min(dest_start + 8, dest_row_stride);
+                let src = &pattern[0..(dest_end - dest_start)];
+                dest_row_pixels[dest_start..dest_end].clone_from_slice(src);
+            }
         }
     }
 

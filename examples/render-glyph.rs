@@ -40,6 +40,13 @@ fn get_args() -> ArgMatches<'static> {
     let subpixel_arg = Arg::with_name("subpixel").help("Use subpixel (LCD) rasterization")
                                                  .short("s")
                                                  .long("subpixel");
+    let hinting_arg = Arg::with_name("hinting").help("Select hinting type")
+                                               .short("H")
+                                               .long("hinting")
+                                               .takes_value(true)
+                                               .possible_value("vertical")
+                                               .possible_value("full")
+                                               .value_names(&["TYPE"]);
     let rasterization_mode_group =
         ArgGroup::with_name("rasterization-mode").args(&["grayscale", "bilevel", "subpixel"]);
     App::new("render-glyph").version("0.1")
@@ -52,6 +59,7 @@ fn get_args() -> ArgMatches<'static> {
                             .arg(bilevel_arg)
                             .arg(subpixel_arg)
                             .group(rasterization_mode_group)
+                            .arg(hinting_arg)
                             .get_matches()
 }
 
@@ -70,6 +78,12 @@ fn main() {
         (Format::A8, RasterizationOptions::GrayscaleAa)
     };
 
+    let hinting_options = match matches.value_of("hinting") {
+        Some(value) if value == "vertical" => HintingOptions::Vertical(size),
+        Some(value) if value == "full" => HintingOptions::Full(size),
+        _ => HintingOptions::None,
+    };
+
     let font = SystemSource::new().select_by_postscript_name(&postscript_name)
                                   .unwrap()
                                   .load()
@@ -79,7 +93,7 @@ fn main() {
     let raster_rect = font.raster_bounds(glyph_id,
                                          size,
                                          &Point2D::zero(),
-                                         HintingOptions::None,
+                                         hinting_options,
                                          rasterization_options)
                           .unwrap();
 
@@ -90,7 +104,7 @@ fn main() {
                          glyph_id,
                          size,
                          &origin,
-                         HintingOptions::None,
+                         hinting_options,
                          rasterization_options)
         .unwrap();
 

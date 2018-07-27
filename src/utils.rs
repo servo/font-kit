@@ -29,7 +29,12 @@ pub(crate) fn clamp(x: f32, min: f32, max: f32) -> f32 {
     }
 }
 
+#[inline]
 pub(crate) fn lerp(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
 }
 
+#[inline]
+pub(crate) fn div_round_up(a: usize, b: usize) -> usize {
+    (a + b - 1) / b
+}
