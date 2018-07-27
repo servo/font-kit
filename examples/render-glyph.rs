@@ -44,6 +44,7 @@ fn get_args() -> ArgMatches<'static> {
                                                .short("H")
                                                .long("hinting")
                                                .takes_value(true)
+                                               .possible_value("none")
                                                .possible_value("vertical")
                                                .possible_value("full")
                                                .value_names(&["TYPE"]);

@@ -18,7 +18,7 @@ use canvas::{Canvas, Format, RasterizationOptions};
 use euclid::{Point2D, Rect, Size2D, Vector2D};
 use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_FACE_FLAG_FIXED_WIDTH, FT_Face};
 use freetype::freetype::{FT_Get_Char_Index, FT_Get_Postscript_Name, FT_Get_Sfnt_Table};
-use freetype::freetype::{FT_Init_FreeType, FT_LOAD_DEFAULT, FT_LOAD_NO_HINTING, FT_Library};
+use freetype::freetype::{FT_Init_FreeType, FT_LOAD_DEFAULT, FT_LOAD_MONOCHROME, FT_LOAD_NO_HINTING, FT_LOAD_RENDER, FT_Library};
 use freetype::freetype::{FT_Load_Glyph, FT_Long, FT_New_Memory_Face, FT_Reference_Face};
 use freetype::freetype::{FT_Render_Glyph, FT_Render_Mode, FT_STYLE_FLAG_ITALIC, FT_Set_Char_Size};
 use freetype::freetype::{FT_Set_Transform, FT_Sfnt_Tag, FT_UInt, FT_ULong, FT_UShort, FT_Vector};
@@ -56,12 +56,12 @@ const FT_POINT_TAG_CUBIC_CONTROL: c_char = 0x02;
 
 const FT_RENDER_MODE_NORMAL: u32 = 0;
 const FT_RENDER_MODE_LIGHT: u32 = 1;
-#[allow(dead_code)]
 const FT_RENDER_MODE_MONO: u32 = 2;
 const FT_RENDER_MODE_LCD: u32 = 3;
 
 const FT_LOAD_TARGET_LIGHT: u32 = (FT_RENDER_MODE_LIGHT & 15) << 16;
 const FT_LOAD_TARGET_LCD: u32 = (FT_RENDER_MODE_LCD & 15) << 16;
+const FT_LOAD_TARGET_MONO: u32 = (FT_RENDER_MODE_MONO & 15) << 16;
 const FT_LOAD_TARGET_NORMAL: u32 = (FT_RENDER_MODE_NORMAL & 15) << 16;
 
 const FT_PIXEL_MODE_MONO: u8 = 1;
@@ -332,7 +332,10 @@ impl Font {
                       -> Result<(), GlyphLoadingError>
                       where B: PathBuilder {
         unsafe {
-            let load_flags = self.hinting_options_to_load_flags(hinting);
+            let rasterization_options = RasterizationOptions::GrayscaleAa;
+            let load_flags =
+                self.hinting_and_rasterization_options_to_load_flags(hinting,
+                                                                     rasterization_options);
 
             let units_per_em = (*self.freetype_face).units_per_EM;
             let grid_fitting_size = hinting.grid_fitting_size();
@@ -622,17 +625,13 @@ impl Font {
                                         0),
                        0);
 
-            let load_flags = self.hinting_options_to_load_flags(hinting_options);
+            let mut load_flags = FT_LOAD_DEFAULT | FT_LOAD_RENDER;
+            load_flags |=
+                self.hinting_and_rasterization_options_to_load_flags(hinting_options,
+                                                                     rasterization_options);
             if FT_Load_Glyph(self.freetype_face, glyph_id, load_flags as i32) != 0 {
                 return Err(GlyphLoadingError::NoSuchGlyph)
             }
-
-            let render_mode = match rasterization_options {
-                RasterizationOptions::Bilevel => FT_Render_Mode::FT_RENDER_MODE_MONO,
-                RasterizationOptions::GrayscaleAa => FT_Render_Mode::FT_RENDER_MODE_NORMAL,
-                RasterizationOptions::SubpixelAa => FT_Render_Mode::FT_RENDER_MODE_LCD,
-            };
-            assert_eq!(FT_Render_Glyph((*self.freetype_face).glyph, render_mode), 0);
 
             // TODO(pcwalton): Use the FreeType "direct" API to save a copy here. Note that we will
             // need to keep this around for bilevel rendering, as the direct API doesn't work with
@@ -665,13 +664,23 @@ impl Font {
         }
     }
 
-    fn hinting_options_to_load_flags(&self, hinting: HintingOptions) -> u32 {
-        match hinting {
-            HintingOptions::None => FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING,
-            HintingOptions::Vertical(_) => FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT,
-            HintingOptions::VerticalSubpixel(_) => FT_LOAD_DEFAULT | FT_LOAD_TARGET_LCD,
-            HintingOptions::Full(_) => FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL,
+    fn hinting_and_rasterization_options_to_load_flags(&self,
+                                                       hinting: HintingOptions,
+                                                       rasterization: RasterizationOptions)
+                                                       -> u32 {
+        let mut options = match (hinting, rasterization) {
+            (HintingOptions::VerticalSubpixel(_), _) |
+            (_, RasterizationOptions::SubpixelAa) => FT_LOAD_TARGET_LCD,
+            (HintingOptions::None, _) => FT_LOAD_TARGET_NORMAL | FT_LOAD_NO_HINTING,
+            (HintingOptions::Vertical(_), RasterizationOptions::Bilevel) |
+            (HintingOptions::Full(_), RasterizationOptions::Bilevel) => FT_LOAD_TARGET_MONO,
+            (HintingOptions::Vertical(_), _) => FT_LOAD_TARGET_LIGHT,
+            (HintingOptions::Full(_), _) => FT_LOAD_TARGET_NORMAL,
+        };
+        if rasterization == RasterizationOptions::Bilevel {
+            options |= FT_LOAD_MONOCHROME
         }
+        options
     }
 
     /// Attempts to return the raw font data (contents of the font file).
