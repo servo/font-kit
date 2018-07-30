@@ -254,10 +254,14 @@ impl Font {
     }
 
     /// Returns the PostScript name of the font. This should be globally unique.
-    pub fn postscript_name(&self) -> String {
+    pub fn postscript_name(&self) -> Option<String> {
         unsafe {
             let postscript_name = FT_Get_Postscript_Name(self.freetype_face);
-            CStr::from_ptr(postscript_name).to_str().unwrap().to_owned()
+            if postscript_name.is_null() {
+                None
+            } else {
+                Some(CStr::from_ptr(postscript_name).to_str().unwrap().to_owned())
+            }
         }
     }
 
@@ -757,7 +761,7 @@ impl Loader for Font {
     }
 
     #[inline]
-    fn postscript_name(&self) -> String {
+    fn postscript_name(&self) -> Option<String> {
         self.postscript_name()
     }
 

@@ -59,7 +59,7 @@ pub fn lookup_single_regular_font() {
                                   .unwrap()
                                   .load()
                                   .unwrap();
-    assert_eq!(font.postscript_name(), SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME);
+    assert_eq!(font.postscript_name().unwrap(), SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME);
 }
 
 #[test]
@@ -69,7 +69,7 @@ pub fn lookup_single_bold_font() {
                                   .unwrap()
                                   .load()
                                   .unwrap();
-    assert_eq!(font.postscript_name(), SANS_SERIF_FONT_BOLD_POSTSCRIPT_NAME);
+    assert_eq!(font.postscript_name().unwrap(), SANS_SERIF_FONT_BOLD_POSTSCRIPT_NAME);
 }
 
 #[test]
@@ -79,7 +79,7 @@ pub fn lookup_single_italic_font() {
                                   .unwrap()
                                   .load()
                                   .unwrap();
-    assert_eq!(font.postscript_name(), SANS_SERIF_FONT_ITALIC_POSTSCRIPT_NAME);
+    assert_eq!(font.postscript_name().unwrap(), SANS_SERIF_FONT_ITALIC_POSTSCRIPT_NAME);
 }
 
 #[test]
@@ -103,7 +103,7 @@ pub fn lookup_font_by_postscript_name() {
                            .unwrap()
                            .load()
                            .unwrap();
-    assert_eq!(font.postscript_name(), SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME);
+    assert_eq!(font.postscript_name().unwrap(), SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME);
 }
 
 #[test]
@@ -118,7 +118,7 @@ pub fn fail_to_lookup_font_by_postscript_name() {
 pub fn load_font_from_file() {
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
     let font = Font::from_file(&mut file, 0).unwrap();
-    assert_eq!(font.postscript_name(), TEST_FONT_POSTSCRIPT_NAME);
+    assert_eq!(font.postscript_name().unwrap(), TEST_FONT_POSTSCRIPT_NAME);
 }
 
 #[test]
@@ -127,7 +127,7 @@ pub fn load_font_from_memory() {
     let mut font_data = vec![];
     file.read_to_end(&mut font_data).unwrap();
     let font = Font::from_bytes(Arc::new(font_data), 0).unwrap();
-    assert_eq!(font.postscript_name(), TEST_FONT_POSTSCRIPT_NAME);
+    assert_eq!(font.postscript_name().unwrap(), TEST_FONT_POSTSCRIPT_NAME);
 }
 
 #[test]

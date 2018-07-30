@@ -86,7 +86,7 @@ pub trait Loader: Clone + Sized {
     fn native_font(&self) -> Self::NativeFont;
 
     /// Returns the PostScript name of the font. This should be globally unique.
-    fn postscript_name(&self) -> String;
+    fn postscript_name(&self) -> Option<String>;
 
     /// Returns the full name of the font (also known as "display name" on macOS).
     fn full_name(&self) -> String;

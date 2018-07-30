@@ -42,7 +42,7 @@ fn main() {
                 if let Ok(font) = font_handle.load() {
                     let properties = font.properties();
                     table.add_row(Row::new(vec![
-                        Cell::new(&font.postscript_name()),
+                        Cell::new(&font.postscript_name().unwrap_or_else(|| "".to_owned())),
                         Cell::new(&font.full_name()),
                         Cell::new(&family_name),
                         Cell::new(&properties.style.to_string()),

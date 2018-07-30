@@ -43,11 +43,13 @@ impl MemSource {
         let mut families = vec![];
         for handle in fonts {
             let font = try!(Font::from_handle(&handle));
-            families.push(FamilyEntry {
-                family_name: font.family_name(),
-                postscript_name: font.postscript_name(),
-                font: handle,
-            })
+            if let Some(postscript_name) = font.postscript_name() {
+                families.push(FamilyEntry {
+                    family_name: font.family_name(),
+                    postscript_name: postscript_name,
+                    font: handle,
+                })
+            }
         }
         families.sort_by(|a, b| a.family_name.cmp(&b.family_name));
         Ok(MemSource {
