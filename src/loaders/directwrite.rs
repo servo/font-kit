@@ -184,7 +184,7 @@ impl Font {
         Properties {
             style: style_for_dwrite_style(dwrite_font.style()),
             stretch: Stretch(Stretch::MAPPING[(dwrite_font.stretch() as usize) - 1]),
-            weight: Weight(dwrite_font.weight() as u32 as f32),
+            weight: Weight(dwrite_font.weight().to_u32() as f32),
         }
     }
 
