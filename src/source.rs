@@ -30,11 +30,28 @@ pub use sources::fontconfig::FontconfigSource as SystemSource;
 pub use sources::fs::FsSource as SystemSource;
 
 // FIXME(pcwalton): These could expand to multiple fonts, and they could be language-specific.
+#[cfg(any(target_family = "windows", target_os = "macos"))]
 const DEFAULT_FONT_FAMILY_SERIF: &'static str = "Times New Roman";
+#[cfg(any(target_family = "windows", target_os = "macos"))]
 const DEFAULT_FONT_FAMILY_SANS_SERIF: &'static str = "Arial";
+#[cfg(any(target_family = "windows", target_os = "macos"))]
 const DEFAULT_FONT_FAMILY_MONOSPACE: &'static str = "Courier New";
+#[cfg(any(target_family = "windows", target_os = "macos"))]
 const DEFAULT_FONT_FAMILY_CURSIVE: &'static str = "Comic Sans MS";
+#[cfg(any(target_family = "windows", target_os = "macos"))]
 const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "Papyrus";
+
+// FIXME(pcwalton): Fontconfig knows this; ask it.
+#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+const DEFAULT_FONT_FAMILY_SERIF: &'static str = "DejaVu Serif";
+#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+const DEFAULT_FONT_FAMILY_SANS_SERIF: &'static str = "DejaVu Sans";
+#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+const DEFAULT_FONT_FAMILY_MONOSPACE: &'static str = "DejaVu Sans Mono";
+#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+const DEFAULT_FONT_FAMILY_CURSIVE: &'static str = "DejaVu Sans";
+#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "DejaVu Sans";
 
 /// A database of installed fonts that can be queried.
 ///

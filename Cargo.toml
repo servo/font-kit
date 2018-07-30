@@ -26,7 +26,7 @@ memmap = "0.6"
 walkdir = "2.1"
 
 [dependencies.freetype]
-path = "../rust-freetype"
+git = "https://github.com/servo/rust-freetype"
 optional = true
 
 [dependencies.servo-fontconfig]
@@ -42,7 +42,8 @@ version = "0.3"
 features = ["minwindef", "winbase"]
 
 [target.'cfg(target_family = "windows")'.dependencies.dwrote]
-path = "../dwrote-rs"
+git = "https://github.com/pcwalton/dwrote-rs"
+branch = "additions"
 
 [target.'cfg(target_os = "macos")'.dependencies.cocoa]
 git = "https://github.com/servo/core-foundation-rs"
@@ -55,3 +56,9 @@ git = "https://github.com/servo/core-foundation-rs"
 
 [target.'cfg(target_os = "macos")'.dependencies.core-text]
 git = "https://github.com/servo/core-foundation-rs"
+
+[target.'cfg(not(any(target_family = "windows", target_os = "macos")))'.dependencies.freetype]
+git = "https://github.com/servo/rust-freetype"
+
+[target.'cfg(not(any(target_family = "windows", target_os = "macos")))'.dependencies.servo-fontconfig]
+version = "0.4"

@@ -19,10 +19,13 @@
 //!     #
 //!     use euclid::{Point2D, Size2D};
 //!     use font_kit::canvas::{Canvas, Format, RasterizationOptions};
+//!     use font_kit::family_name::FamilyName;
 //!     use font_kit::hinting::HintingOptions;
+//!     use font_kit::properties::Properties;
 //!     use font_kit::source::SystemSource;
 //!
-//!     let font = SystemSource::new().select_by_postscript_name("ArialMT")
+//!     let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif],
+//!                                                      &Properties::new())
 //!                                   .unwrap()
 //!                                   .load()
 //!                                   .unwrap();

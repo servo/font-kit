@@ -21,10 +21,15 @@ use font_kit::hinting::HintingOptions;
 use font_kit::source::SystemSource;
 use std::fmt::Write;
 
+#[cfg(any(target_family = "windows", target_os = "macos"))]
+static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "ArialMT";
+#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "DejaVuSans";
+
 fn get_args() -> ArgMatches<'static> {
     let postscript_name_arg =
         Arg::with_name("POSTSCRIPT-NAME").help("PostScript name of the font")
-                                         .default_value("ArialMT")
+                                         .default_value(SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME)
                                          .index(1);
     let glyph_arg = Arg::with_name("GLYPH").help("Character to render")
                                            .default_value("A")

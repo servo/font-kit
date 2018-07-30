@@ -28,10 +28,27 @@ use sources::fs::FsSource;
 use utils;
 
 // TODO(pcwalton): Change this to DejaVu or whatever on Linux.
+#[cfg(any(target_family = "windows", target_os = "macos"))]
 static SANS_SERIF_FONT_FAMILY_NAME: &'static str = "Arial";
+#[cfg(any(target_family = "windows", target_os = "macos"))]
 static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "ArialMT";
+#[cfg(any(target_family = "windows", target_os = "macos"))]
 static SANS_SERIF_FONT_BOLD_POSTSCRIPT_NAME: &'static str = "Arial-BoldMT";
+#[cfg(any(target_family = "windows", target_os = "macos"))]
 static SANS_SERIF_FONT_ITALIC_POSTSCRIPT_NAME: &'static str = "Arial-ItalicMT";
+#[cfg(any(target_family = "windows", target_os = "macos"))]
+static SANS_SERIF_FONT_FULL_NAME: &'static str = "Arial";
+
+#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+static SANS_SERIF_FONT_FAMILY_NAME: &'static str = "DejaVu Sans";
+#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "DejaVuSans";
+#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+static SANS_SERIF_FONT_BOLD_POSTSCRIPT_NAME: &'static str = "DejaVuSans-Bold";
+#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+static SANS_SERIF_FONT_ITALIC_POSTSCRIPT_NAME: &'static str = "DejaVuSans-Oblique";
+#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+static SANS_SERIF_FONT_FULL_NAME: &'static str = "DejaVu Sans";
 
 static TEST_FONT_FILE_PATH: &'static str = "resources/tests/EBGaramond12-Regular.otf";
 static TEST_FONT_POSTSCRIPT_NAME: &'static str = "EBGaramond12-Regular";
@@ -137,6 +154,7 @@ pub fn get_glyph_for_char() {
     assert_eq!(glyph, 68);
 }
 
+#[cfg(any(target_family = "windows", target_os = "macos"))]
 #[test]
 pub fn get_glyph_outline() {
     let mut path_builder = Path::builder();
@@ -161,8 +179,33 @@ pub fn get_glyph_outline() {
     assert_eq!(events.next(), Some(PathEvent::Close));
 }
 
+#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+#[test]
+pub fn get_glyph_outline() {
+    let mut path_builder = Path::builder();
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
+    let glyph = font.glyph_for_char('i').expect("No glyph for char!");
+    font.outline(glyph, HintingOptions::None, &mut path_builder).unwrap();
+    let path = path_builder.build();
+
+    let mut events = path.into_iter();
+    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(193.0, 1120.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(377.0, 1120.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(377.0, 0.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(193.0, 0.0))));
+    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(193.0, 1556.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(377.0, 1556.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(377.0, 1323.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(193.0, 1323.0))));
+    assert_eq!(events.next(), Some(PathEvent::Close));
+}
+
 // Right now, only FreeType can do hinting.
-#[cfg(any(not(any(target_os = "macos", target_family = "windows")),
+#[cfg(all(not(any(target_os = "macos", target_family = "windows")),
           feature = "loader-freetype-default"))]
 #[test]
 pub fn get_vertically_hinted_glyph_outline() {
@@ -188,8 +231,33 @@ pub fn get_vertically_hinted_glyph_outline() {
     assert_eq!(events.next(), Some(PathEvent::Close));
 }
 
+#[cfg(not(any(target_os = "macos", target_family = "windows")))]
+#[test]
+pub fn get_vertically_hinted_glyph_outline() {
+    let mut path_builder = Path::builder();
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
+    let glyph = font.glyph_for_char('i').expect("No glyph for char!");
+    font.outline(glyph, HintingOptions::Vertical(16.0), &mut path_builder).unwrap();
+    let path = path_builder.build();
+
+    let mut events = path.into_iter();
+    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(194.0, 1152.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(378.0, 1152.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(378.0, 0.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(194.0, 0.0))));
+    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(194.0, 1536.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(378.0, 1536.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(378.0, 1302.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(194.0, 1302.0))));
+    assert_eq!(events.next(), Some(PathEvent::Close));
+}
+
 // Right now, only FreeType can do hinting.
-#[cfg(any(not(any(target_os = "macos", target_family = "windows")),
+#[cfg(all(not(any(target_os = "macos", target_family = "windows")),
           feature = "loader-freetype-default"))]
 #[test]
 pub fn get_fully_hinted_glyph_outline() {
@@ -215,6 +283,32 @@ pub fn get_fully_hinted_glyph_outline() {
     assert_eq!(events.next(), Some(PathEvent::Close));
 }
 
+#[cfg(not(any(target_os = "macos", target_family = "windows")))]
+#[test]
+pub fn get_fully_hinted_glyph_outline() {
+    let mut path_builder = Path::builder();
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
+    let glyph = font.glyph_for_char('i').expect("No glyph for char!");
+    font.outline(glyph, HintingOptions::Full(10.0), &mut path_builder).unwrap();
+    let path = path_builder.build();
+
+    let mut events = path.into_iter();
+    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(192.0, 1024.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(377.6, 1024.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(377.6, 0.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(192.0, 0.0))));
+    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(192.0, 1638.4))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(377.6, 1638.4))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(377.6, 1433.6))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(192.0, 1433.6))));
+    assert_eq!(events.next(), Some(PathEvent::Close));
+}
+
+#[cfg(any(target_family = "windows", target_os = "macos"))]
 #[test]
 pub fn get_glyph_typographic_bounds() {
     let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
@@ -226,6 +320,19 @@ pub fn get_glyph_typographic_bounds() {
                Ok(Rect::new(Point2D::new(74.0, -24.0), Size2D::new(978.0, 1110.0))));
 }
 
+#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+#[test]
+pub fn get_glyph_typographic_bounds() {
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
+    let glyph = font.glyph_for_char('a').expect("No glyph for char!");
+    assert_eq!(font.typographic_bounds(glyph),
+               Ok(Rect::new(Point2D::new(123.0, -29.0), Size2D::new(946.0, 1176.0))));
+}
+
+#[cfg(any(target_family = "windows", target_os = "macos"))]
 #[test]
 pub fn get_glyph_advance_and_origin() {
     let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
@@ -237,6 +344,19 @@ pub fn get_glyph_advance_and_origin() {
     assert_eq!(font.origin(glyph), Ok(Point2D::zero()));
 }
 
+#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+#[test]
+pub fn get_glyph_advance_and_origin() {
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
+    let glyph = font.glyph_for_char('a').expect("No glyph for char!");
+    assert_eq!(font.advance(glyph), Ok(Vector2D::new(1255.0, 0.0)));
+    assert_eq!(font.origin(glyph), Ok(Point2D::zero()));
+}
+
+#[cfg(any(target_family = "windows", target_os = "macos"))]
 #[test]
 pub fn get_font_metrics() {
     let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
@@ -254,13 +374,31 @@ pub fn get_font_metrics() {
     assert_eq!(metrics.x_height, 1062.0);
 }
 
+#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+#[test]
+pub fn get_font_metrics() {
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
+    let metrics = font.metrics();
+    assert_eq!(metrics.units_per_em, 2048);
+    assert_eq!(metrics.ascent, 1901.0);
+    assert_eq!(metrics.descent, -483.0);
+    assert_eq!(metrics.line_gap, 0.0);              // FIXME(pcwalton): Huh?!
+    assert_eq!(metrics.underline_position, -130.0);
+    assert_eq!(metrics.underline_thickness, 90.0);
+    assert_eq!(metrics.cap_height, 0.0);            // FIXME(pcwalton): Huh?!
+    assert_eq!(metrics.x_height, 0.0);              // FIXME(pcwalton): Huh?!
+}
+
 #[test]
 pub fn get_font_full_name() {
     let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
                                   .unwrap()
                                   .load()
                                   .unwrap();
-    assert_eq!(font.full_name(), "Arial");
+    assert_eq!(font.full_name(), SANS_SERIF_FONT_FULL_NAME);
 }
 
 #[test]
@@ -364,11 +502,17 @@ pub fn rasterize_glyph_with_full_hinting() {
         .unwrap();
     check_L_shape(&canvas);
 
-    // Make sure the top and bottom rows have some fully black pixels in them.
+    // Make sure the top and bottom (non-blank) rows have some fully black pixels in them.
     let top_row = &canvas.pixels[0..canvas.stride];
-    let bottom_row = &canvas.pixels[((canvas.size.height as usize - 1) * canvas.stride)..];
     assert!(top_row.iter().any(|&value| value == 0xff));
-    assert!(bottom_row.iter().any(|&value| value == 0xff));
+    for y in (0..(canvas.size.height as usize)).rev() {
+        let bottom_row = &canvas.pixels[(y * canvas.stride)..((y + 1) * canvas.stride)];
+        if bottom_row.iter().all(|&value| value == 0) {
+            continue
+        }
+        assert!(bottom_row.iter().any(|&value| value == 0xff));
+        break
+    }
 }
 
 // Makes sure that a canvas has an "L" shape in it.
@@ -389,14 +533,15 @@ fn check_L_shape(canvas: &Canvas) {
     while y < canvas.size.height {
         let (row_start, row_end) = (canvas.stride * y as usize, canvas.stride * (y + 1) as usize);
         y += 1;
-        let stripe_width = stripe_width(&canvas.pixels[row_start..row_end]);
-        if let Some(top_stripe_width) = top_stripe_width {
-            if stripe_width > top_stripe_width {
-                break
+        if let Some(stripe_width) = stripe_width(&canvas.pixels[row_start..row_end]) {
+            if let Some(top_stripe_width) = top_stripe_width {
+                if stripe_width > top_stripe_width {
+                    break
+                }
+                assert_eq!(stripe_width, top_stripe_width);
             }
-            assert_eq!(stripe_width, top_stripe_width);
+            top_stripe_width = Some(stripe_width);
         }
-        top_stripe_width = Some(stripe_width);
     }
 
     // Find the bottom part of the L.
@@ -404,12 +549,13 @@ fn check_L_shape(canvas: &Canvas) {
     while y < canvas.size.height {
         let (row_start, row_end) = (canvas.stride * y as usize, canvas.stride * (y + 1) as usize);
         y += 1;
-        let stripe_width = stripe_width(&canvas.pixels[row_start..row_end]);
-        if let Some(bottom_stripe_width) = bottom_stripe_width {
-            assert!(bottom_stripe_width > top_stripe_width.unwrap());
-            assert_eq!(stripe_width, bottom_stripe_width);
+        if let Some(stripe_width) = stripe_width(&canvas.pixels[row_start..row_end]) {
+            if let Some(bottom_stripe_width) = bottom_stripe_width {
+                assert!(bottom_stripe_width > top_stripe_width.unwrap());
+                assert_eq!(stripe_width, bottom_stripe_width);
+            }
+            bottom_stripe_width = Some(stripe_width);
         }
-        bottom_stripe_width = Some(stripe_width);
     }
 
     // Find any empty rows at the end.
@@ -425,11 +571,14 @@ fn check_L_shape(canvas: &Canvas) {
     assert_eq!(y, canvas.size.height);
 }
 
-fn stripe_width(pixels: &[u8]) -> u32 {
+fn stripe_width(pixels: &[u8]) -> Option<u32> {
     let mut x = 0;
     // Find the initial empty part.
     while x < pixels.len() && pixels[x] == 0 {
         x += 1
+    }
+    if x == pixels.len() {
+        return None
     }
     // Find the stripe width.
     let mut stripe_width = 0;
@@ -442,5 +591,5 @@ fn stripe_width(pixels: &[u8]) -> u32 {
         x += 1;
     }
     assert_eq!(x, pixels.len());
-    stripe_width
+    Some(stripe_width)
 }
