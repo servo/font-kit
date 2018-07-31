@@ -14,7 +14,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use core_graphics::base::{CGFloat, kCGImageAlphaPremultipliedLast};
 use core_graphics::color_space::CGColorSpace;
 use core_graphics::context::{CGContext, CGTextDrawingMode};
-use core_graphics::data_provider::CGDataProvider;
+use core_graphics::data_provider::{CGDataProvider, CustomData};
 use core_graphics::font::{CGFont, CGGlyph};
 use core_graphics::geometry::{CG_AFFINE_TRANSFORM_IDENTITY, CG_ZERO_POINT, CG_ZERO_SIZE, CGPoint};
 use core_graphics::geometry::{CGRect, CGSize};
@@ -25,11 +25,11 @@ use core_text::font_descriptor::{kCTFontDefaultOrientation};
 use core_text;
 use euclid::{Point2D, Rect, Size2D, Vector2D};
 use lyon_path::builder::PathBuilder;
-use memmap::Mmap;
+use memmap::{Mmap, MmapOptions};
 use std::f32;
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Seek, SeekFrom};
 use std::ops::Deref;
 use std::path::Path;
 use std::sync::Arc;
@@ -89,10 +89,27 @@ impl Font {
     /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
     /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
-        let mut font_data = vec![];
         try!(file.seek(SeekFrom::Start(0)));
-        try!(file.read_to_end(&mut font_data));
-        Font::from_bytes(Arc::new(font_data), font_index)
+        unsafe {
+            let mut mmap = try!(MmapOptions::new().map_copy(file).map_err(FontLoadingError::Io));
+
+            // Sadly, there's no API to load OpenType collections on macOS, I don't believe…
+            if font_is_collection(&*mmap) {
+                try!(unpack_otc_font(&mut *mmap, font_index));
+            }
+
+            let mmap = Arc::new(try!(mmap.make_read_only().map_err(FontLoadingError::Io)));
+            let mmap_data = Box::new(Box::new(MmapData::new(mmap.clone())) as Box<CustomData>);
+            let provider = CGDataProvider::from_custom_data(mmap_data);
+            let core_graphics_font =
+                try!(CGFont::from_data_provider(provider).map_err(|_| FontLoadingError::Parse));
+            let core_text_font = core_text::font::new_from_CGFont(&core_graphics_font, 16.0);
+
+            Ok(Font {
+                core_text_font,
+                font_data: FontData::File(mmap),
+            })
+        }
     }
 
     /// Loads a font from the path to a `.ttf`/`.otf`/etc. file.
@@ -158,10 +175,21 @@ impl Font {
 
     /// Determines whether a file represents a supported font, and if so, what type of font it is.
     pub fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
-        let mut font_data = vec![];
         try!(file.seek(SeekFrom::Start(0)));
-        try!(file.read_to_end(&mut font_data));
-        Font::analyze_bytes(Arc::new(font_data))
+        unsafe {
+            let mmap = try!(MmapOptions::new().map_copy(file).map_err(FontLoadingError::Io));
+            let mmap = Arc::new(try!(mmap.make_read_only().map_err(FontLoadingError::Io)));
+            if let Ok(font_count) = read_number_of_fonts_from_otc_header(&*mmap) {
+                return Ok(FileType::Collection(font_count))
+            }
+
+            let mmap_data = Box::new(Box::new(MmapData::new(mmap.clone())) as Box<CustomData>);
+            let provider = CGDataProvider::from_custom_data(mmap_data);
+            match CGFont::from_data_provider(provider) {
+                Ok(_) => Ok(FileType::Single),
+                Err(_) => Err(FontLoadingError::Parse),
+            }
+        }
     }
 
     /// Determines whether a path points to a supported font, and if so, what type of font it is.
@@ -632,6 +660,27 @@ impl CGPointExt for CGPoint {
     #[inline]
     fn to_euclid_point(&self) -> Point2D<f32> {
         Point2D::new(self.x as f32, self.y as f32)
+    }
+}
+
+struct MmapData {
+    mmap: Arc<Mmap>,
+}
+
+impl MmapData {
+    fn new(mmap: Arc<Mmap>) -> MmapData {
+        MmapData {
+            mmap,
+        }
+    }
+}
+
+impl CustomData for MmapData {
+    unsafe fn ptr(&self) -> *const u8 {
+        self.mmap.as_ptr()
+    }
+    unsafe fn len(&self) -> usize {
+        self.mmap.len()
     }
 }
 

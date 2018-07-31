@@ -19,10 +19,13 @@ use core_text::font_descriptor::{self, CTFontDescriptor};
 use core_text::font_manager;
 use std::cmp::Ordering;
 use std::f32;
+use std::path::Path;
 
 use error::SelectionError;
 use family_handle::FamilyHandle;
 use family_name::FamilyName;
+use file_type::FileType;
+use font::Font;
 use handle::Handle;
 use source::Source;
 use properties::{Properties, Stretch, Weight};
@@ -157,11 +160,21 @@ fn create_handles_from_core_text_collection(collection: CTFontCollection)
 }
 
 fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Handle {
-    // FIXME(pcwalton): Fish out the font index. Probably we are going to have to open the font…
-    Handle::Path {
-        path: descriptor.font_path().unwrap(),
-        font_index: 0,
+    let font_path = Path::new(&descriptor.font_path().unwrap()).to_owned();
+    if let Ok(FileType::Collection(font_count)) = Font::analyze_path(font_path.clone()) {
+        let postscript_name = descriptor.font_name();
+        for font_index in 0..font_count {
+            let font_handle = Handle::from_path(font_path.clone(), font_index);
+            if let Ok(font) = Font::from_handle(&font_handle) {
+                if let Some(font_postscript_name) = font.postscript_name() {
+                    if postscript_name == font_postscript_name {
+                        return font_handle
+                    }
+                }
+            }
+        }
     }
+    Handle::from_path(font_path, 0)
 }
 
 #[cfg(test)]
