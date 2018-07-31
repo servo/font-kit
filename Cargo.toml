@@ -36,6 +36,8 @@ optional = true
 [dev-dependencies]
 clap = "2.32"
 colored = "1.6"
+pbr = "1.0"
+prettytable-rs = "0.7"
 
 [target.'cfg(target_family = "windows")'.dependencies.winapi]
 version = "0.3"
