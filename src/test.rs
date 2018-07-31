@@ -50,7 +50,7 @@ static SANS_SERIF_FONT_ITALIC_POSTSCRIPT_NAME: &'static str = "DejaVuSans-Obliqu
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
 static SANS_SERIF_FONT_FULL_NAME: &'static str = "DejaVu Sans";
 
-static TEST_FONT_FILE_PATH: &'static str = "resources/tests/EBGaramond12-Regular.otf";
+static TEST_FONT_FILE_PATH: &'static str = "resources/tests/eb-garamond/EBGaramond12-Regular.otf";
 static TEST_FONT_POSTSCRIPT_NAME: &'static str = "EBGaramond12-Regular";
 
 #[test]

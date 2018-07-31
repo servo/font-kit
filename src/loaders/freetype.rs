@@ -72,6 +72,16 @@ const FT_PIXEL_MODE_LCD_V: u8 = 6;
 
 const OS2_FS_SELECTION_OBLIQUE: u16 = 1 << 9;
 
+// Not in our FreeType bindings, so we define these ourselves.
+#[allow(dead_code)]
+const BDF_PROPERTY_TYPE_NONE: BDF_PropertyType = 0;
+#[allow(dead_code)]
+const BDF_PROPERTY_TYPE_ATOM: BDF_PropertyType = 1;
+#[allow(dead_code)]
+const BDF_PROPERTY_TYPE_INTEGER: BDF_PropertyType = 2;
+#[allow(dead_code)]
+const BDF_PROPERTY_TYPE_CARDINAL: BDF_PropertyType = 3;
+
 thread_local! {
     static FREETYPE_LIBRARY: FT_Library = {
         unsafe {
@@ -84,6 +94,17 @@ thread_local! {
 
 /// The handle that the FreeType API natively uses to represent a font.
 pub type NativeFont = FT_Face;
+
+// Not in our FreeType bindings, so we define this ourselves.
+#[allow(non_camel_case_types)]
+type BDF_PropertyType = i32;
+
+// Not in our FreeType bindings, so we define this ourselves.
+#[repr(C)]
+struct BDF_PropertyRec {
+    property_type: BDF_PropertyType,
+    value: *const c_char,
+}
 
 /// A cross-platform loader that uses the FreeType library to load and rasterize fonts.
 ///
@@ -257,11 +278,31 @@ impl Font {
     pub fn postscript_name(&self) -> Option<String> {
         unsafe {
             let postscript_name = FT_Get_Postscript_Name(self.freetype_face);
-            if postscript_name.is_null() {
-                None
-            } else {
-                Some(CStr::from_ptr(postscript_name).to_str().unwrap().to_owned())
+            if !postscript_name.is_null() {
+                return Some(CStr::from_ptr(postscript_name).to_str().unwrap().to_owned())
             }
+
+            let font_format = FT_Get_Font_Format(self.freetype_face);
+            assert!(!font_format.is_null());
+            let font_format = CStr::from_ptr(font_format).to_str().unwrap();
+            if font_format != "BDF" && font_format != "PCF" {
+                return None
+            }
+
+            let mut property = mem::zeroed();
+            if FT_Get_BDF_Property(self.freetype_face,
+                                   "_DEC_DEVICE_FONTNAMES\0".as_ptr() as *const c_char,
+                                   &mut property) != 0 {
+                return None
+            }
+            if property.property_type != BDF_PROPERTY_TYPE_ATOM {
+                return None
+            }
+            let dec_device_fontnames = CStr::from_ptr(property.value).to_str().unwrap();
+            if !dec_device_fontnames.starts_with("PS=") {
+                return None
+            }
+            Some(dec_device_fontnames[3..].to_string())
         }
     }
 
@@ -893,6 +934,11 @@ fn f32_to_ft_fixed_26_6(float: f32) -> i64 {
 }
 
 extern "C" {
+    fn FT_Get_Font_Format(face: FT_Face) -> *const c_char;
+    fn FT_Get_BDF_Property(face: FT_Face,
+                           prop_name: *const c_char,
+                           aproperty: *mut BDF_PropertyRec)
+                           -> FT_Error;
     fn FT_Get_PS_Font_Value(face: FT_Face,
                             key: u32,
                             idx: FT_UInt,
@@ -901,4 +947,18 @@ extern "C" {
                             -> FT_Long;
     fn FT_Get_Sfnt_Name(face: FT_Face, idx: FT_UInt, aname: *mut FT_SfntName) -> FT_Error;
     fn FT_Get_Sfnt_Name_Count(face: FT_Face) -> FT_UInt;
+}
+
+#[cfg(test)]
+mod test {
+    use loaders::freetype::Font;
+
+    static PCF_FONT_PATH: &'static str = "resources/tests/times-roman-pcf/timR12.pcf";
+    static PCF_FONT_POSTSCRIPT_NAME: &'static str = "Times-Roman";
+
+    #[test]
+    fn get_pcf_postscript_name() {
+        let font = Font::from_path(PCF_FONT_PATH, 0).unwrap();
+        assert_eq!(font.postscript_name().unwrap(), PCF_FONT_POSTSCRIPT_NAME);
+    }
 }
