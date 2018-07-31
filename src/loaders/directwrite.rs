@@ -28,9 +28,8 @@ use lyon_path::builder::PathBuilder;
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
-use std::ops::Deref;
 use std::path::Path;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use winapi::shared::minwindef::FALSE;
 
 use canvas::{Canvas, Format, RasterizationOptions};
