@@ -12,17 +12,10 @@
 
 use dwrote::Font as DWriteFont;
 use dwrote::FontCollection as DWriteFontCollection;
-use dwrote::FontSimulations as DWriteFontSimulations;
-use dwrote::FontStyle as DWriteFontStyle;
-use dwrote::InformationalStringId as DWriteInformationalStringId;
-use std::ops::Deref;
-use std::sync::{Arc, MutexGuard};
 
 use error::SelectionError;
-use family::Family;
 use family_handle::FamilyHandle;
 use family_name::FamilyName;
-use font::Font;
 use handle::Handle;
 use properties::Properties;
 use source::Source;
@@ -60,10 +53,8 @@ impl DirectWriteSource {
             None => return Err(SelectionError::NotFound),
         };
         for font_index in 0..dwrite_family.get_font_count() {
-            unsafe {
-                let dwrite_font = dwrite_family.get_font(font_index);
-                family.push(self.create_handle_from_dwrite_font(dwrite_font))
-            }
+            let dwrite_font = dwrite_family.get_font(font_index);
+            family.push(self.create_handle_from_dwrite_font(dwrite_font))
         }
         Ok(family)
     }
@@ -104,21 +95,6 @@ impl Source for DirectWriteSource {
     #[inline]
     fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
         self.select_family_by_name(family_name)
-    }
-}
-
-fn style_name_for_dwrite_style(style: DWriteFontStyle) -> &'static str {
-    match style {
-        DWriteFontStyle::Normal => "Regular",
-        DWriteFontStyle::Oblique => "Oblique",
-        DWriteFontStyle::Italic => "Italic",
-    }
-}
-
-fn dwrite_style_is_italic(style: DWriteFontStyle) -> bool {
-    match style {
-        DWriteFontStyle::Normal => false,
-        DWriteFontStyle::Oblique | DWriteFontStyle::Italic => true,
     }
 }
 
