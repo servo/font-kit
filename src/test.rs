@@ -27,7 +27,6 @@ use source::SystemSource;
 use sources::fs::FsSource;
 use utils;
 
-// TODO(pcwalton): Change this to DejaVu or whatever on Linux.
 #[cfg(any(target_family = "windows", target_os = "macos"))]
 static SANS_SERIF_FONT_FAMILY_NAME: &'static str = "Arial";
 #[cfg(any(target_family = "windows", target_os = "macos"))]
