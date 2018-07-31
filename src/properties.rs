@@ -13,6 +13,8 @@
 //! Much of the documentation in this modules comes from the CSS 3 Fonts specification:
 //! https://drafts.csswg.org/css-fonts-3/
 
+use std::fmt::{self, Debug, Display, Formatter};
+
 /// Properties that specify which font in a family to use: e.g. style, weight, and stretchiness.
 ///
 /// This object supports a method chaining style for idiomatic initialization; e.g.
@@ -73,6 +75,12 @@ pub enum Style {
 impl Default for Style {
     fn default() -> Style {
         Style::Normal
+    }
+}
+
+impl Display for Style {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Debug::fmt(self, f)
     }
 }
 

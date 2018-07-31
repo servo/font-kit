@@ -73,8 +73,10 @@ pub trait Source {
             if let Ok(family_handle) = self.select_family_by_name(&family_name) {
                 if let Ok(family) = Family::<Font>::from_handle(&family_handle) {
                     for (handle, font) in family_handle.fonts().iter().zip(family.fonts().iter()) {
-                        if font.postscript_name() == postscript_name {
-                            return Ok((*handle).clone())
+                        if let Some(font_postscript_name) = font.postscript_name() {
+                            if font_postscript_name == postscript_name {
+                                return Ok((*handle).clone())
+                            }
                         }
                     }
                 }

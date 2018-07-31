@@ -150,10 +150,9 @@ impl Font {
 
     /// Returns the PostScript name of the font. This should be globally unique.
     #[inline]
-    pub fn postscript_name(&self) -> String {
+    pub fn postscript_name(&self) -> Option<String> {
         let dwrite_font = &self.dwrite_font;
         dwrite_font.informational_string(DWriteInformationalStringId::PostscriptName)
-                   .unwrap_or_else(|| dwrite_font.family_name())
     }
 
     /// Returns the full name of the font (also known as "display name" on macOS).
@@ -475,7 +474,7 @@ impl Loader for Font {
     }
 
     #[inline]
-    fn postscript_name(&self) -> String {
+    fn postscript_name(&self) -> Option<String> {
         self.postscript_name()
     }
 

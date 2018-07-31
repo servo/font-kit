@@ -178,8 +178,8 @@ impl Font {
 
     /// Returns the PostScript name of the font. This should be globally unique.
     #[inline]
-    pub fn postscript_name(&self) -> String {
-        self.core_text_font.postscript_name()
+    pub fn postscript_name(&self) -> Option<String> {
+        Some(self.core_text_font.postscript_name())
     }
 
     /// Returns the full name of the font (also known as "display name" on macOS).
@@ -515,7 +515,7 @@ impl Loader for Font {
     }
 
     #[inline]
-    fn postscript_name(&self) -> String {
+    fn postscript_name(&self) -> Option<String> {
         self.postscript_name()
     }
 
