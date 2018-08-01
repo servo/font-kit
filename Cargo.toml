@@ -45,7 +45,7 @@ features = ["minwindef", "winbase"]
 
 [target.'cfg(target_family = "windows")'.dependencies.dwrote]
 git = "https://github.com/pcwalton/dwrote-rs"
-branch = "additions"
+branch = "font-file-from-path"
 
 [target.'cfg(target_os = "macos")'.dependencies.cocoa]
 git = "https://github.com/servo/core-foundation-rs"

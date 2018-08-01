@@ -25,12 +25,17 @@ use dwrote::{DWRITE_TEXTURE_CLEARTYPE_3x1, OutlineBuilder};
 use euclid::{Point2D, Rect, Size2D, Vector2D};
 use lyon_path::PathEvent;
 use lyon_path::builder::PathBuilder;
+use std::ffi::OsString;
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
-use std::path::Path;
-use std::sync::{Arc, Mutex};
-use winapi::shared::minwindef::FALSE;
+use std::io::{self, Read, Seek, SeekFrom};
+use std::ops::Deref;
+use std::os::windows::ffi::OsStringExt;
+use std::os::windows::io::AsRawHandle;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, MutexGuard};
+use winapi::shared::minwindef::{FALSE, MAX_PATH};
+use winapi::um::fileapi;
 
 use canvas::{Canvas, Format, RasterizationOptions};
 use error::{FontLoadingError, GlyphLoadingError};
@@ -57,6 +62,31 @@ pub struct Font {
 }
 
 impl Font {
+    fn from_dwrite_font_file(font_file: DWriteFontFile,
+                             mut font_index: u32,
+                             font_data: Option<Arc<Vec<u8>>>)
+                             -> Result<Font, FontLoadingError> {
+        let collection_loader = CustomFontCollectionLoaderImpl::new(&[font_file.clone()]);
+        let collection = DWriteFontCollection::from_loader(collection_loader);
+        let families = collection.families_iter();
+        for family in families {
+            for family_font_index in 0..family.get_font_count() {
+                if font_index > 0 {
+                    font_index -= 1;
+                    continue
+                }
+                let dwrite_font = family.get_font(family_font_index);
+                let dwrite_font_face = dwrite_font.create_font_face();
+                return Ok(Font {
+                    dwrite_font,
+                    dwrite_font_face,
+                    cached_data: Mutex::new(font_data),
+                })
+            }
+        }
+        Err(FontLoadingError::NoSuchFontInCollection)
+    }
+
     /// Loads a font from raw font data (the contents of a `.ttf`/`.otf`/etc. file).
     ///
     /// If the data represents a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index
@@ -64,16 +94,7 @@ impl Font {
     pub fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Font, FontLoadingError> {
         let font_file =
             try!(DWriteFontFile::new_from_data(&**font_data).ok_or(FontLoadingError::Parse));
-        let collection_loader = CustomFontCollectionLoaderImpl::new(&[font_file.clone()]);
-        let collection = DWriteFontCollection::from_loader(collection_loader);
-        let family = collection.families_iter().next().unwrap();
-        let dwrite_font = family.get_font(0);
-        let dwrite_font_face = dwrite_font.create_font_face();
-        Ok(Font {
-            dwrite_font,
-            dwrite_font_face,
-            cached_data: Mutex::new(Some(font_data)),
-        })
+        Font::from_dwrite_font_file(font_file, font_index, Some(font_data))
     }
 
     /// Loads a font from a `.ttf`/`.otf`/etc. file.
@@ -81,10 +102,18 @@ impl Font {
     /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
     /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
-        let mut font_data = vec![];
-        try!(file.seek(SeekFrom::Start(0)).map_err(FontLoadingError::Io));
-        try!(file.read_to_end(&mut font_data).map_err(FontLoadingError::Io));
-        Font::from_bytes(Arc::new(font_data), font_index)
+        unsafe {
+            let mut path = vec![0; MAX_PATH + 1];
+            let path_len = fileapi::GetFinalPathNameByHandleW(file.as_raw_handle(),
+                                                              path.as_mut_ptr(),
+                                                              path.len() as u32 - 1,
+                                                              0);
+            if path_len == 0 {
+                return Err(FontLoadingError::Io(io::Error::last_os_error()))
+            }
+            path.truncate(path_len as usize);
+            Font::from_path(PathBuf::from(OsString::from_wide(&path)), font_index)
+        }
     }
 
     /// Loads a font from the path to a `.ttf`/`.otf`/etc. file.
@@ -94,7 +123,8 @@ impl Font {
     #[inline]
     pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, FontLoadingError>
                         where P: AsRef<Path> {
-        <Font as Loader>::from_path(path, font_index)
+        let font_file = try!(DWriteFontFile::new_from_path(path).ok_or(FontLoadingError::Parse));
+        Font::from_dwrite_font_file(font_file, font_index, None)
     }
 
     /// Creates a font from a native API handle.
