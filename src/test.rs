@@ -51,6 +51,10 @@ static SANS_SERIF_FONT_FULL_NAME: &'static str = "DejaVu Sans";
 
 static TEST_FONT_FILE_PATH: &'static str = "resources/tests/eb-garamond/EBGaramond12-Regular.otf";
 static TEST_FONT_POSTSCRIPT_NAME: &'static str = "EBGaramond12-Regular";
+static TEST_FONT_COLLECTION_FILE_PATH: &'static str =
+    "resources/tests/eb-garamond/EBGaramond12.otc";
+static TEST_FONT_COLLECTION_POSTSCRIPT_NAME: [&'static str; 2] =
+    ["EBGaramond12-Regular", "EBGaramond12-Italic"];
 
 #[test]
 pub fn lookup_single_regular_font() {
@@ -512,6 +516,17 @@ pub fn rasterize_glyph_with_full_hinting() {
         assert!(bottom_row.iter().any(|&value| value == 0xff));
         break
     }
+}
+
+#[test]
+fn load_fonts_from_opentype_collection() {
+    let mut file = File::open(TEST_FONT_COLLECTION_FILE_PATH).unwrap();
+    {
+        let font = Font::from_file(&mut file, 0).unwrap();
+        assert_eq!(font.postscript_name().unwrap(), TEST_FONT_COLLECTION_POSTSCRIPT_NAME[0]);
+    }
+    let font = Font::from_file(&mut file, 1).unwrap();
+    assert_eq!(font.postscript_name().unwrap(), TEST_FONT_COLLECTION_POSTSCRIPT_NAME[1]);
 }
 
 // Makes sure that a canvas has an "L" shape in it.
