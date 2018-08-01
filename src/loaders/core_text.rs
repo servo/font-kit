@@ -282,9 +282,17 @@ impl Font {
     pub fn outline<B>(&self, glyph_id: u32, _: HintingOptions, path_builder: &mut B)
                       -> Result<(), GlyphLoadingError>
                       where B: PathBuilder {
-        let path = try!(self.core_text_font
-                            .create_path_for_glyph(glyph_id as u16, &CG_AFFINE_TRANSFORM_IDENTITY)
-                            .map_err(|_| GlyphLoadingError::NoSuchGlyph));
+        let path = match self.core_text_font.create_path_for_glyph(glyph_id as u16,
+                                                                   &CG_AFFINE_TRANSFORM_IDENTITY) {
+            Ok(path) => path,
+            Err(_) => {
+                // This will happen if the path is empty (rdar://42832439). To distinguish this
+                // case from the case in which the glyph does not exist, call another API.
+                drop(try!(self.typographic_bounds(glyph_id)));
+                return Ok(())
+            }
+        };
+
         let units_per_point = self.units_per_point() as f32;
         path.apply(&|element| {
             let points = element.points();

@@ -311,6 +311,19 @@ pub fn get_fully_hinted_glyph_outline() {
     assert_eq!(events.next(), Some(PathEvent::Close));
 }
 
+#[test]
+pub fn get_empty_glyph_outline() {
+    let mut path_builder = Path::builder();
+    let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
+    let font = Font::from_file(&mut file, 0).unwrap();
+    let glyph = font.glyph_for_char(' ').expect("No glyph for char!");
+    font.outline(glyph, HintingOptions::None, &mut path_builder).unwrap();
+    let path = path_builder.build();
+
+    let mut events = path.into_iter();
+    assert_eq!(events.next(), None);
+}
+
 #[cfg(any(target_family = "windows", target_os = "macos"))]
 #[test]
 pub fn get_glyph_typographic_bounds() {
