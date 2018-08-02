@@ -46,6 +46,8 @@ use loader::Loader;
 use metrics::Metrics;
 use properties::{Properties, Stretch, Style, Weight};
 
+const ERROR_BOUND: f32 = 0.0001;
+
 /// DirectWrite's representation of a font.
 pub struct NativeFont {
     /// The native DirectWrite font object.
@@ -612,16 +614,42 @@ impl OutlineBuilder for OutlineBuffer {
     fn move_to(&mut self, x: f32, y: f32) {
         self.path_events.lock().unwrap().push(PathEvent::MoveTo(Point2D::new(x, -y)))
     }
+
     fn line_to(&mut self, x: f32, y: f32) {
         self.path_events.lock().unwrap().push(PathEvent::LineTo(Point2D::new(x, -y)))
 
     }
-    fn curve_to(&mut self, cp0x: f32, cp0y: f32, cp1x: f32, cp1y: f32, x: f32, y: f32) {
-        self.path_events.lock().unwrap().push(PathEvent::CubicTo(Point2D::new(cp0x, -cp0y),
-                                                                 Point2D::new(cp1x, -cp1y),
-                                                                 Point2D::new(x, -y)))
 
+    fn curve_to(&mut self, cp0x: f32, cp0y: f32, cp1x: f32, cp1y: f32, x: f32, y: f32) {
+        let (ctrl0, ctrl1) = (Point2D::new(cp0x, -cp0y), Point2D::new(cp1x, -cp1y));
+        let to = Point2D::new(x, -y);
+
+        // This might be a degree-elevated quadratic curve. Try to detect that.
+        // See Sederberg § 2.6, "Distance Between Two Bézier Curves".
+        let mut path_events = self.path_events.lock().unwrap();
+        let from = match *path_events.last().unwrap() {
+            PathEvent::MoveTo(point) |
+            PathEvent::LineTo(point) |
+            PathEvent::QuadraticTo(_, point) |
+            PathEvent::CubicTo(_, _, point) => point,
+            PathEvent::Close | PathEvent::Arc(..) => unreachable!(),
+        };
+        let approx_ctrl_0 = (ctrl0 * 3.0 - from) * 0.5;
+        let approx_ctrl_1 = (ctrl1 * 3.0 - to) * 0.5;
+        let delta_ctrl = (approx_ctrl_1 - approx_ctrl_0) * 2.0;
+        let max_error = delta_ctrl.length() / 6.0;
+
+        let path_event = if max_error < ERROR_BOUND {
+            // Round to nearest 0.5.
+            let mut approx_ctrl = approx_ctrl_0.lerp(approx_ctrl_1, 0.5).to_point();
+            approx_ctrl = (approx_ctrl * 2.0).round() * 0.5;
+            PathEvent::QuadraticTo(approx_ctrl, to)
+        } else {
+            PathEvent::CubicTo(ctrl0, ctrl1, to)
+        };
+        path_events.push(path_event)
     }
+
     fn close(&mut self) {
         self.path_events.lock().unwrap().push(PathEvent::Close)
     }
