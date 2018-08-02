@@ -56,6 +56,9 @@ static TEST_FONT_COLLECTION_FILE_PATH: &'static str =
 static TEST_FONT_COLLECTION_POSTSCRIPT_NAME: [&'static str; 2] =
     ["EBGaramond12-Regular", "EBGaramond12-Italic"];
 
+static FILE_PATH_EB_GARAMOND_TTF: &'static str =
+    "resources/tests/eb-garamond/EBGaramond12-Regular.ttf";
+
 #[test]
 pub fn lookup_single_regular_font() {
     let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
@@ -540,6 +543,63 @@ fn load_fonts_from_opentype_collection() {
     }
     let font = Font::from_file(&mut file, 1).unwrap();
     assert_eq!(font.postscript_name().unwrap(), TEST_FONT_COLLECTION_POSTSCRIPT_NAME[1]);
+}
+
+// This used to cause an assertion in the FreeType backend.
+#[test]
+fn get_glyph_outline_eb_garamond_exclam() {
+    let mut path_builder = Path::builder();
+    let mut file = File::open(FILE_PATH_EB_GARAMOND_TTF).unwrap();
+    let font = Font::from_file(&mut file, 0).unwrap();
+    let glyph = font.glyph_for_char('!').expect("No glyph for char!");
+    font.outline(glyph, HintingOptions::None, &mut path_builder).unwrap();
+    let path = path_builder.build();
+
+    // The TrueType spec doesn't specify the rounding method for midpoints, as far as I can tell.
+    // So we are lenient and accept either values rounded down (what Core Text provides) or
+    // precise floating-point values (what our FreeType loader provides).
+    let mut events = path.into_iter();
+    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(114.0, 598.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(114.0, 619.0),
+                                                          Point2D::new(127.5, 634.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(141.0, 649.0),
+                                                          Point2D::new(161.0, 649.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(181.0, 649.0),
+                                                          Point2D::new(193.5, 634.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(206.0, 619.0),
+                                                          Point2D::new(206.0, 598.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(206.0, 526.0),
+                                                          Point2D::new(176.0, 244.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(172.0, 205.0),
+                                                          Point2D::new(158.0, 205.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(144.0, 205.0),
+                                                          Point2D::new(140.0, 244.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(114.0, 491.0),
+                                                          Point2D::new(114.0, 598.0))));
+    assert_eq!(events.next(), Some(PathEvent::Close));
+    let event = events.next();
+    assert!(event == Some(PathEvent::MoveTo(Point2D::new(117.0, 88.0))) ||
+            event == Some(PathEvent::MoveTo(Point2D::new(117.5, 88.5))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(135.0, 106.0),
+                                                          Point2D::new(160.0, 106.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(185.0, 106.0),
+                                                          Point2D::new(202.5, 88.5))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(220.0, 71.0),
+                                                          Point2D::new(220.0, 46.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(220.0, 21.0),
+                                                          Point2D::new(202.5, 3.5))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(185.0, -14.0),
+                                                          Point2D::new(160.0, -14.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(135.0, -14.0),
+                                                          Point2D::new(117.5, 3.5))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(100.0, 21.0),
+                                                          Point2D::new(100.0, 46.0))));
+    let event = events.next();
+    assert!(event == Some(PathEvent::QuadraticTo(Point2D::new(100.0, 71.0),
+                                                 Point2D::new(117.0, 88.0))) ||
+            event == Some(PathEvent::QuadraticTo(Point2D::new(100.0, 71.0),
+                                                 Point2D::new(117.5, 88.5))));
+    assert_eq!(events.next(), Some(PathEvent::Close));
 }
 
 // Makes sure that a canvas has an "L" shape in it.
