@@ -408,40 +408,83 @@ impl Font {
             let mut current_point_index = 0;
             for &last_point_index_in_contour in contours {
                 let last_point_index_in_contour = last_point_index_in_contour as usize;
-                let (point, _) = get_point(&mut current_point_index,
-                                           point_positions,
-                                           point_tags,
-                                           last_point_index_in_contour,
-                                           grid_fitting_size,
-                                           units_per_em);
-                path_builder.move_to(point);
-                while current_point_index <= last_point_index_in_contour {
-                    let (point0, tag) = get_point(&mut current_point_index,
-                                                  point_positions,
-                                                  point_tags,
-                                                  last_point_index_in_contour,
-                                                  grid_fitting_size,
-                                                  units_per_em);
-                    if (tag & FT_POINT_TAG_ON_CURVE) != 0 {
-                        path_builder.line_to(point0)
+                let (mut first_point, first_tag) = get_point(&mut current_point_index,
+                                                             point_positions,
+                                                             point_tags,
+                                                             last_point_index_in_contour,
+                                                             grid_fitting_size,
+                                                             units_per_em);
+                if (first_tag & FT_POINT_TAG_ON_CURVE) == 0 {
+                    // Rare, but can happen; e.g. with Inconsolata (see pathfinder#84).
+                    //
+                    // FIXME(pcwalton): I'm not sure this is right.
+                    let mut temp_point_index = last_point_index_in_contour;
+                    let (last_point, last_tag) = get_point(&mut temp_point_index,
+                                                           point_positions,
+                                                           point_tags,
+                                                           last_point_index_in_contour,
+                                                           grid_fitting_size,
+                                                           units_per_em);
+                    if (last_tag & FT_POINT_TAG_ON_CURVE) != 0 {
+                        first_point = last_point
                     } else {
-                        let (point1, _) = get_point(&mut current_point_index,
-                                                    point_positions,
-                                                    point_tags,
-                                                    last_point_index_in_contour,
-                                                    grid_fitting_size,
-                                                    units_per_em);
-                        if (tag & FT_POINT_TAG_CUBIC_CONTROL) != 0 {
+                        first_point = last_point.lerp(first_point, 0.5)
+                    }
+                    // Back up so we properly process the first point as a control point.
+                    current_point_index -= 1;
+                }
+                path_builder.move_to(first_point);
+
+                while current_point_index <= last_point_index_in_contour {
+                    let (mut point0, tag0) = get_point(&mut current_point_index,
+                                                       point_positions,
+                                                       point_tags,
+                                                       last_point_index_in_contour,
+                                                       grid_fitting_size,
+                                                       units_per_em);
+                    if (tag0 & FT_POINT_TAG_ON_CURVE) != 0 {
+                        path_builder.line_to(point0);
+                        continue
+                    }
+
+                    loop {
+                        if current_point_index > last_point_index_in_contour {
+                            // The *last* point in the contour is off the curve. So we just need to
+                            // close the contour with a quadratic Bézier curve.
+                            path_builder.quadratic_bezier_to(point0, first_point);
+                            break
+                        }
+
+                        let (point1, tag1) = get_point(&mut current_point_index,
+                                                       point_positions,
+                                                       point_tags,
+                                                       last_point_index_in_contour,
+                                                       grid_fitting_size,
+                                                       units_per_em);
+
+                        if (tag0 & FT_POINT_TAG_CUBIC_CONTROL) != 0 {
+                            // FIXME(pcwalton): Can we have implied on-curve points for cubic
+                            // control points too?
                             let (point2, _) = get_point(&mut current_point_index,
                                                         point_positions,
                                                         point_tags,
                                                         last_point_index_in_contour,
                                                         grid_fitting_size,
                                                         units_per_em);
-                            path_builder.cubic_bezier_to(point0, point1, point2)
-                        } else {
-                            path_builder.quadratic_bezier_to(point0, point1)
+                            path_builder.cubic_bezier_to(point0, point1, point2);
+                            break;
                         }
+
+                        if (tag1 & FT_POINT_TAG_ON_CURVE) != 0 {
+                            path_builder.quadratic_bezier_to(point0, point1);
+                            break;
+                        }
+
+                        // We have an implied on-curve point midway between the two consecutive
+                        // off-curve points.
+                        let point_half = point0.lerp(point1, 0.5);
+                        path_builder.quadratic_bezier_to(point0, point_half);
+                        point0 = point1;
                     }
                 }
                 path_builder.close();
