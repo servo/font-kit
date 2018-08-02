@@ -100,6 +100,11 @@ pub trait Loader: Clone + Sized {
     /// Returns the values of various font properties, corresponding to those defined in CSS.
     fn properties(&self) -> Properties;
 
+    /// Returns the number of glyphs in the font.
+    ///
+    /// Glyph IDs range from 0 inclusive to this value exclusive.
+    fn glyph_count(&self) -> u32;
+
     /// Returns the usual glyph ID for a Unicode character.
     ///
     /// Be careful with this function; typographically correct character-to-glyph mapping must be

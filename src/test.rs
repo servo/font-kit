@@ -547,6 +547,12 @@ fn load_fonts_from_opentype_collection() {
     assert_eq!(font.postscript_name().unwrap(), TEST_FONT_COLLECTION_POSTSCRIPT_NAME[1]);
 }
 
+#[test]
+fn get_glyph_count() {
+    let font = Font::from_path(TEST_FONT_FILE_PATH, 0).unwrap();
+    assert_eq!(font.glyph_count(), 3084);
+}
+
 // The initial off-curve point used to cause an assertion in the FreeType backend.
 #[test]
 fn get_glyph_outline_eb_garamond_exclam() {

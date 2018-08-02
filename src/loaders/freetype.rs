@@ -362,9 +362,20 @@ impl Font {
     /// Be careful with this function; typographically correct character-to-glyph mapping must be
     /// done using a *shaper* such as HarfBuzz. This function is only useful for best-effort simple
     /// use cases like "what does character X look like on its own".
+    #[inline]
     pub fn glyph_for_char(&self, character: char) -> Option<u32> {
         unsafe {
             Some(FT_Get_Char_Index(self.freetype_face, character as FT_ULong))
+        }
+    }
+
+    /// Returns the number of glyphs in the font.
+    ///
+    /// Glyph IDs range from 0 inclusive to this value exclusive.
+    #[inline]
+    pub fn glyph_count(&self) -> u32 {
+        unsafe {
+            (*self.freetype_face).num_glyphs as u32
         }
     }
 
@@ -872,6 +883,11 @@ impl Loader for Font {
     #[inline]
     fn glyph_for_char(&self, character: char) -> Option<u32> {
         self.glyph_for_char(character)
+    }
+
+    #[inline]
+    fn glyph_count(&self) -> u32 {
+        self.glyph_count()
     }
 
     #[inline]

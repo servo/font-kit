@@ -228,6 +228,14 @@ impl Font {
         self.dwrite_font_face.get_glyph_indices(&chars).into_iter().next().map(|g| g as u32)
     }
 
+    /// Returns the number of glyphs in the font.
+    ///
+    /// Glyph IDs range from 0 inclusive to this value exclusive.
+    #[inline]
+    pub fn glyph_count(&self) -> u32 {
+        self.dwrite_font_face.get_glyph_count() as u32
+    }
+
     /// Sends the vector path for a glyph to a path builder.
     ///
     /// If `hinting_mode` is not None, this function performs grid-fitting as requested before
@@ -532,6 +540,11 @@ impl Loader for Font {
     #[inline]
     fn glyph_for_char(&self, character: char) -> Option<u32> {
         self.glyph_for_char(character)
+    }
+
+    #[inline]
+    fn glyph_count(&self) -> u32 {
+        self.glyph_count()
     }
 
     #[inline]
