@@ -58,6 +58,8 @@ static TEST_FONT_COLLECTION_POSTSCRIPT_NAME: [&'static str; 2] =
 
 static FILE_PATH_EB_GARAMOND_TTF: &'static str =
     "resources/tests/eb-garamond/EBGaramond12-Regular.ttf";
+static FILE_PATH_INCONSOLATA_TTF: &'static str =
+    "resources/tests/inconsolata/Inconsolata-Regular.ttf";
 
 #[test]
 pub fn lookup_single_regular_font() {
@@ -545,7 +547,7 @@ fn load_fonts_from_opentype_collection() {
     assert_eq!(font.postscript_name().unwrap(), TEST_FONT_COLLECTION_POSTSCRIPT_NAME[1]);
 }
 
-// This used to cause an assertion in the FreeType backend.
+// The initial off-curve point used to cause an assertion in the FreeType backend.
 #[test]
 fn get_glyph_outline_eb_garamond_exclam() {
     let mut path_builder = Path::builder();
@@ -602,7 +604,51 @@ fn get_glyph_outline_eb_garamond_exclam() {
     assert_eq!(events.next(), Some(PathEvent::Close));
 }
 
-// Makes sure that a canvas has an "L" shape in it.
+// The initial off-curve point used to cause an assertion in the FreeType backend.
+#[allow(non_snake_case)]
+#[test]
+fn get_glyph_outline_inconsolata_J() {
+    let mut path_builder = Path::builder();
+    let mut file = File::open(FILE_PATH_INCONSOLATA_TTF).unwrap();
+    let font = Font::from_file(&mut file, 0).unwrap();
+    let glyph = font.glyph_for_char('J').expect("No glyph for char!");
+    font.outline(glyph, HintingOptions::None, &mut path_builder).unwrap();
+    let path = path_builder.build();
+
+    let mut events = path.into_iter();
+    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(198.0, -11.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(106.0, -11.0),
+                                                          Point2D::new(49.0, 58.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(89.0, 108.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(96.0, 116.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(101.0, 112.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(102.0, 102.0),
+                                                          Point2D::new(106.0, 95.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(110.0, 88.0),
+                                                          Point2D::new(122.0, 78.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(157.0, 51.0),
+                                                          Point2D::new(196.0, 51.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(247.0, 51.0),
+                                                          Point2D::new(269.5, 86.5))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(292.0, 122.0),
+                                                          Point2D::new(292.0, 208.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(292.0, 564.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(172.0, 564.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(172.0, 623.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(457.0, 623.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(457.0, 564.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(361.0, 564.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(361.0, 209.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(363.0, 133.0),
+                                                          Point2D::new(341.0, 84.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(319.0, 35.0),
+                                                          Point2D::new(281.5, 12.0))));
+    assert_eq!(events.next(), Some(PathEvent::QuadraticTo(Point2D::new(244.0, -11.0),
+                                                          Point2D::new(198.0, -11.0))));
+    assert_eq!(events.next(), Some(PathEvent::Close));
+}
+
+// Makes sure that a canvas has an "L" shape in it. This is used to test rasterization.
 #[allow(non_snake_case)]
 fn check_L_shape(canvas: &Canvas) {
     // Find any empty rows at the start.
