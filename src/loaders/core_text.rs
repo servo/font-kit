@@ -155,6 +155,15 @@ impl Font {
         }
     }
 
+    /// Creates a font from a Core Graphics font handle.
+    ///
+    /// This function is only available on the Core Text backend.
+    pub fn from_core_graphics_font(core_graphics_font: CGFont) -> Font {
+        unsafe {
+            Font::from_core_text_font(core_text::font::new_from_CGFont(&core_graphics_font, 16.0))
+        }
+    }
+
     /// Loads the font pointed to by a handle.
     #[inline]
     pub fn from_handle(handle: &Handle) -> Result<Self, FontLoadingError> {
@@ -765,6 +774,22 @@ fn format_to_cg_color_space_and_image_format(format: Format) -> Option<(CGColorS
 #[cfg(test)]
 mod test {
     use properties::{Stretch, Weight};
+    use source::SystemSource;
+    use super::Font;
+
+    static TEST_FONT_POSTSCRIPT_NAME: &'static str = "ArialMT";
+
+    #[test]
+    fn test_from_core_graphics_font() {
+        let font0 = SystemSource::new().select_by_postscript_name(TEST_FONT_POSTSCRIPT_NAME)
+                                       .unwrap()
+                                       .load()
+                                       .unwrap();
+        let core_text_font = font0.native_font();
+        let core_graphics_font = core_text_font.copy_to_CGFont();
+        let font1 = Font::from_core_graphics_font(core_graphics_font);
+        assert_eq!(font1.postscript_name().unwrap(), TEST_FONT_POSTSCRIPT_NAME);
+    }
 
     #[test]
     fn test_core_text_to_css_font_weight() {
