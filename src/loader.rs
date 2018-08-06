@@ -135,6 +135,14 @@ pub trait Loader: Clone + Sized {
     /// Retrieves various metrics that apply to the entire font.
     fn metrics(&self) -> Metrics;
 
+    /// Returns a handle to this font, if possible.
+    ///
+    /// This is useful if you want to open the font with a different loader.
+    fn handle(&self) -> Option<Handle> {
+        // FIXME(pcwalton): This doesn't handle font collections!
+        self.copy_font_data().map(|font_data| Handle::from_memory(font_data, 0))
+    }
+
     /// Attempts to return the raw font data (contents of the font file).
     ///
     /// If this font is a member of a collection, this function returns the data for the entire
