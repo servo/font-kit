@@ -45,8 +45,6 @@ use properties::{Properties, Stretch, Style, Weight};
 use sources;
 use utils;
 
-const TTC_TAG: [u8; 4] = [b't', b't', b'c', b'f'];
-
 #[allow(non_upper_case_globals)]
 const kCGImageAlphaOnly: u32 = 7;
 
@@ -58,6 +56,7 @@ pub type NativeFont = CTFont;
 pub struct Font {
     core_text_font: CTFont,
     font_data: FontData,
+    font_index: Option<u32>,
 }
 
 impl Font {
@@ -68,7 +67,9 @@ impl Font {
     pub fn from_bytes(mut font_data: Arc<Vec<u8>>, font_index: u32)
                       -> Result<Font, FontLoadingError> {
         // Sadly, there's no API to load OpenType collections on macOS, I don't believe…
-        if font_is_collection(&**font_data) {
+        let number_of_fonts_in_collection =
+            FileType::get_number_of_fonts_from_data_if_collection(&**font_data);
+        if number_of_fonts_in_collection.is_some() {
             let mut new_font_data = (*font_data).clone();
             try!(unpack_otc_font(&mut new_font_data, font_index));
             font_data = Arc::new(new_font_data);
@@ -78,9 +79,11 @@ impl Font {
         let core_graphics_font =
             try!(CGFont::from_data_provider(data_provider).map_err(|_| FontLoadingError::Parse));
         let core_text_font = core_text::font::new_from_CGFont(&core_graphics_font, 16.0);
+
         Ok(Font {
             core_text_font,
             font_data: FontData::Memory(font_data),
+            font_index: number_of_fonts_in_collection.map(|_| font_index),
         })
     }
 
@@ -94,7 +97,9 @@ impl Font {
             let mut mmap = try!(MmapOptions::new().map_copy(file).map_err(FontLoadingError::Io));
 
             // Sadly, there's no API to load OpenType collections on macOS, I don't believe…
-            if font_is_collection(&*mmap) {
+            let number_of_fonts_in_collection =
+                FileType::get_number_of_fonts_from_data_if_collection(&*mmap);
+            if number_of_fonts_in_collection.is_some() {
                 try!(unpack_otc_font(&mut *mmap, font_index));
             }
 
@@ -108,6 +113,7 @@ impl Font {
             Ok(Font {
                 core_text_font,
                 font_data: FontData::File(mmap),
+                font_index: number_of_fonts_in_collection.map(|_| font_index),
             })
         }
     }
@@ -128,7 +134,7 @@ impl Font {
     }
 
     unsafe fn from_core_text_font(core_text_font: NativeFont) -> Font {
-        let mut font_data = FontData::Unavailable;
+        let (mut font_data, mut font_index) = (FontData::Unavailable, None);
         match core_text_font.url() {
             None => warn!("No URL found for Core Text font!"),
             Some(url) => {
@@ -137,7 +143,12 @@ impl Font {
                         match File::open(path) {
                             Ok(ref file) => {
                                 match Mmap::map(file) {
-                                    Ok(mmap) => font_data = FontData::File(Arc::new(mmap)),
+                                    Ok(mmap) => {
+                                        font_index =
+                                            FileType::get_number_of_fonts_from_data_if_collection(
+                                                &*mmap);
+                                        font_data = FontData::File(Arc::new(mmap));
+                                    }
                                     Err(_) => warn!("Could not map file for Core Text font!"),
                                 }
                             }
@@ -152,6 +163,7 @@ impl Font {
         Font {
             core_text_font,
             font_data,
+            font_index,
         }
     }
 
@@ -172,7 +184,8 @@ impl Font {
 
     /// Determines whether a file represents a supported font, and if so, what type of font it is.
     pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<FileType, FontLoadingError> {
-        if let Ok(font_count) = read_number_of_fonts_from_otc_header(&font_data) {
+        if let Some(font_count) =
+                FileType::get_number_of_fonts_from_data_if_collection(&font_data) {
             return Ok(FileType::Collection(font_count))
         }
         let data_provider = CGDataProvider::from_buffer(font_data);
@@ -188,7 +201,8 @@ impl Font {
         unsafe {
             let mmap = try!(MmapOptions::new().map_copy(file).map_err(FontLoadingError::Io));
             let mmap = Arc::new(try!(mmap.make_read_only().map_err(FontLoadingError::Io)));
-            if let Ok(font_count) = read_number_of_fonts_from_otc_header(&*mmap) {
+            if let Some(font_count) =
+                    FileType::get_number_of_fonts_from_data_if_collection(&*mmap) {
                 return Ok(FileType::Collection(font_count))
             }
 
@@ -535,6 +549,12 @@ impl Font {
         }
     }
 
+    /// If this font is a member of a collection, returns its index.
+    #[inline]
+    pub fn index_in_collection(&self) -> Option<u32> {
+        self.font_index
+    }
+
     #[inline]
     fn units_per_point(&self) -> f64 {
         (self.core_text_font.units_per_em() as f64) / self.core_text_font.pt_size()
@@ -663,6 +683,11 @@ impl Loader for Font {
                              hinting_options,
                              rasterization_options)
     }
+
+    #[inline]
+    fn index_in_collection(&self) -> Option<u32> {
+        self.index_in_collection()
+    }
 }
 
 impl Debug for Font {
@@ -732,20 +757,13 @@ fn core_text_width_to_css_stretchiness(core_text_width: f32) -> Stretch {
                                                         &Stretch::MAPPING))
 }
 
-fn font_is_collection(header: &[u8]) -> bool {
-    header.len() >= 4 && header[0..4] == TTC_TAG
-}
-
-fn read_number_of_fonts_from_otc_header(header: &[u8]) -> Result<u32, FontLoadingError> {
-    if !font_is_collection(header) {
-        return Err(FontLoadingError::UnknownFormat)
-    }
-    Ok(try!((&header[8..]).read_u32::<BigEndian>()))
-}
-
 // Unpacks an OTC font "in-place".
 fn unpack_otc_font(data: &mut [u8], font_index: u32) -> Result<(), FontLoadingError> {
-    if font_index >= try!(read_number_of_fonts_from_otc_header(data)) {
+    let fonts_in_collection = match FileType::get_number_of_fonts_from_data_if_collection(data) {
+        None => return Err(FontLoadingError::Parse),
+        Some(fonts_in_collection) => fonts_in_collection,
+    };
+    if font_index >= fonts_in_collection {
         return Err(FontLoadingError::NoSuchFontInCollection)
     }
 

@@ -165,6 +165,11 @@ impl Font {
         }
     }
 
+    /// Returns the type of font this is.
+    pub fn analyze(&self) -> FileType {
+        self.file_type
+    }
+
     /// Returns the wrapped native font handle.
     pub fn native_font(&self) -> NativeFont {
         NativeFont {
@@ -468,6 +473,16 @@ impl Font {
                                            0.0)
         }
     }
+
+    /// If this font is a member of a collection, returns its index.
+    #[inline]
+    pub fn index_in_collection(&self) -> Option<u32> {
+        if self.dwrite_font_face.get_type() == DWriteFontFace::TrueTypeCollection {
+            Some(self.dwrite_font_face.get_index())
+        } else {
+            None
+        }
+    }
 }
 
 impl Clone for Font {
@@ -608,6 +623,11 @@ impl Loader for Font {
                              origin,
                              hinting_options,
                              rasterization_options)
+    }
+
+    #[inline]
+    fn index_in_collection(&self) -> Option<u32> {
+        self.index_in_collection()
     }
 }
 

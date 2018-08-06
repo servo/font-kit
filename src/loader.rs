@@ -139,8 +139,9 @@ pub trait Loader: Clone + Sized {
     ///
     /// This is useful if you want to open the font with a different loader.
     fn handle(&self) -> Option<Handle> {
-        // FIXME(pcwalton): This doesn't handle font collections!
-        self.copy_font_data().map(|font_data| Handle::from_memory(font_data, 0))
+        self.copy_font_data().map(|font_data| {
+            Handle::from_memory(font_data, self.index_in_collection().unwrap_or(0))
+        })
     }
 
     /// Attempts to return the raw font data (contents of the font file).
@@ -190,4 +191,7 @@ pub trait Loader: Clone + Sized {
                        hinting_options: HintingOptions,
                        rasterization_options: RasterizationOptions)
                        -> Result<(), GlyphLoadingError>;
+
+    /// If this font is a member of a collection, returns its index.
+    fn index_in_collection(&self) -> Option<u32>;
 }

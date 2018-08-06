@@ -444,6 +444,22 @@ pub fn get_font_data() {
 }
 
 #[test]
+pub fn get_font_index_for_single_font() {
+    let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
+    let font = Font::from_file(&mut file, 0).unwrap();
+    let font_index = font.index_in_collection();
+    assert!(font_index.is_none() || font_index == Some(0));
+}
+
+#[test]
+pub fn get_font_index_for_collection() {
+    let mut file = File::open(TEST_FONT_COLLECTION_FILE_PATH).unwrap();
+    let font = Font::from_file(&mut file, 1).unwrap();
+    let font_index = font.index_in_collection();
+    assert_eq!(font_index, Some(1));
+}
+
+#[test]
 pub fn rasterize_glyph_with_grayscale_aa() {
     let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
                                   .unwrap()

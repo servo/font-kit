@@ -801,6 +801,18 @@ impl Font {
             FontData::Memory(ref memory) => Some((*memory).clone()),
         }
     }
+
+    /// If this font is a member of a collection, returns its index.
+    #[inline]
+    pub fn index_in_collection(&self) -> Option<u32> {
+        unsafe {
+            if (*self.freetype_face).num_faces <= 1 {
+                None
+            } else {
+                Some((*self.freetype_face).face_index as u32)
+            }
+        }
+    }
 }
 
 impl Clone for Font {
@@ -951,6 +963,11 @@ impl Loader for Font {
                              origin,
                              hinting_options,
                              rasterization_options)
+    }
+
+    #[inline]
+    fn index_in_collection(&self) -> Option<u32> {
+        self.index_in_collection()
     }
 }
 
