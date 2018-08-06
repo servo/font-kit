@@ -783,6 +783,14 @@ impl Font {
         options
     }
 
+    /// Returns a handle to this font, if possible.
+    ///
+    /// This is useful if you want to open the font with a different loader.
+    #[inline]
+    pub fn handle(&self) -> Option<Handle> {
+        <Self as Loader>::handle(self)
+    }
+
     /// Attempts to return the raw font data (contents of the font file).
     ///
     /// If this font is a member of a collection, this function returns the data for the entire
