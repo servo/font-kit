@@ -14,6 +14,7 @@ use dwrote::CustomFontCollectionLoaderImpl;
 use dwrote::Font as DWriteFont;
 use dwrote::FontCollection as DWriteFontCollection;
 use dwrote::FontFace as DWriteFontFace;
+use dwrote::FontFaceType as DWriteFontFaceType;
 use dwrote::FontFile as DWriteFontFile;
 use dwrote::FontStyle as DWriteFontStyle;
 use dwrote::GlyphOffset as DWriteGlyphOffset;
@@ -163,11 +164,6 @@ impl Font {
             Err(io_error) => Err(FontLoadingError::Io(io_error)),
             Ok(_) => Font::analyze_bytes(Arc::new(font_data)),
         }
-    }
-
-    /// Returns the type of font this is.
-    pub fn analyze(&self) -> FileType {
-        self.file_type
     }
 
     /// Returns the wrapped native font handle.
@@ -477,7 +473,7 @@ impl Font {
     /// If this font is a member of a collection, returns its index.
     #[inline]
     pub fn index_in_collection(&self) -> Option<u32> {
-        if self.dwrite_font_face.get_type() == DWriteFontFace::TrueTypeCollection {
+        if self.dwrite_font_face.get_type() == DWriteFontFaceType::TrueTypeCollection {
             Some(self.dwrite_font_face.get_index())
         } else {
             None
