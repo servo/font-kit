@@ -201,11 +201,9 @@ impl Font {
     }
 
     /// Returns true if and only if the font is monospace (fixed-width).
-    ///
-    /// FIXME(pcwalton): This always returns false on DirectWrite.
     #[inline]
     pub fn is_monospace(&self) -> bool {
-        false
+        self.dwrite_font.is_monospace().unwrap_or(false)
     }
 
     /// Returns the values of various font properties, corresponding to those defined in CSS.
