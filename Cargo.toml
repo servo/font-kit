@@ -46,17 +46,11 @@ features = ["minwindef", "winbase"]
 [target.'cfg(target_family = "windows")'.dependencies.dwrote]
 git = "https://github.com/servo/dwrote-rs"
 
-[target.'cfg(target_os = "macos")'.dependencies.cocoa]
-git = "https://github.com/servo/core-foundation-rs"
-
-[target.'cfg(target_os = "macos")'.dependencies.core-foundation]
-git = "https://github.com/servo/core-foundation-rs"
-
-[target.'cfg(target_os = "macos")'.dependencies.core-graphics]
-git = "https://github.com/servo/core-foundation-rs"
-
-[target.'cfg(target_os = "macos")'.dependencies.core-text]
-git = "https://github.com/servo/core-foundation-rs"
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = "0.18"
+core-foundation = "0.6"
+core-graphics = "0.17"
+core-text = "13.0"
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos")))'.dependencies.freetype]
 git = "https://github.com/servo/rust-freetype"
