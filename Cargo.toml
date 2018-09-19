@@ -26,7 +26,7 @@ memmap = "0.6"
 walkdir = "2.1"
 
 [dependencies.freetype]
-git = "https://github.com/servo/rust-freetype"
+version = "^0.4.1"
 optional = true
 
 [dependencies.servo-fontconfig]
@@ -39,21 +39,19 @@ colored = "1.6"
 pbr = "1.0"
 prettytable-rs = "0.7"
 
+[target.'cfg(target_family = "windows")'.dependencies]
+dwrote = "0.5"
+
 [target.'cfg(target_family = "windows")'.dependencies.winapi]
 version = "0.3"
 features = ["minwindef", "winbase"]
 
-[target.'cfg(target_family = "windows")'.dependencies.dwrote]
-git = "https://github.com/servo/dwrote-rs"
-
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.18"
 core-foundation = "0.6"
-core-graphics = "0.17"
+core-graphics = "^0.17.1"
 core-text = "13.0"
 
-[target.'cfg(not(any(target_family = "windows", target_os = "macos")))'.dependencies.freetype]
-git = "https://github.com/servo/rust-freetype"
-
-[target.'cfg(not(any(target_family = "windows", target_os = "macos")))'.dependencies.servo-fontconfig]
-version = "0.4"
+[target.'cfg(not(any(target_family = "windows", target_os = "macos")))'.dependencies]
+freetype = "^0.4.1"
+servo-fontconfig = "0.4"
