@@ -133,8 +133,6 @@ extern crate walkdir;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate bitflags;
-#[macro_use]
-extern crate failure;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate lazy_static;
