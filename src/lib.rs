@@ -118,7 +118,6 @@
 
 #![warn(missing_docs)]
 
-extern crate arrayvec;
 extern crate byteorder;
 #[allow(unused_imports)]
 extern crate dirs;
