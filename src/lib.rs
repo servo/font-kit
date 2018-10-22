@@ -118,7 +118,6 @@
 
 #![warn(missing_docs)]
 
-extern crate arrayvec;
 extern crate byteorder;
 #[allow(unused_imports)]
 extern crate dirs;
@@ -133,8 +132,6 @@ extern crate walkdir;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate bitflags;
-#[macro_use]
-extern crate failure;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate lazy_static;
