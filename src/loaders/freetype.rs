@@ -127,7 +127,7 @@ impl Font {
                 let mut freetype_face = ptr::null_mut();
                 if FT_New_Memory_Face(*freetype_library,
                                       (*font_data).as_ptr(),
-                                      font_data.len() as i64,
+                                      font_data.len() as FT_Long,
                                       font_index as FT_Long,
                                       &mut freetype_face) != 0 {
                     return Err(FontLoadingError::Parse)
@@ -154,7 +154,7 @@ impl Font {
                 let mut freetype_face = ptr::null_mut();
                 if FT_New_Memory_Face(*freetype_library,
                                       (*mmap).as_ptr(),
-                                      mmap.len() as i64,
+                                      mmap.len() as FT_Long,
                                       font_index as FT_Long,
                                       &mut freetype_face) != 0 {
                     return Err(FontLoadingError::Parse)
@@ -191,10 +191,10 @@ impl Font {
             font_data.extend(iter::repeat(0).take(CHUNK_SIZE));
             let freetype_stream = (*freetype_face).stream;
             let n_read = ((*freetype_stream).read.unwrap())(freetype_stream,
-                                                            font_data.len() as u64,
+                                                            font_data.len() as FT_ULong,
                                                             font_data.as_mut_ptr(),
-                                                            CHUNK_SIZE as u64);
-            if n_read < CHUNK_SIZE as u64 {
+                                                            CHUNK_SIZE as FT_ULong);
+            if n_read < CHUNK_SIZE as FT_ULong {
                 break
             }
         }
@@ -216,7 +216,7 @@ impl Font {
                 let mut freetype_face = ptr::null_mut();
                 if FT_New_Memory_Face(*freetype_library,
                                       (*font_data).as_ptr(),
-                                      font_data.len() as i64,
+                                      font_data.len() as FT_Long,
                                       0,
                                       &mut freetype_face) != 0 {
                     return Err(FontLoadingError::Parse)
@@ -240,7 +240,7 @@ impl Font {
                 let mut freetype_face = ptr::null_mut();
                 if FT_New_Memory_Face(*freetype_library,
                                       (*mmap).as_ptr(),
-                                      mmap.len() as i64,
+                                      mmap.len() as FT_Long,
                                       0,
                                       &mut freetype_face) != 0 {
                     return Err(FontLoadingError::Parse)
@@ -322,7 +322,7 @@ impl Font {
     /// Returns true if and only if the font is monospace (fixed-width).
     pub fn is_monospace(&self) -> bool {
         unsafe {
-            (*self.freetype_face).face_flags & (FT_FACE_FLAG_FIXED_WIDTH as i64) != 0
+            (*self.freetype_face).face_flags & (FT_FACE_FLAG_FIXED_WIDTH as FT_Long) != 0
         }
     }
 
@@ -334,7 +334,7 @@ impl Font {
                 Some(os2_table) if ((*os2_table).fsSelection & OS2_FS_SELECTION_OBLIQUE) != 0 => {
                     Style::Oblique
                 }
-                _ if ((*self.freetype_face).style_flags & (FT_STYLE_FLAG_ITALIC) as i64) != 0 => {
+                _ if ((*self.freetype_face).style_flags & (FT_STYLE_FLAG_ITALIC) as FT_Long) != 0 => {
                     Style::Italic
                 }
                 _ => Style::Normal,
@@ -625,7 +625,7 @@ impl Font {
                                         type_1_id,
                                         0,
                                         buffer.as_mut_ptr() as *mut c_void,
-                                        buffer.len() as i64) == 0 {
+                                        buffer.len() as FT_Long) == 0 {
                     return String::from_utf8(buffer).ok()
                 }
             }
@@ -978,7 +978,7 @@ unsafe fn reset_freetype_face_char_size(face: FT_Face) {
     // Apple Color Emoji has 0 units per em. Whee!
     let units_per_em = (*face).units_per_EM as i64;
     if units_per_em > 0 {
-        assert_eq!(FT_Set_Char_Size(face, ((*face).units_per_EM as i64) << 6, 0, 0, 0), 0);
+        assert_eq!(FT_Set_Char_Size(face, ((*face).units_per_EM as FT_Long) << 6, 0, 0, 0), 0);
     }
 }
 
@@ -992,12 +992,12 @@ struct FT_SfntName {
     string_len: FT_UInt,
 }
 
-fn ft_fixed_26_6_to_f32(fixed: i64) -> f32 {
+fn ft_fixed_26_6_to_f32(fixed: FT_Long) -> f32 {
     (fixed as f32) / 64.0
 }
 
-fn f32_to_ft_fixed_26_6(float: f32) -> i64 {
-    f32::round(float * 64.0) as i64
+fn f32_to_ft_fixed_26_6(float: f32) -> FT_Long {
+    f32::round(float * 64.0) as FT_Long
 }
 
 extern "C" {
