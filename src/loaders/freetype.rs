@@ -760,6 +760,7 @@ impl Font {
             }
 
             FT_Set_Transform(self.freetype_face, ptr::null_mut(), ptr::null_mut());
+            reset_freetype_face_char_size(self.freetype_face);
             Ok(())
         }
     }
