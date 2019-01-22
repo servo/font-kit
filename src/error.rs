@@ -11,6 +11,7 @@
 //! Various types of errors that `font-kit` can return.
 
 use std::convert::From;
+use std::error::Error;
 use std::io;
 
 macro_rules! impl_display {
@@ -45,6 +46,8 @@ pub enum FontLoadingError {
     Io(io::Error),
 }
 
+impl Error for FontLoadingError {}
+
 impl_display! { FontLoadingError, {
         UnknownFormat => "unknown format",
         NoSuchFontInCollection => "no such font in the collection",
@@ -66,6 +69,8 @@ pub enum GlyphLoadingError {
     NoSuchGlyph,
 }
 
+impl Error for GlyphLoadingError {}
+
 impl_display! { GlyphLoadingError, {
         NoSuchGlyph => "no such glyph",
     }
@@ -79,6 +84,8 @@ pub enum SelectionError {
     /// The source was inaccessible because of an I/O or similar error.
     CannotAccessSource,
 }
+
+impl Error for SelectionError {}
 
 impl_display! { SelectionError, {
         NotFound => "no font found",
