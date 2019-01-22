@@ -341,12 +341,24 @@ impl Font {
                          hinting_options: HintingOptions,
                          rasterization_options: RasterizationOptions)
                          -> Result<Rect<i32>, GlyphLoadingError> {
-        <Self as Loader>::raster_bounds(self,
-                                        glyph_id,
-                                        point_size,
-                                        origin,
-                                        hinting_options,
-                                        rasterization_options)
+        let dwrite_analysis = self.build_glyph_analysis(glyph_id,
+                                                        point_size,
+                                                        origin,
+                                                        hinting_options,
+                                                        rasterization_options);
+
+        let texture_type = match rasterization_options {
+            RasterizationOptions::Bilevel => DWRITE_TEXTURE_ALIASED_1x1,
+            RasterizationOptions::GrayscaleAa | RasterizationOptions::SubpixelAa => {
+                DWRITE_TEXTURE_CLEARTYPE_3x1
+            }
+        };
+
+        let texture_bounds = dwrite_analysis.get_alpha_texture_bounds(texture_type);
+        let texture_width = texture_bounds.right - texture_bounds.left;
+        let texture_height = texture_bounds.bottom - texture_bounds.top;
+
+        Ok(Rect::new(Point2D::new(0, 0), Size2D::new(texture_width, texture_height).to_i32()))
     }
 
     /// Rasterizes a glyph to a canvas with the given size and origin.
