@@ -285,10 +285,12 @@ impl Font {
     }
 
     /// Returns the amount that the given glyph should be displaced from the origin.
-    ///
-    /// FIXME(pcwalton): This always returns zero on DirectWrite.
-    pub fn origin(&self, _: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
-        Ok(Point2D::zero())
+    pub fn origin(&self, glyph: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
+        let metrics = self.dwrite_font_face.get_design_glyph_metrics(&[glyph as u16], false);
+        Ok(Point2D::new(
+            metrics[0].leftSideBearing as f32,
+            (metrics[0].verticalOriginY + metrics[0].bottomSideBearing) as f32
+        ))
     }
 
     /// Retrieves various metrics that apply to the entire font.
