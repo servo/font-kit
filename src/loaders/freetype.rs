@@ -17,7 +17,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use canvas::{Canvas, Format, RasterizationOptions};
 use euclid::{Point2D, Rect, Size2D, Vector2D};
 use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_FACE_FLAG_FIXED_WIDTH, FT_Face};
-use freetype::freetype::{FT_Get_Char_Index, FT_Get_Postscript_Name, FT_Get_Sfnt_Table};
+use freetype::freetype::{FT_Get_Char_Index, FT_Get_Name_Index, FT_Get_Postscript_Name, FT_Get_Sfnt_Table};
 use freetype::freetype::{FT_Init_FreeType, FT_LOAD_DEFAULT, FT_LOAD_MONOCHROME};
 use freetype::freetype::{FT_LOAD_NO_HINTING, FT_LOAD_RENDER, FT_Library, FT_Load_Glyph, FT_Long};
 use freetype::freetype::{FT_New_Memory_Face, FT_Reference_Face, FT_STYLE_FLAG_ITALIC};
@@ -27,7 +27,7 @@ use freetype::tt_os2::TT_OS2;
 use lyon_path::builder::PathBuilder;
 use memmap::Mmap;
 use std::f32;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
 use std::iter;
@@ -367,6 +367,21 @@ impl Font {
         unsafe {
             Some(FT_Get_Char_Index(self.freetype_face, character as FT_ULong))
         }
+    }
+
+    /// Returns the glyph ID for the specified glyph name.
+    #[inline]
+    pub fn glyph_by_name(&self, name: &str) -> Option<u32> {
+        if let Ok(ffi_name) = CString::new(name) {
+            let code = unsafe {
+                FT_Get_Name_Index(self.freetype_face, ffi_name.as_ptr() as *mut c_char)
+            };
+
+            if code > 0 {
+                return Some(u32::from(code));
+            }
+        }
+        None
     }
 
     /// Returns the number of glyphs in the font.
@@ -892,6 +907,11 @@ impl Loader for Font {
     #[inline]
     fn glyph_for_char(&self, character: char) -> Option<u32> {
         self.glyph_for_char(character)
+    }
+
+    #[inline]
+    fn glyph_by_name(&self, name: &str) -> Option<u32> {
+        self.glyph_by_name(name)
     }
 
     #[inline]

@@ -226,6 +226,12 @@ impl Font {
         self.dwrite_font_face.get_glyph_indices(&chars).into_iter().next().map(|g| g as u32)
     }
 
+    /// Returns the glyph ID for the specified glyph name.
+    #[inline]
+    pub fn glyph_by_name(&self, name: &str) -> Option<u32> {
+        None
+    }
+
     /// Returns the number of glyphs in the font.
     ///
     /// Glyph IDs range from 0 inclusive to this value exclusive.
@@ -560,6 +566,11 @@ impl Loader for Font {
     #[inline]
     fn glyph_for_char(&self, character: char) -> Option<u32> {
         self.glyph_for_char(character)
+    }
+
+    #[inline]
+    fn glyph_by_name(&self, name: &str) -> Option<u32> {
+        self.glyph_by_name(name)
     }
 
     #[inline]
