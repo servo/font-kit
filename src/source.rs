@@ -41,17 +41,16 @@ const DEFAULT_FONT_FAMILY_CURSIVE: &'static str = "Comic Sans MS";
 #[cfg(any(target_family = "windows", target_os = "macos"))]
 const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "Papyrus";
 
-// FIXME(pcwalton): Fontconfig knows this; ask it.
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
-const DEFAULT_FONT_FAMILY_SERIF: &'static str = "DejaVu Serif";
+const DEFAULT_FONT_FAMILY_SERIF: &'static str = "serif";
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
-const DEFAULT_FONT_FAMILY_SANS_SERIF: &'static str = "DejaVu Sans";
+const DEFAULT_FONT_FAMILY_SANS_SERIF: &'static str = "sans-serif";
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
-const DEFAULT_FONT_FAMILY_MONOSPACE: &'static str = "DejaVu Sans Mono";
+const DEFAULT_FONT_FAMILY_MONOSPACE: &'static str = "monospace";
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
-const DEFAULT_FONT_FAMILY_CURSIVE: &'static str = "DejaVu Sans";
+const DEFAULT_FONT_FAMILY_CURSIVE: &'static str = "cursive";
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
-const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "DejaVu Sans";
+const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "fantasy";
 
 /// A database of installed fonts that can be queried.
 ///

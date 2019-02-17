@@ -19,6 +19,8 @@ use fontconfig::fontconfig::{FcBool, FcConfig, FcFontList, FcInitLoadConfigAndFo
 use fontconfig::fontconfig::{FcObjectSetAdd, FcObjectSetCreate, FcObjectSetDestroy, FcPattern};
 use fontconfig::fontconfig::{FcPatternAddString, FcPatternCreate, FcPatternDestroy};
 use fontconfig::fontconfig::{FcPatternGetInteger, FcPatternGetString, FcResultMatch};
+use fontconfig::fontconfig::{FcConfigSubstitute, FcDefaultSubstitute, FcFontMatch, FcNameParse};
+use fontconfig::fontconfig::{FcFontSetCreate, FcFontSetAdd, FcMatchPattern};
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_uchar};
 use std::path::PathBuf;
@@ -103,15 +105,18 @@ impl FontconfigSource {
     pub fn select_family_by_name(&self, family_name: &str)
                                  -> Result<FamilyHandle, SelectionError> {
         unsafe {
-            let mut pattern = FcPatternObject::new();
-            pattern.push_string(FC_FAMILY, family_name.to_owned());
+            let pattern = FcPatternObject::from_name(family_name);
+            FcConfigSubstitute(ptr::null_mut(), pattern.pattern, FcMatchPattern);
+            FcDefaultSubstitute(pattern.pattern);
 
-            // We want the file path and the font index.
-            let mut object_set = FcObjectSetObject::new();
-            object_set.push_string(FC_FILE);
-            object_set.push_string(FC_INDEX);
+            let mut res = FcResultMatch;
+            let pat = FcFontMatch(ptr::null_mut(), pattern.pattern, &mut res);
+            if res != FcResultMatch {
+                return Err(SelectionError::NotFound);
+            }
 
-            let font_set = FcFontList(self.fontconfig, pattern.pattern, object_set.object_set);
+            let font_set = FcFontSetCreate();
+            FcFontSetAdd(font_set, pat);
             assert!(!font_set.is_null());
 
             let font_patterns = slice::from_raw_parts((*font_set).fonts,
@@ -210,6 +215,16 @@ impl FcPatternObject {
         unsafe {
             FcPatternObject {
                 pattern: FcPatternCreate(),
+                c_strings: vec![],
+            }
+        }
+    }
+
+    fn from_name(name: &str) -> FcPatternObject {
+        let c_name = CString::new(name).unwrap();
+        unsafe {
+            FcPatternObject {
+                pattern: FcNameParse(c_name.as_ptr() as *mut c_uchar),
                 c_strings: vec![],
             }
         }
