@@ -14,6 +14,7 @@ use dwrote::CustomFontCollectionLoaderImpl;
 use dwrote::Font as DWriteFont;
 use dwrote::FontCollection as DWriteFontCollection;
 use dwrote::FontFace as DWriteFontFace;
+use dwrote::FontFallback as DWriteFontFallback;
 use dwrote::FontFile as DWriteFontFile;
 use dwrote::FontStyle as DWriteFontStyle;
 use dwrote::GlyphOffset as DWriteGlyphOffset;
@@ -25,6 +26,7 @@ use dwrote::{DWRITE_TEXTURE_CLEARTYPE_3x1, OutlineBuilder};
 use euclid::{Point2D, Rect, Size2D, Vector2D};
 use lyon_path::PathEvent;
 use lyon_path::builder::PathBuilder;
+use std::borrow::Cow;
 use std::ffi::OsString;
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
@@ -35,6 +37,9 @@ use std::os::windows::io::AsRawHandle;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 use winapi::shared::minwindef::{FALSE, MAX_PATH};
+use winapi::um::dwrite::{DWRITE_NUMBER_SUBSTITUTION_METHOD_NONE, DWRITE_READING_DIRECTION,
+    DWRITE_READING_DIRECTION_LEFT_TO_RIGHT
+};
 use winapi::um::fileapi;
 
 use canvas::{Canvas, Format, RasterizationOptions};
@@ -61,6 +66,38 @@ pub struct Font {
     dwrite_font: DWriteFont,
     dwrite_font_face: DWriteFontFace,
     cached_data: Mutex<Option<Arc<Vec<u8>>>>,
+}
+
+/// The result of a fallback query.
+pub struct FallbackResult {
+    /// A list of fallback fonts.
+    pub fonts: Vec<FallbackFont>,
+    /// The fallback list is valid for this slice of the given text.
+    pub valid_len: usize,
+}
+
+/// A single font record for a fallback query result.
+pub struct FallbackFont {
+    /// The font.
+    pub font: Font,
+    /// A scale factor that should be applied to the fallback font.
+    pub scale: f32,
+
+    // TODO: add font simulation data
+}
+
+struct MyTextAnalysisSource {
+    text_utf16_len: u32,
+}
+
+impl dwrote::TextAnalysisSourceMethods for MyTextAnalysisSource {
+    fn get_locale_name<'a>(&'a self, text_pos: u32) -> (Cow<'a, str>, u32) {
+        ("en-US".into(), self.text_utf16_len - text_pos)
+    }
+
+    fn get_paragraph_reading_direction(&self) -> DWRITE_READING_DIRECTION {
+        DWRITE_READING_DIRECTION_LEFT_TO_RIGHT
+    }
 }
 
 impl Font {
@@ -480,6 +517,82 @@ impl Font {
                                            0.0)?)
         }
     }
+
+    /// Get font fallback results for the given text and locale.
+    /// 
+    /// Note: on Windows 10, the result is a single font.
+    pub fn get_fallbacks(&self, text: &str, locale: &str) -> FallbackResult {
+        let sys_fallback = DWriteFontFallback::get_system_fallback();
+        if sys_fallback.is_none() {
+            unimplemented!("Need Windows 7 method for font fallbacks")
+        }
+        let text_utf16: Vec<u16> = text.encode_utf16().collect();
+        let text_utf16_len = text_utf16.len() as u32;
+        let number_subst = dwrote::NumberSubstitution::new(
+            DWRITE_NUMBER_SUBSTITUTION_METHOD_NONE,
+            locale,
+            true
+        );
+        let text_analysis_source = MyTextAnalysisSource {
+            text_utf16_len,
+        };
+        let text_analysis = dwrote::TextAnalysisSource::from_text_and_number_subst(
+            Box::new(text_analysis_source),
+            text_utf16, number_subst);
+        let sys_fallback = sys_fallback.unwrap();
+        // TODO: I think the MapCharacters can take a null pointer, update
+        // dwrote to accept an optional collection. This appears to be what
+        // blink does.
+        let collection = DWriteFontCollection::get_system(false);
+        let fallback_result = sys_fallback.map_characters(
+            &text_analysis,
+            0,
+            text_utf16_len,
+            &collection,
+            Some(&self.dwrite_font.family_name()),
+            self.dwrite_font.weight(),
+            self.dwrite_font.style(),
+            self.dwrite_font.stretch(),
+        );
+        let valid_len = convert_len_utf16_to_utf8(text, fallback_result.mapped_length);
+        //let face = fallback_result.mapped_font.
+        let fonts = if let Some(dwrite_font) = fallback_result.mapped_font {
+            let dwrite_font_face = dwrite_font.create_font_face();
+            let font = Font {
+                dwrite_font,
+                dwrite_font_face,
+                cached_data: Mutex::new(None),
+            };
+            let fallback_font = FallbackFont {
+                font,
+                scale: fallback_result.scale,
+            };
+            vec![fallback_font]
+        } else {
+            vec![]
+        };
+        FallbackResult {
+            fonts,
+            valid_len,
+        }
+    }
+}
+
+// There might well be a more efficient impl that doesn't fully decode the text,
+// just looks at the utf-8 bytes.
+fn convert_len_utf16_to_utf8(text: &str, len_utf16: usize) -> usize {
+    let mut l_utf8 = 0;
+    let mut l_utf16 = 0;
+    let mut chars = text.chars();
+    while l_utf16 < len_utf16 {
+        if let Some(c) = chars.next() {
+            l_utf8 += c.len_utf8();
+            l_utf16 += c.len_utf16();
+        } else {
+            break;
+        }
+    }
+    l_utf8
 }
 
 impl Clone for Font {
