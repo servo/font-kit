@@ -88,11 +88,12 @@ pub struct FallbackFont {
 
 struct MyTextAnalysisSource {
     text_utf16_len: u32,
+    locale: String,
 }
 
 impl dwrote::TextAnalysisSourceMethods for MyTextAnalysisSource {
     fn get_locale_name<'a>(&'a self, text_pos: u32) -> (Cow<'a, str>, u32) {
-        ("en-US".into(), self.text_utf16_len - text_pos)
+        (self.locale.as_str().into(), self.text_utf16_len - text_pos)
     }
 
     fn get_paragraph_reading_direction(&self) -> DWRITE_READING_DIRECTION {
@@ -519,7 +520,9 @@ impl Font {
     }
 
     /// Get font fallback results for the given text and locale.
-    /// 
+    ///
+    /// The `locale` argument is a language tag such as `"en-US"` or `"zh-Hans-CN"`.
+    ///
     /// Note: on Windows 10, the result is a single font.
     pub fn get_fallbacks(&self, text: &str, locale: &str) -> FallbackResult {
         let sys_fallback = DWriteFontFallback::get_system_fallback();
@@ -535,6 +538,7 @@ impl Font {
         );
         let text_analysis_source = MyTextAnalysisSource {
             text_utf16_len,
+            locale: locale.to_owned(),
         };
         let text_analysis = dwrote::TextAnalysisSource::from_text_and_number_subst(
             Box::new(text_analysis_source),

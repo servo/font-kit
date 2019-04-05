@@ -43,7 +43,8 @@ pbr = "1.0"
 prettytable-rs = "0.7"
 
 [target.'cfg(target_family = "windows")'.dependencies]
-dwrote = "0.8.0"
+#dwrote = "0.8.0"
+dwrote = { path = "../dwrote-rs" }
 
 [target.'cfg(target_family = "windows")'.dependencies.winapi]
 version = "0.3"
