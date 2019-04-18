@@ -806,7 +806,8 @@ impl Font {
     /// Get font fallback results for the given text and locale.
     ///
     /// Note: this is currently just a stub implementation, a proper implementation
-    /// would use CTFontCopyDefaultCascadeListForLanguages.
+    /// would likely use FontConfig, at least on Linux. It's not clear what a
+    /// FreeType loader with a non-FreeType source should do.
     fn get_fallbacks(&self, text: &str, _locale: &str) -> FallbackResult<Font> {
         FallbackResult {
             fonts: Vec::new(),
