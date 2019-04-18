@@ -67,12 +67,22 @@ impl From<io::Error> for FontLoadingError {
 pub enum GlyphLoadingError {
     /// The font didn't contain a glyph with that ID.
     NoSuchGlyph,
+    /// A platform function returned an error.
+    PlatformError,
 }
 
 impl Error for GlyphLoadingError {}
 
 impl_display! { GlyphLoadingError, {
         NoSuchGlyph => "no such glyph",
+        PlatformError => "platform error",
+    }
+}
+
+#[cfg(target_family = "windows")]
+impl From<winapi::um::winnt::HRESULT> for GlyphLoadingError {
+    fn from(_err: winapi::um::winnt::HRESULT) -> GlyphLoadingError {
+        GlyphLoadingError::PlatformError
     }
 }
 

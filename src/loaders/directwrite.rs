@@ -95,7 +95,7 @@ impl Font {
     /// of the font to load from it. If the data represents a single font, pass 0 for `font_index`.
     pub fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Font, FontLoadingError> {
         let font_file =
-            try!(DWriteFontFile::new_from_data(&**font_data).ok_or(FontLoadingError::Parse));
+            try!(DWriteFontFile::new_from_data(font_data.clone()).ok_or(FontLoadingError::Parse));
         Font::from_dwrite_font_file(font_file, font_index, Some(font_data))
     }
 
@@ -148,7 +148,7 @@ impl Font {
     /// Determines whether a blob of raw font data represents a supported font, and, if so, what
     /// type of font it is.
     pub fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<FileType, FontLoadingError> {
-        match DWriteFontFile::analyze_data(&**font_data) {
+        match DWriteFontFile::analyze_data(font_data) {
             0 => Err(FontLoadingError::Parse),
             1 => Ok(FileType::Single),
             font_count => Ok(FileType::Collection(font_count)),
@@ -347,7 +347,7 @@ impl Font {
                                                         point_size,
                                                         origin,
                                                         hinting_options,
-                                                        rasterization_options);
+                                                        rasterization_options)?;
 
         let texture_type = match rasterization_options {
             RasterizationOptions::Bilevel => DWRITE_TEXTURE_ALIASED_1x1,
@@ -356,7 +356,7 @@ impl Font {
             }
         };
 
-        let texture_bounds = dwrite_analysis.get_alpha_texture_bounds(texture_type);
+        let texture_bounds = dwrite_analysis.get_alpha_texture_bounds(texture_type)?;
         let texture_width = texture_bounds.right - texture_bounds.left;
         let texture_height = texture_bounds.bottom - texture_bounds.top;
 
@@ -387,7 +387,7 @@ impl Font {
                                                         point_size,
                                                         origin,
                                                         hinting_options,
-                                                        rasterization_options);
+                                                        rasterization_options)?;
 
         let texture_type = match rasterization_options {
             RasterizationOptions::Bilevel => DWRITE_TEXTURE_ALIASED_1x1,
@@ -397,7 +397,7 @@ impl Font {
         };
 
         // TODO(pcwalton): Avoid a copy in some cases by writing directly to the canvas.
-        let texture_bounds = dwrite_analysis.get_alpha_texture_bounds(texture_type);
+        let texture_bounds = dwrite_analysis.get_alpha_texture_bounds(texture_type)?;
         let texture_format = if texture_type == DWRITE_TEXTURE_ALIASED_1x1 {
             Format::A8
         } else {
@@ -410,7 +410,7 @@ impl Font {
         let texture_size = Size2D::new(texture_width, texture_height).to_u32();
         let texture_stride = texture_width as usize * texture_bytes_per_pixel;
 
-        let mut texture_bytes = dwrite_analysis.create_alpha_texture(texture_type, texture_bounds);
+        let mut texture_bytes = dwrite_analysis.create_alpha_texture(texture_type, texture_bounds)?;
         canvas.blit_from(&mut texture_bytes,
                          &texture_size,
                          texture_stride,
@@ -445,7 +445,7 @@ impl Font {
                             origin: &Point2D<f32>,
                             hinting_options: HintingOptions,
                             rasterization_options: RasterizationOptions)
-                            -> DWriteGlyphRunAnalysis {
+                            -> Result<DWriteGlyphRunAnalysis, GlyphLoadingError> {
         unsafe {
             let glyph_id = glyph_id as u16;
             let advance = 0.0;
@@ -471,13 +471,13 @@ impl Font {
                 }
             };
 
-            DWriteGlyphRunAnalysis::create(&glyph_run,
+            Ok(DWriteGlyphRunAnalysis::create(&glyph_run,
                                            1.0,
                                            None,
                                            rendering_mode,
                                            DWRITE_MEASURING_MODE_NATURAL,
                                            0.0,
-                                           0.0)
+                                           0.0)?)
         }
     }
 }
