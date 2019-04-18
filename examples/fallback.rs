@@ -11,8 +11,9 @@
 extern crate clap;
 extern crate font_kit;
 
-use clap::{App, Arg, ArgGroup, ArgMatches};
+use clap::{App, Arg, ArgMatches};
 
+use font_kit::loader::Loader;
 use font_kit::source::SystemSource;
 
 #[cfg(any(target_family = "windows", target_os = "macos"))]

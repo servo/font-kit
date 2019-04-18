@@ -47,7 +47,7 @@ use error::{FontLoadingError, GlyphLoadingError};
 use file_type::FileType;
 use handle::Handle;
 use hinting::HintingOptions;
-use loader::Loader;
+use loader::{FallbackResult, FallbackFont, Loader};
 use metrics::Metrics;
 use properties::{Properties, Stretch, Style, Weight};
 
@@ -66,24 +66,6 @@ pub struct Font {
     dwrite_font: DWriteFont,
     dwrite_font_face: DWriteFontFace,
     cached_data: Mutex<Option<Arc<Vec<u8>>>>,
-}
-
-/// The result of a fallback query.
-pub struct FallbackResult {
-    /// A list of fallback fonts.
-    pub fonts: Vec<FallbackFont>,
-    /// The fallback list is valid for this slice of the given text.
-    pub valid_len: usize,
-}
-
-/// A single font record for a fallback query result.
-pub struct FallbackFont {
-    /// The font.
-    pub font: Font,
-    /// A scale factor that should be applied to the fallback font.
-    pub scale: f32,
-
-    // TODO: add font simulation data
 }
 
 struct MyTextAnalysisSource {
@@ -524,7 +506,7 @@ impl Font {
     /// The `locale` argument is a language tag such as `"en-US"` or `"zh-Hans-CN"`.
     ///
     /// Note: on Windows 10, the result is a single font.
-    pub fn get_fallbacks(&self, text: &str, locale: &str) -> FallbackResult {
+    fn get_fallbacks(&self, text: &str, locale: &str) -> FallbackResult<Font> {
         let sys_fallback = DWriteFontFallback::get_system_fallback();
         if sys_fallback.is_none() {
             unimplemented!("Need Windows 7 method for font fallbacks")
@@ -737,6 +719,11 @@ impl Loader for Font {
                              origin,
                              hinting_options,
                              rasterization_options)
+    }
+
+    #[inline]
+    fn get_fallbacks(&self, text: &str, locale: &str) -> FallbackResult<Self> {
+        self.get_fallbacks(text, locale)
     }
 }
 
