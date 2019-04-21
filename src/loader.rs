@@ -112,6 +112,12 @@ pub trait Loader: Clone + Sized {
     /// use cases like "what does character X look like on its own".
     fn glyph_for_char(&self, character: char) -> Option<u32>;
 
+    /// Returns the glyph ID for the specified glyph name.
+    #[inline]
+    fn glyph_by_name(&self, _name: &str) -> Option<u32> {
+        None
+    }
+
     /// Sends the vector path for a glyph to a path builder.
     ///
     /// If `hinting_mode` is not None, this function performs grid-fitting as requested before

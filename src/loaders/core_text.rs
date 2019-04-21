@@ -289,6 +289,14 @@ impl Font {
         }
     }
 
+    /// Returns the glyph ID for the specified glyph name.
+    #[inline]
+    pub fn glyph_by_name(&self, name: &str) -> Option<u32> {
+        let code = self.core_text_font.get_glyph_with_name(name);
+
+        Some(u32::from(code))
+    }
+
     /// Sends the vector path for a glyph to a path builder.
     ///
     /// If `hinting_mode` is not None, this function performs grid-fitting as requested before
@@ -602,6 +610,11 @@ impl Loader for Font {
     #[inline]
     fn glyph_for_char(&self, character: char) -> Option<u32> {
         self.glyph_for_char(character)
+    }
+
+    #[inline]
+    fn glyph_by_name(&self, name: &str) -> Option<u32> {
+        self.glyph_by_name(name)
     }
 
     #[inline]
