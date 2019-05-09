@@ -43,7 +43,7 @@ use error::{FontLoadingError, GlyphLoadingError};
 use file_type::FileType;
 use handle::Handle;
 use hinting::HintingOptions;
-use loader::Loader;
+use loader::{FallbackResult, Loader};
 use metrics::Metrics;
 use properties::{Properties, Stretch, Style, Weight};
 
@@ -817,6 +817,18 @@ impl Font {
             FontData::Memory(ref memory) => Some((*memory).clone()),
         }
     }
+
+    /// Get font fallback results for the given text and locale.
+    ///
+    /// Note: this is currently just a stub implementation, a proper implementation
+    /// would likely use FontConfig, at least on Linux. It's not clear what a
+    /// FreeType loader with a non-FreeType source should do.
+    fn get_fallbacks(&self, text: &str, _locale: &str) -> FallbackResult<Font> {
+        FallbackResult {
+            fonts: Vec::new(),
+            valid_len: text.len(),
+        }
+    }
 }
 
 impl Clone for Font {
@@ -972,6 +984,11 @@ impl Loader for Font {
                              origin,
                              hinting_options,
                              rasterization_options)
+    }
+
+    #[inline]
+    fn get_fallbacks(&self, text: &str, locale: &str) -> FallbackResult<Self> {
+        self.get_fallbacks(text, locale)
     }
 }
 

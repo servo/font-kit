@@ -196,4 +196,27 @@ pub trait Loader: Clone + Sized {
                        hinting_options: HintingOptions,
                        rasterization_options: RasterizationOptions)
                        -> Result<(), GlyphLoadingError>;
+
+    /// Get font fallback results for the given text and locale.
+    ///
+    /// The `locale` argument is a language tag such as `"en-US"` or `"zh-Hans-CN"`.
+    fn get_fallbacks(&self, text: &str, locale: &str) -> FallbackResult<Self>;
+}
+
+/// The result of a fallback query.
+pub struct FallbackResult<Font> {
+    /// A list of fallback fonts.
+    pub fonts: Vec<FallbackFont<Font>>,
+    /// The fallback list is valid for this slice of the given text.
+    pub valid_len: usize,
+}
+
+/// A single font record for a fallback query result.
+pub struct FallbackFont<Font> {
+    /// The font.
+    pub font: Font,
+    /// A scale factor that should be applied to the fallback font.
+    pub scale: f32,
+
+    // TODO: add font simulation data
 }

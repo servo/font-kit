@@ -39,7 +39,7 @@ use error::{FontLoadingError, GlyphLoadingError};
 use file_type::FileType;
 use handle::Handle;
 use hinting::HintingOptions;
-use loader::Loader;
+use loader::{FallbackResult, Loader};
 use metrics::Metrics;
 use properties::{Properties, Stretch, Style, Weight};
 use sources;
@@ -543,6 +543,17 @@ impl Font {
         }
     }
 
+    /// Get font fallback results for the given text and locale.
+    ///
+    /// Note: this is currently just a stub implementation, a proper implementation
+    /// would use CTFontCopyDefaultCascadeListForLanguages.
+    fn get_fallbacks(&self, text: &str, _locale: &str) -> FallbackResult<Font> {
+        FallbackResult {
+            fonts: Vec::new(),
+            valid_len: text.len(),
+        }
+    }
+
     #[inline]
     fn units_per_point(&self) -> f64 {
         (self.core_text_font.units_per_em() as f64) / self.core_text_font.pt_size()
@@ -675,6 +686,11 @@ impl Loader for Font {
                              origin,
                              hinting_options,
                              rasterization_options)
+    }
+
+    #[inline]
+    fn get_fallbacks(&self, text: &str, locale: &str) -> FallbackResult<Self> {
+        self.get_fallbacks(text, locale)
     }
 }
 
