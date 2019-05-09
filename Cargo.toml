@@ -50,7 +50,6 @@ version = "0.3"
 features = ["minwindef", "winbase"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
-cocoa = "0.18"
 core-foundation = "0.6"
 core-graphics = "^0.17.1"
 core-text = "13.2"
