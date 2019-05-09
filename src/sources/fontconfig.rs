@@ -19,8 +19,8 @@ use fontconfig::fontconfig::{FcBool, FcConfig, FcFontList, FcInitLoadConfigAndFo
 use fontconfig::fontconfig::{FcObjectSetAdd, FcObjectSetCreate, FcObjectSetDestroy, FcPattern};
 use fontconfig::fontconfig::{FcPatternAddString, FcPatternCreate, FcPatternDestroy};
 use fontconfig::fontconfig::{FcPatternGetInteger, FcPatternGetString, FcResultMatch};
-use fontconfig::fontconfig::{FcConfigSubstitute, FcDefaultSubstitute, FcFontMatch, FcNameParse};
-use fontconfig::fontconfig::{FcFontSetCreate, FcFontSetAdd, FcMatchPattern};
+use fontconfig::fontconfig::{FcConfigSubstitute, FcDefaultSubstitute, FcFontSort, FcNameParse};
+use fontconfig::fontconfig::{FcMatchPattern};
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_uchar};
 use std::path::PathBuf;
@@ -110,13 +110,15 @@ impl FontconfigSource {
             FcDefaultSubstitute(pattern.pattern);
 
             let mut res = FcResultMatch;
-            let pat = FcFontMatch(ptr::null_mut(), pattern.pattern, &mut res);
+            let font_set = FcFontSort(
+                ptr::null_mut(),
+                pattern.pattern,
+                FcTrue,
+                ptr::null_mut(),
+                &mut res);
             if res != FcResultMatch {
                 return Err(SelectionError::NotFound);
             }
-
-            let font_set = FcFontSetCreate();
-            FcFontSetAdd(font_set, pat);
             assert!(!font_set.is_null());
 
             let font_patterns = slice::from_raw_parts((*font_set).fonts,
