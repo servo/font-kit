@@ -15,18 +15,6 @@
 //! support. To prefer it over the native font source (only if you know what you're doing), use the
 //! `source-fontconfig-default` feature.
 
-use fontconfig::fontconfig::{FcBool, FcConfig, FcFontList, FcInitLoadConfigAndFonts, FcObjectSet};
-use fontconfig::fontconfig::{FcObjectSetAdd, FcObjectSetCreate, FcObjectSetDestroy, FcPattern};
-use fontconfig::fontconfig::{FcPatternAddString, FcPatternCreate, FcPatternDestroy};
-use fontconfig::fontconfig::{FcPatternGetInteger, FcPatternGetString, FcResultMatch};
-use fontconfig::fontconfig::{FcConfigSubstitute, FcDefaultSubstitute, FcFontSort, FcNameParse};
-use fontconfig::fontconfig::{FcMatchPattern};
-use std::ffi::{CStr, CString};
-use std::os::raw::{c_char, c_uchar};
-use std::path::PathBuf;
-use std::ptr;
-use std::slice;
-
 use error::SelectionError;
 use family_handle::FamilyHandle;
 use family_name::FamilyName;
@@ -34,15 +22,6 @@ use handle::Handle;
 use properties::Properties;
 use source::Source;
 
-#[allow(dead_code, non_upper_case_globals)]
-const FcFalse: FcBool = 0;
-#[allow(non_upper_case_globals)]
-const FcTrue: FcBool = 1;
-
-const FC_FAMILY: &'static [u8] = b"family\0";
-const FC_FILE: &'static [u8] = b"file\0";
-const FC_INDEX: &'static [u8] = b"index\0";
-const FC_POSTSCRIPT_NAME: &'static [u8] = b"postscriptname\0";
 
 /// A source that contains the fonts installed on the system, as reported by the Fontconfig
 /// library.
@@ -51,89 +30,66 @@ const FC_POSTSCRIPT_NAME: &'static [u8] = b"postscriptname\0";
 /// support. To prefer it over the native font source (only if you know what you're doing), use the
 /// `source-fontconfig-default` feature.
 pub struct FontconfigSource {
-    fontconfig: *mut FcConfig,
+    config: fc::Config,
 }
 
 impl FontconfigSource {
     /// Initializes Fontconfig and prepares it for queries.
     pub fn new() -> FontconfigSource {
-        unsafe {
-            FontconfigSource {
-                fontconfig: FcInitLoadConfigAndFonts(),
-            }
+        FontconfigSource {
+            config: fc::Config::new(),
         }
     }
 
     /// Returns the names of all families installed on the system.
     pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
-        unsafe {
-            let pattern = FcPatternObject::new();
+        let pattern = fc::Pattern::new();
 
-            // We want the file path and the font index.
-            let mut object_set = FcObjectSetObject::new();
-            object_set.push_string(FC_FAMILY);
+        // We want the family name.
+        let mut object_set = fc::ObjectSet::new();
+        object_set.push_string(fc::Object::Family);
 
-            let font_set = FcFontList(self.fontconfig, pattern.pattern, object_set.object_set);
-            if font_set.is_null() {
-                return Err(SelectionError::NotFound)
-            }
+        let patterns = pattern.list(Some(&self.config), object_set)
+            .map_err(|_| SelectionError::NotFound)?;
 
-            let font_patterns = slice::from_raw_parts((*font_set).fonts,
-                                                      (*font_set).nfont as usize);
-
-            let mut result_families = vec![];
-            for font_pattern in font_patterns {
-                let family = match fc_pattern_get_string(*font_pattern, FC_FAMILY) {
-                    None => continue,
-                    Some(family) => family,
-                };
+        let mut result_families = vec![];
+        for patt in patterns {
+            if let Some(family) = patt.get_string(fc::Object::Family) {
                 result_families.push(family);
             }
+        }
 
-            result_families.sort();
-            result_families.dedup();
+        result_families.sort();
+        result_families.dedup();
 
-            if !result_families.is_empty() {
-                Ok(result_families)
-            } else {
-                Err(SelectionError::NotFound)
-            }
+        if !result_families.is_empty() {
+            Ok(result_families)
+        } else {
+            Err(SelectionError::NotFound)
         }
     }
 
     /// Looks up a font family by name and returns the handles of all the fonts in that family.
     pub fn select_family_by_name(&self, family_name: &str)
                                  -> Result<FamilyHandle, SelectionError> {
-        unsafe {
-            let pattern = FcPatternObject::from_name(family_name);
-            FcConfigSubstitute(ptr::null_mut(), pattern.pattern, FcMatchPattern);
-            FcDefaultSubstitute(pattern.pattern);
+        let mut pattern = fc::Pattern::from_name(family_name);
+        pattern.config_substitute(None, fc::MatchKind::Pattern);
+        pattern.default_substitute();
 
-            let mut res = FcResultMatch;
-            let font_set = FcFontSort(
-                ptr::null_mut(),
-                pattern.pattern,
-                FcTrue,
-                ptr::null_mut(),
-                &mut res);
-            if res != FcResultMatch {
-                return Err(SelectionError::NotFound);
-            }
-            assert!(!font_set.is_null());
+        let patterns = pattern.sorted(None).map_err(|_| SelectionError::NotFound)?;
 
-            let font_patterns = slice::from_raw_parts((*font_set).fonts,
-                                                      (*font_set).nfont as usize);
+        let mut handles = Vec::new();
+        for patt in patterns {
+            let font_path = patt.get_string(fc::Object::File).unwrap();
+            let font_index = patt.get_integer(fc::Object::Index).unwrap() as u32;
+            let handle = Handle::from_path(std::path::PathBuf::from(font_path), font_index);
+            handles.push(handle);
+        }
 
-            let mut result_fonts = vec![];
-            for font_pattern in font_patterns {
-                result_fonts.push(self.create_font_handle_from_fontconfig_pattern(*font_pattern))
-            }
-
-            if !result_fonts.is_empty() {
-                Ok(FamilyHandle::from_font_handles(result_fonts.into_iter()))
-            } else {
-                Err(SelectionError::NotFound)
-            }
+        if !handles.is_empty() {
+            Ok(FamilyHandle::from_font_handles(handles.into_iter()))
+        } else {
+            Err(SelectionError::NotFound)
         }
     }
 
@@ -143,25 +99,24 @@ impl FontconfigSource {
     /// does a brute-force search of installed fonts to find the one that matches.
     pub fn select_by_postscript_name(&self, postscript_name: &str)
                                      -> Result<Handle, SelectionError> {
-        unsafe {
-            let mut pattern = FcPatternObject::new();
-            pattern.push_string(FC_POSTSCRIPT_NAME, postscript_name.to_owned());
+        let mut pattern = fc::Pattern::new();
+        pattern.push_string(fc::Object::PostScriptName, postscript_name.to_owned());
 
-            // We want the file path and the font index.
-            let mut object_set = FcObjectSetObject::new();
-            object_set.push_string(FC_FILE);
-            object_set.push_string(FC_INDEX);
+        // We want the file path and the font index.
+        let mut object_set = fc::ObjectSet::new();
+        object_set.push_string(fc::Object::File);
+        object_set.push_string(fc::Object::Index);
 
-            let font_set = FcFontList(self.fontconfig, pattern.pattern, object_set.object_set);
-            assert!(!font_set.is_null());
+        let patterns = pattern.list(Some(&self.config), object_set)
+            .map_err(|_| SelectionError::NotFound)?;
 
-            let font_patterns = slice::from_raw_parts((*font_set).fonts,
-                                                      (*font_set).nfont as usize);
-            if !font_patterns.is_empty() {
-                Ok(self.create_font_handle_from_fontconfig_pattern(font_patterns[0]))
-            } else {
-                Err(SelectionError::NotFound)
-            }
+        if let Some(patt) = patterns.into_iter().next() {
+            let font_path = patt.get_string(fc::Object::File).unwrap();
+            let font_index = patt.get_integer(fc::Object::Index).unwrap() as u32;
+            let handle = Handle::from_path(std::path::PathBuf::from(font_path), font_index);
+            Ok(handle)
+        } else {
+            Err(SelectionError::NotFound)
         }
     }
 
@@ -171,13 +126,6 @@ impl FontconfigSource {
     pub fn select_best_match(&self, family_names: &[FamilyName], properties: &Properties)
                              -> Result<Handle, SelectionError> {
         <Self as Source>::select_best_match(self, family_names, properties)
-    }
-
-    unsafe fn create_font_handle_from_fontconfig_pattern(&self, font_pattern: *mut FcPattern)
-                                                         -> Handle {
-        let font_path = fc_pattern_get_string(font_pattern, FC_FILE).unwrap();
-        let font_index = fc_pattern_get_integer(font_pattern, FC_INDEX).unwrap() as u32;
-        Handle::from_path(PathBuf::from(font_path), font_index)
     }
 }
 
@@ -198,96 +146,296 @@ impl Source for FontconfigSource {
     }
 }
 
-struct FcPatternObject {
-    pattern: *mut FcPattern,
-    c_strings: Vec<CString>,
-}
 
-impl Drop for FcPatternObject {
-    #[inline]
-    fn drop(&mut self) {
-        unsafe {
-            FcPatternDestroy(self.pattern)
+// TODO: move to a separate crate
+mod fc {
+    #![allow(dead_code)]
+
+    use fontconfig::fontconfig as ffi;
+
+    use std::ffi::{CStr, CString};
+    use std::os::raw::{c_char, c_uchar};
+    use std::ptr;
+
+
+    #[derive(Clone, Copy)]
+    pub enum Error {
+        NoMatch,
+        TypeMismatch,
+        NoId,
+        OutOfMemory,
+    }
+
+
+    #[derive(Clone, Copy)]
+    pub enum MatchKind {
+        Pattern,
+        Font,
+        Scan,
+    }
+
+    impl MatchKind {
+        fn to_u32(&self) -> u32 {
+            match self {
+                MatchKind::Pattern => ffi::FcMatchPattern,
+                MatchKind::Font => ffi::FcMatchFont,
+                MatchKind::Scan => ffi::FcMatchScan,
+            }
         }
     }
-}
 
-impl FcPatternObject {
-    fn new() -> FcPatternObject {
-        unsafe {
-            FcPatternObject {
-                pattern: FcPatternCreate(),
+
+    // https://www.freedesktop.org/software/fontconfig/fontconfig-devel/x19.html
+    #[derive(Clone, Copy)]
+    pub enum Object {
+        Family,
+        File,
+        Index,
+        PostScriptName,
+    }
+
+    impl Object {
+        fn as_bytes(&self) -> &[u8] {
+            match self {
+                Object::Family          => b"family\0",
+                Object::File            => b"file\0",
+                Object::Index           => b"index\0",
+                Object::PostScriptName  => b"postscriptname\0",
+            }
+        }
+
+        fn as_ptr(&self) -> *const libc::c_char {
+            self.as_bytes().as_ptr() as *const libc::c_char
+        }
+    }
+
+
+    pub struct Config {
+        d: *mut ffi::FcConfig,
+    }
+
+    impl Config {
+        // FcInitLoadConfigAndFonts
+        pub fn new() -> Self {
+            unsafe {
+                Config {
+                    d: ffi::FcInitLoadConfigAndFonts(),
+                }
+            }
+        }
+    }
+
+
+    pub struct Pattern {
+        d: *mut ffi::FcPattern,
+        c_strings: Vec<CString>,
+    }
+
+    impl Pattern {
+        fn from_ptr(d: *mut ffi::FcPattern) -> Self {
+            Pattern {
+                d,
                 c_strings: vec![],
             }
         }
-    }
 
-    fn from_name(name: &str) -> FcPatternObject {
-        let c_name = CString::new(name).unwrap();
-        unsafe {
-            FcPatternObject {
-                pattern: FcNameParse(c_name.as_ptr() as *mut c_uchar),
-                c_strings: vec![],
+        // FcPatternCreate
+        pub fn new() -> Self {
+            unsafe {
+                Pattern::from_ptr(ffi::FcPatternCreate())
+            }
+        }
+
+        // FcNameParse
+        pub fn from_name(name: &str) -> Self {
+            let c_name = CString::new(name).unwrap();
+            unsafe {
+                Pattern::from_ptr(ffi::FcNameParse(c_name.as_ptr() as *mut c_uchar))
+            }
+        }
+
+        // FcPatternAddString
+        pub fn push_string(&mut self, object: Object, value: String) {
+            unsafe {
+                let c_string = CString::new(value).unwrap();
+                ffi::FcPatternAddString(
+                    self.d,
+                    object.as_ptr(),
+                    c_string.as_ptr() as *const c_uchar,
+                );
+
+                // We have to keep this string, because `FcPattern` has a pointer to it now.
+                self.c_strings.push(c_string)
+            }
+        }
+
+        // FcConfigSubstitute
+        pub fn config_substitute(&mut self, config: Option<Config>, match_kind: MatchKind) {
+            let config = config.map(|c| c.d).unwrap_or(ptr::null_mut());
+            unsafe {
+                ffi::FcConfigSubstitute(config, self.d, match_kind.to_u32());
+            }
+        }
+
+        // FcDefaultSubstitute
+        pub fn default_substitute(&mut self) {
+            unsafe {
+                ffi::FcDefaultSubstitute(self.d);
+            }
+        }
+
+        // FcFontSort
+        pub fn sorted(&self, config: Option<Config>) -> Result<FontSet, Error> {
+            let config = config.map(|c| c.d).unwrap_or(ptr::null_mut());
+
+            let mut res = ffi::FcResultMatch;
+            let d = unsafe {
+                ffi::FcFontSort(config, self.d, 1, ptr::null_mut(), &mut res)
+            };
+
+            match res {
+                ffi::FcResultMatch => Ok(FontSet { d, idx: 0 }),
+                ffi::FcResultTypeMismatch => Err(Error::TypeMismatch),
+                ffi::FcResultNoId => Err(Error::NoId),
+                ffi::FcResultOutOfMemory => Err(Error::OutOfMemory),
+                _ => Err(Error::NoMatch),
+            }
+        }
+
+        // FcFontList
+        pub fn list(&self, config: Option<&Config>, set: ObjectSet) -> Result<FontSet, Error> {
+            let config = config.map(|c| c.d).unwrap_or(ptr::null_mut());
+            let d = unsafe { ffi::FcFontList(config, self.d, set.d) };
+            if !d.is_null() {
+                Ok(FontSet { d, idx: 0 })
+            } else {
+                Err(Error::NoMatch)
             }
         }
     }
 
-    unsafe fn push_string(&mut self, object: &'static [u8], value: String) {
-        let c_string = CString::new(value).unwrap();
-        FcPatternAddString(self.pattern,
-                           object.as_ptr() as *const c_char,
-                           c_string.as_ptr() as *const c_uchar);
-        self.c_strings.push(c_string)
-    }
-}
-
-struct FcObjectSetObject {
-    object_set: *mut FcObjectSet,
-}
-
-impl Drop for FcObjectSetObject {
-    fn drop(&mut self) {
-        unsafe {
-            FcObjectSetDestroy(self.object_set)
-        }
-    }
-}
-
-impl FcObjectSetObject {
-    fn new() -> FcObjectSetObject {
-        unsafe {
-            FcObjectSetObject {
-                object_set: FcObjectSetCreate(),
+    impl Drop for Pattern {
+        #[inline]
+        fn drop(&mut self) {
+            unsafe {
+                ffi::FcPatternDestroy(self.d)
             }
         }
     }
 
-    unsafe fn push_string(&mut self, object: &'static [u8]) {
-        assert_eq!(FcObjectSetAdd(self.object_set, object.as_ptr() as *const c_char), FcTrue);
-    }
-}
 
-unsafe fn fc_pattern_get_string(pattern: *mut FcPattern, object: &'static [u8]) -> Option<String> {
-    let mut string = ptr::null_mut();
-    if FcPatternGetString(pattern,
-                          object.as_ptr() as *const c_char,
-                          0,
-                          &mut string) != FcResultMatch {
-        return None
+    // A read-only `FcPattern` without a destructor.
+    pub struct PatternRef {
+        d: *mut ffi::FcPattern,
     }
-    if string.is_null() {
-        return None
-    }
-    CStr::from_ptr(string as *const c_char).to_str().ok().map(|string| string.to_owned())
-}
 
-unsafe fn fc_pattern_get_integer(pattern: *mut FcPattern, object: &'static [u8]) -> Option<i32> {
-    let mut integer = 0;
-    if FcPatternGetInteger(pattern,
-                           object.as_ptr() as *const c_char,
-                           0,
-                           &mut integer) != FcResultMatch {
-        return None
+    impl PatternRef {
+        // FcPatternGetString
+        pub fn get_string(&self, object: Object) -> Option<String> {
+            unsafe {
+                let mut string = ptr::null_mut();
+                let res = ffi::FcPatternGetString(self.d, object.as_ptr(), 0, &mut string);
+                if res != ffi::FcResultMatch {
+                    return None
+                }
+
+                if string.is_null() {
+                    return None
+                }
+
+                CStr::from_ptr(string as *const c_char).to_str()
+                    .ok().map(|string| string.to_owned())
+            }
+        }
+
+        // FcPatternGetInteger
+        pub fn get_integer(&self, object: Object) -> Option<i32> {
+            unsafe {
+                let mut integer = 0;
+                let res = ffi::FcPatternGetInteger(self.d, object.as_ptr(), 0, &mut integer);
+                if res != ffi::FcResultMatch {
+                    return None
+                }
+
+                Some(integer)
+            }
+        }
     }
-    Some(integer)
+
+
+    pub struct FontSet {
+        d: *mut ffi::FcFontSet,
+        idx: usize,
+    }
+
+    impl FontSet {
+        pub fn is_empty(&self) -> bool {
+            self.len() == 0
+        }
+
+        pub fn len(&self) -> usize {
+            unsafe {
+                (*self.d).nfont as usize
+            }
+        }
+    }
+
+    impl Iterator for FontSet {
+        type Item = PatternRef;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.idx == self.len() {
+                return None;
+            }
+
+            let idx = self.idx;
+            self.idx += 1;
+
+            let d = unsafe { *(*self.d).fonts.offset(idx as isize) };
+            Some(PatternRef { d })
+        }
+
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            (0, Some(self.len()))
+        }
+    }
+
+    impl Drop for FontSet {
+        fn drop(&mut self) {
+            unsafe {
+                ffi::FcFontSetDestroy(self.d)
+            }
+        }
+    }
+
+
+    pub struct ObjectSet {
+        d: *mut ffi::FcObjectSet,
+    }
+
+    impl ObjectSet {
+        // FcObjectSetCreate
+        pub fn new() -> Self {
+            unsafe {
+                ObjectSet { d: ffi::FcObjectSetCreate() }
+            }
+        }
+
+        // FcObjectSetAdd
+        pub fn push_string(&mut self, object: Object) {
+            unsafe {
+                // Returns `false` if the property name cannot be inserted
+                // into the set (due to allocation failure).
+                assert_eq!(ffi::FcObjectSetAdd(self.d, object.as_ptr()), 1);
+            }
+        }
+    }
+
+    impl Drop for ObjectSet {
+        fn drop(&mut self) {
+            unsafe {
+                ffi::FcObjectSetDestroy(self.d)
+            }
+        }
+    }
 }
