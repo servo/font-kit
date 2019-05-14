@@ -22,7 +22,8 @@ use prettytable::row::Row;
 
 fn main() {
     let mut table = Table::new();
-    table.add_row(Row::new(vec![
+    table.set_format(*prettytable::format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
+    table.set_titles(Row::new(vec![
         Cell::new("PostScript Name").with_style(Attr::Bold),
         Cell::new("Name").with_style(Attr::Bold),
         Cell::new("Family").with_style(Attr::Bold),
