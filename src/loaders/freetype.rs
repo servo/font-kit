@@ -365,7 +365,11 @@ impl Font {
     #[inline]
     pub fn glyph_for_char(&self, character: char) -> Option<u32> {
         unsafe {
-            Some(FT_Get_Char_Index(self.freetype_face, character as FT_ULong))
+            let res = FT_Get_Char_Index(self.freetype_face, character as FT_ULong);
+            match res {
+                0 => None,
+                _ => Some(res),
+            }
         }
     }
 
