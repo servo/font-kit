@@ -36,6 +36,15 @@ impl MultiSource {
         }
     }
 
+    /// Returns paths of all fonts installed on the system.
+    pub fn all_fonts(&self) -> Result<Vec<Handle>, SelectionError> {
+        let mut handles = vec![];
+        for subsource in &self.subsources {
+            handles.extend(try!(subsource.all_fonts()).into_iter())
+        }
+        Ok(handles)
+    }
+
     /// Returns the names of all families installed on the system.
     pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         let mut families = vec![];
@@ -81,6 +90,11 @@ impl MultiSource {
 }
 
 impl Source for MultiSource {
+    #[inline]
+    fn all_fonts(&self) -> Result<Vec<Handle>, SelectionError> {
+        self.all_fonts()
+    }
+
     #[inline]
     fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         self.all_families()

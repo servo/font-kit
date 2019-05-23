@@ -84,6 +84,11 @@ impl FsSource {
         }
     }
 
+    /// Returns paths of all fonts installed on the system.
+    pub fn all_fonts(&self) -> Result<Vec<Handle>, SelectionError> {
+        self.mem_source.all_fonts()
+    }
+
     /// Returns the names of all families installed on the system.
     pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         self.mem_source.all_families()
@@ -114,6 +119,11 @@ impl FsSource {
 }
 
 impl Source for FsSource {
+    #[inline]
+    fn all_fonts(&self) -> Result<Vec<Handle>, SelectionError> {
+        self.all_fonts()
+    }
+
     #[inline]
     fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         self.all_families()

@@ -58,6 +58,9 @@ const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "fantasy";
 ///
 /// This trait is object-safe.
 pub trait Source {
+    /// Returns paths of all fonts installed on the system.
+    fn all_fonts(&self) -> Result<Vec<Handle>, SelectionError>;
+
     /// Returns the names of all families installed on the system.
     fn all_families(&self) -> Result<Vec<String>, SelectionError>;
 

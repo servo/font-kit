@@ -47,6 +47,12 @@ impl CoreTextSource {
         CoreTextSource
     }
 
+    /// Returns paths of all fonts installed on the system.
+    pub fn all_fonts(&self) -> Result<Vec<Handle>, SelectionError> {
+        let collection = font_collection::create_for_all_families();
+        create_handles_from_core_text_collection(collection)
+    }
+
     /// Returns the names of all families installed on the system.
     pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         let core_text_family_names = font_manager::copy_available_font_family_names();
@@ -97,6 +103,10 @@ impl CoreTextSource {
 }
 
 impl Source for CoreTextSource {
+    fn all_fonts(&self) -> Result<Vec<Handle>, SelectionError> {
+        self.all_fonts()
+    }
+
     fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         self.all_families()
     }
