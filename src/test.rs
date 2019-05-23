@@ -45,7 +45,7 @@ static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "DejaVuSans";
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
 static SANS_SERIF_FONT_BOLD_POSTSCRIPT_NAME: &'static str = "DejaVuSans-Bold";
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
-static SANS_SERIF_FONT_ITALIC_POSTSCRIPT_NAME: &'static str = "DejaVuSans-Oblique";
+static SANS_SERIF_FONT_ITALIC_POSTSCRIPT_NAME: &'static str = "LiberationSans-Italic";
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
 static SANS_SERIF_FONT_FULL_NAME: &'static str = "DejaVu Sans";
 
@@ -304,15 +304,15 @@ pub fn get_fully_hinted_glyph_outline() {
     let path = path_builder.build();
 
     let mut events = path.into_iter();
-    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(192.0, 1024.0))));
-    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(377.6, 1024.0))));
-    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(377.6, 0.0))));
-    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(192.0, 0.0))));
+    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(204.8, 1024.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(409.6, 1024.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(409.6, 0.0))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(204.8, 0.0))));
     assert_eq!(events.next(), Some(PathEvent::Close));
-    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(192.0, 1638.4))));
-    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(377.6, 1638.4))));
-    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(377.6, 1433.6))));
-    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(192.0, 1433.6))));
+    assert_eq!(events.next(), Some(PathEvent::MoveTo(Point2D::new(204.8, 1638.4))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(409.6, 1638.4))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(409.6, 1433.6))));
+    assert_eq!(events.next(), Some(PathEvent::LineTo(Point2D::new(204.8, 1433.6))));
     assert_eq!(events.next(), Some(PathEvent::Close));
 }
 
