@@ -38,7 +38,9 @@ const DEFAULT_FONT_FAMILY_SANS_SERIF: &'static str = "Arial";
 const DEFAULT_FONT_FAMILY_MONOSPACE: &'static str = "Courier New";
 #[cfg(any(target_family = "windows", target_os = "macos"))]
 const DEFAULT_FONT_FAMILY_CURSIVE: &'static str = "Comic Sans MS";
-#[cfg(any(target_family = "windows", target_os = "macos"))]
+#[cfg(target_family = "windows")]
+const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "Impact";
+#[cfg(target_os = "macos")]
 const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "Papyrus";
 
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
