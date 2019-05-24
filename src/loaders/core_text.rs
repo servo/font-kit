@@ -524,7 +524,8 @@ impl Font {
             Format::A8 => core_graphics_context.set_gray_fill_color(1.0, 1.0),
         }
 
-        let origin = CGPoint::new(origin.x as CGFloat, origin.y as CGFloat);
+        //CoreGraphics origin is in the bottom left. This makes behavior consistent.
+        let origin = CGPoint::new(origin.x as CGFloat, (canvas.size.height as f32 - origin.y) as CGFloat);
         core_graphics_context.set_font(&self.core_text_font.copy_to_CGFont());
         core_graphics_context.set_font_size(point_size as CGFloat);
         core_graphics_context.set_text_drawing_mode(CGTextDrawingMode::CGTextFill);

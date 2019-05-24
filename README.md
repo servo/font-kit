@@ -1,4 +1,7 @@
 # font-kit
+[![Build Status](https://travis-ci.org/pcwalton/font-kit.svg?branch=master)](https://travis-ci.org/pcwalton/font-kit)
+[![Crates.io](https://img.shields.io/crates/v/font-kit.svg)](https://crates.io/crates/font-kit)
+[![Documentation](https://docs.rs/font-kit/badge.svg)](https://docs.rs/font-kit)
 
 `font-kit` provides a common interface to the various system font libraries and provides
 services such as finding fonts on the system, performing nearest-font matching, and rasterizing

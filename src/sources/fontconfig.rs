@@ -41,6 +41,43 @@ impl FontconfigSource {
         }
     }
 
+    /// Returns paths of all fonts installed on the system.
+    pub fn all_fonts(&self) -> Result<Vec<Handle>, SelectionError> {
+        let pattern = fc::Pattern::new();
+
+        // We want the family name.
+        let mut object_set = fc::ObjectSet::new();
+        object_set.push_string(fc::Object::File);
+        object_set.push_string(fc::Object::Index);
+
+        let patterns = pattern.list(Some(&self.config), object_set)
+            .map_err(|_| SelectionError::NotFound)?;
+
+        let mut handles = vec![];
+        for patt in patterns {
+            let path = match patt.get_string(fc::Object::File) {
+                Some(v) => v,
+                None => continue,
+            };
+
+            let index = match patt.get_integer(fc::Object::Index) {
+                Some(v) => v,
+                None => continue,
+            };
+
+            handles.push(Handle::Path {
+                path: path.into(),
+                font_index: index as u32,
+            });
+        }
+
+        if !handles.is_empty() {
+            Ok(handles)
+        } else {
+            Err(SelectionError::NotFound)
+        }
+    }
+
     /// Returns the names of all families installed on the system.
     pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         let pattern = fc::Pattern::new();
@@ -130,6 +167,11 @@ impl FontconfigSource {
 }
 
 impl Source for FontconfigSource {
+    #[inline]
+    fn all_fonts(&self) -> Result<Vec<Handle>, SelectionError> {
+        self.all_fonts()
+    }
+
     #[inline]
     fn all_families(&self) -> Result<Vec<String>, SelectionError> {
         self.all_families()

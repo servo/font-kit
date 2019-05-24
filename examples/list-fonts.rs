@@ -33,25 +33,21 @@ fn main() {
     ]));
 
     let source = SystemSource::new();
-    let families = source.all_families().unwrap();
-    let mut progress_bar = ProgressBar::new(families.len() as u64);
+    let fonts = source.all_fonts().unwrap();
+    let mut progress_bar = ProgressBar::new(fonts.len() as u64);
     progress_bar.message("Loading fonts… ");
 
-    for family_name in families.into_iter() {
-        if let Ok(family_handle) = source.select_family_by_name(&family_name) {
-            for font_handle in family_handle.fonts() {
-                if let Ok(font) = font_handle.load() {
-                    let properties = font.properties();
-                    table.add_row(Row::new(vec![
-                        Cell::new(&font.postscript_name().unwrap_or_else(|| "".to_owned())),
-                        Cell::new(&font.full_name()),
-                        Cell::new(&family_name),
-                        Cell::new(&properties.style.to_string()),
-                        Cell::new(&properties.weight.0.to_string()),
-                        Cell::new(&properties.stretch.0.to_string()),
-                    ]));
-                }
-            }
+    for font in fonts {
+        if let Ok(font) = font.load() {
+            let properties = font.properties();
+            table.add_row(Row::new(vec![
+                Cell::new(&font.postscript_name().unwrap_or_else(|| "".to_owned())),
+                Cell::new(&font.full_name()),
+                Cell::new(&font.family_name()),
+                Cell::new(&properties.style.to_string()),
+                Cell::new(&properties.weight.0.to_string()),
+                Cell::new(&properties.stretch.0.to_string()),
+            ]));
         }
 
         progress_bar.inc();

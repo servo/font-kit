@@ -1,0 +1,14 @@
+language: rust
+matrix:
+  include:
+    - os: linux
+      dist: xenial
+    - os: osx
+    - os: windows
+rust:
+  - stable
+install:
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
+        echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections;
+        sudo apt-get install ttf-mscorefonts-installer;
+    fi
