@@ -353,7 +353,19 @@ pub fn get_glyph_typographic_bounds() {
                Ok(Rect::new(Point2D::new(123.0, -29.0), Size2D::new(946.0, 1176.0))));
 }
 
-#[cfg(any(target_family = "windows", target_os = "macos"))]
+#[cfg(target_family = "windows")]
+#[test]
+pub fn get_glyph_advance_and_origin() {
+    let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
+                                  .unwrap()
+                                  .load()
+                                  .unwrap();
+    let glyph = font.glyph_for_char('a').expect("No glyph for char!");
+    assert_eq!(font.advance(glyph), Ok(Vector2D::new(1139.0, 0.0)));
+    assert_eq!(font.origin(glyph), Ok(Point2D::new(74.0, 1898.0)));
+}
+
+#[cfg(target_os = "macos")]
 #[test]
 pub fn get_glyph_advance_and_origin() {
     let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())
