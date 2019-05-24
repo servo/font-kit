@@ -138,21 +138,26 @@ extern crate lazy_static;
 #[macro_use]
 extern crate log;
 
-#[cfg(target_family = "windows")]
-extern crate dwrote;
-#[cfg(target_family = "windows")]
-extern crate winapi;
 #[cfg(target_os = "macos")]
 extern crate core_foundation;
 #[cfg(target_os = "macos")]
 extern crate core_graphics;
 #[cfg(target_os = "macos")]
 extern crate core_text;
-#[cfg(any(not(any(target_os = "macos", target_family = "windows")),
-          feature = "source-fontconfig"))]
+#[cfg(target_family = "windows")]
+extern crate dwrote;
+#[cfg(any(
+    not(any(target_os = "macos", target_family = "windows")),
+    feature = "source-fontconfig"
+))]
 extern crate fontconfig;
-#[cfg(any(not(any(target_os = "macos", target_family = "windows")), feature = "loader-freetype"))]
+#[cfg(any(
+    not(any(target_os = "macos", target_family = "windows")),
+    feature = "loader-freetype"
+))]
 extern crate freetype;
+#[cfg(target_family = "windows")]
+extern crate winapi;
 
 pub mod canvas;
 pub mod error;

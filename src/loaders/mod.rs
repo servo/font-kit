@@ -12,15 +12,24 @@
 
 #[cfg(all(target_os = "macos", not(feature = "loader-freetype-default")))]
 pub use loaders::core_text as default;
+
 #[cfg(all(target_family = "windows", not(feature = "loader-freetype-default")))]
 pub use loaders::directwrite as default;
-#[cfg(any(not(any(target_os = "macos", target_family = "windows")),
-          feature = "loader-freetype-default"))]
+
+#[cfg(any(
+    not(any(target_os = "macos", target_family = "windows")),
+    feature = "loader-freetype-default"
+))]
 pub use loaders::freetype as default;
 
 #[cfg(all(target_os = "macos"))]
 pub mod core_text;
+
 #[cfg(all(target_family = "windows"))]
 pub mod directwrite;
-#[cfg(any(not(any(target_os = "macos", target_family = "windows")), feature = "loader-freetype"))]
+
+#[cfg(any(
+    not(any(target_os = "macos", target_family = "windows")),
+    feature = "loader-freetype"
+))]
 pub mod freetype;

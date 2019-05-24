@@ -12,3 +12,8 @@ install:
         echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections;
         sudo apt-get install ttf-mscorefonts-installer;
     fi
+before_script:
+  - rustup component add rustfmt
+script:
+  - cargo fmt --all -- --check
+  - cargo test

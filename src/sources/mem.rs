@@ -39,7 +39,9 @@ impl MemSource {
     ///
     /// The fonts referenced by the handles are eagerly loaded into memory.
     pub fn from_fonts<I>(fonts: I) -> Result<MemSource, FontLoadingError>
-                         where I: Iterator<Item = Handle> {
+    where
+        I: Iterator<Item = Handle>,
+    {
         let mut families = vec![];
         for handle in fonts {
             let font = Font::from_handle(&handle)?;
@@ -52,14 +54,13 @@ impl MemSource {
             }
         }
         families.sort_by(|a, b| a.family_name.cmp(&b.family_name));
-        Ok(MemSource {
-            families,
-        })
+        Ok(MemSource { families })
     }
 
     /// Returns paths of all fonts installed on the system.
     pub fn all_fonts(&self) -> Result<Vec<Handle>, SelectionError> {
-        Ok(self.families
+        Ok(self
+            .families
             .iter()
             .map(|family| family.font.clone())
             .collect())
@@ -67,43 +68,50 @@ impl MemSource {
 
     /// Returns the names of all families installed on the system.
     pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
-        Ok(self.families
-               .iter()
-               .map(|family| &*family.family_name)
-               .dedup()
-               .map(|name| name.to_owned())
-               .collect())
+        Ok(self
+            .families
+            .iter()
+            .map(|family| &*family.family_name)
+            .dedup()
+            .map(|name| name.to_owned())
+            .collect())
     }
 
     /// Looks up a font family by name and returns the handles of all the fonts in that family.
     ///
     /// FIXME(pcwalton): Case-insensitive comparison.
-    pub fn select_family_by_name(&self, family_name: &str)
-                                 -> Result<FamilyHandle, SelectionError> {
-        let mut first_family_index = self.families.binary_search_by(|family| {
-            (&*family.family_name).cmp(family_name)
-        }).map_err(|_| SelectionError::NotFound)?;
+    pub fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
+        let mut first_family_index = self
+            .families
+            .binary_search_by(|family| (&*family.family_name).cmp(family_name))
+            .map_err(|_| SelectionError::NotFound)?;
 
-        while first_family_index > 0 &&
-                self.families[first_family_index - 1].family_name == family_name {
+        while first_family_index > 0
+            && self.families[first_family_index - 1].family_name == family_name
+        {
             first_family_index -= 1
         }
         let mut last_family_index = first_family_index;
-        while last_family_index + 1 < self.families.len() &&
-                self.families[last_family_index + 1].family_name == family_name {
+        while last_family_index + 1 < self.families.len()
+            && self.families[last_family_index + 1].family_name == family_name
+        {
             last_family_index += 1
         }
 
         let families = &self.families[first_family_index..(last_family_index + 1)];
-        Ok(FamilyHandle::from_font_handles(families.iter().map(|family| family.font.clone())))
+        Ok(FamilyHandle::from_font_handles(
+            families.iter().map(|family| family.font.clone()),
+        ))
     }
 
     /// Selects a font by PostScript name, which should be a unique identifier.
     ///
     /// The default implementation, which is used by the DirectWrite and the filesystem backends,
     /// does a brute-force search of installed fonts to find the one that matches.
-    pub fn select_by_postscript_name(&self, postscript_name: &str)
-                                     -> Result<Handle, SelectionError> {
+    pub fn select_by_postscript_name(
+        &self,
+        postscript_name: &str,
+    ) -> Result<Handle, SelectionError> {
         self.families
             .iter()
             .filter(|family_entry| family_entry.postscript_name == postscript_name)
@@ -115,8 +123,11 @@ impl MemSource {
     /// Performs font matching according to the CSS Fonts Level 3 specification and returns the
     /// handle.
     #[inline]
-    pub fn select_best_match(&self, family_names: &[FamilyName], properties: &Properties)
-                             -> Result<Handle, SelectionError> {
+    pub fn select_best_match(
+        &self,
+        family_names: &[FamilyName],
+        properties: &Properties,
+    ) -> Result<Handle, SelectionError> {
         <Self as Source>::select_best_match(self, family_names, properties)
     }
 }

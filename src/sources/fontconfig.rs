@@ -22,7 +22,6 @@ use handle::Handle;
 use properties::Properties;
 use source::Source;
 
-
 /// A source that contains the fonts installed on the system, as reported by the Fontconfig
 /// library.
 ///
@@ -50,7 +49,8 @@ impl FontconfigSource {
         object_set.push_string(fc::Object::File);
         object_set.push_string(fc::Object::Index);
 
-        let patterns = pattern.list(Some(&self.config), object_set)
+        let patterns = pattern
+            .list(Some(&self.config), object_set)
             .map_err(|_| SelectionError::NotFound)?;
 
         let mut handles = vec![];
@@ -86,7 +86,8 @@ impl FontconfigSource {
         let mut object_set = fc::ObjectSet::new();
         object_set.push_string(fc::Object::Family);
 
-        let patterns = pattern.list(Some(&self.config), object_set)
+        let patterns = pattern
+            .list(Some(&self.config), object_set)
             .map_err(|_| SelectionError::NotFound)?;
 
         let mut result_families = vec![];
@@ -107,8 +108,7 @@ impl FontconfigSource {
     }
 
     /// Looks up a font family by name and returns the handles of all the fonts in that family.
-    pub fn select_family_by_name(&self, family_name: &str)
-                                 -> Result<FamilyHandle, SelectionError> {
+    pub fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
         let mut pattern = fc::Pattern::from_name(family_name);
         pattern.config_substitute(None, fc::MatchKind::Pattern);
         pattern.default_substitute();
@@ -134,8 +134,10 @@ impl FontconfigSource {
     ///
     /// The default implementation, which is used by the DirectWrite and the filesystem backends,
     /// does a brute-force search of installed fonts to find the one that matches.
-    pub fn select_by_postscript_name(&self, postscript_name: &str)
-                                     -> Result<Handle, SelectionError> {
+    pub fn select_by_postscript_name(
+        &self,
+        postscript_name: &str,
+    ) -> Result<Handle, SelectionError> {
         let mut pattern = fc::Pattern::new();
         pattern.push_string(fc::Object::PostScriptName, postscript_name.to_owned());
 
@@ -144,7 +146,8 @@ impl FontconfigSource {
         object_set.push_string(fc::Object::File);
         object_set.push_string(fc::Object::Index);
 
-        let patterns = pattern.list(Some(&self.config), object_set)
+        let patterns = pattern
+            .list(Some(&self.config), object_set)
             .map_err(|_| SelectionError::NotFound)?;
 
         if let Some(patt) = patterns.into_iter().next() {
@@ -160,8 +163,11 @@ impl FontconfigSource {
     /// Performs font matching according to the CSS Fonts Level 3 specification and returns the
     /// handle.
     #[inline]
-    pub fn select_best_match(&self, family_names: &[FamilyName], properties: &Properties)
-                             -> Result<Handle, SelectionError> {
+    pub fn select_best_match(
+        &self,
+        family_names: &[FamilyName],
+        properties: &Properties,
+    ) -> Result<Handle, SelectionError> {
         <Self as Source>::select_best_match(self, family_names, properties)
     }
 }
@@ -188,7 +194,6 @@ impl Source for FontconfigSource {
     }
 }
 
-
 // TODO: move to a separate crate
 mod fc {
     #![allow(dead_code)]
@@ -199,7 +204,6 @@ mod fc {
     use std::os::raw::{c_char, c_uchar};
     use std::ptr;
 
-
     #[derive(Clone, Copy)]
     pub enum Error {
         NoMatch,
@@ -207,7 +211,6 @@ mod fc {
         NoId,
         OutOfMemory,
     }
-
 
     #[derive(Clone, Copy)]
     pub enum MatchKind {
@@ -226,7 +229,6 @@ mod fc {
         }
     }
 
-
     // https://www.freedesktop.org/software/fontconfig/fontconfig-devel/x19.html
     #[derive(Clone, Copy)]
     pub enum Object {
@@ -239,10 +241,10 @@ mod fc {
     impl Object {
         fn as_bytes(&self) -> &[u8] {
             match self {
-                Object::Family          => b"family\0",
-                Object::File            => b"file\0",
-                Object::Index           => b"index\0",
-                Object::PostScriptName  => b"postscriptname\0",
+                Object::Family => b"family\0",
+                Object::File => b"file\0",
+                Object::Index => b"index\0",
+                Object::PostScriptName => b"postscriptname\0",
             }
         }
 
@@ -250,7 +252,6 @@ mod fc {
             self.as_bytes().as_ptr() as *const libc::c_char
         }
     }
-
 
     pub struct Config {
         d: *mut ffi::FcConfig,
@@ -267,7 +268,6 @@ mod fc {
         }
     }
 
-
     pub struct Pattern {
         d: *mut ffi::FcPattern,
         c_strings: Vec<CString>,
@@ -283,17 +283,13 @@ mod fc {
 
         // FcPatternCreate
         pub fn new() -> Self {
-            unsafe {
-                Pattern::from_ptr(ffi::FcPatternCreate())
-            }
+            unsafe { Pattern::from_ptr(ffi::FcPatternCreate()) }
         }
 
         // FcNameParse
         pub fn from_name(name: &str) -> Self {
             let c_name = CString::new(name).unwrap();
-            unsafe {
-                Pattern::from_ptr(ffi::FcNameParse(c_name.as_ptr() as *mut c_uchar))
-            }
+            unsafe { Pattern::from_ptr(ffi::FcNameParse(c_name.as_ptr() as *mut c_uchar)) }
         }
 
         // FcPatternAddString
@@ -331,9 +327,7 @@ mod fc {
             let config = config.map(|c| c.d).unwrap_or(ptr::null_mut());
 
             let mut res = ffi::FcResultMatch;
-            let d = unsafe {
-                ffi::FcFontSort(config, self.d, 1, ptr::null_mut(), &mut res)
-            };
+            let d = unsafe { ffi::FcFontSort(config, self.d, 1, ptr::null_mut(), &mut res) };
 
             match res {
                 ffi::FcResultMatch => Ok(FontSet { d, idx: 0 }),
@@ -359,12 +353,9 @@ mod fc {
     impl Drop for Pattern {
         #[inline]
         fn drop(&mut self) {
-            unsafe {
-                ffi::FcPatternDestroy(self.d)
-            }
+            unsafe { ffi::FcPatternDestroy(self.d) }
         }
     }
-
 
     // A read-only `FcPattern` without a destructor.
     pub struct PatternRef {
@@ -378,15 +369,17 @@ mod fc {
                 let mut string = ptr::null_mut();
                 let res = ffi::FcPatternGetString(self.d, object.as_ptr(), 0, &mut string);
                 if res != ffi::FcResultMatch {
-                    return None
+                    return None;
                 }
 
                 if string.is_null() {
-                    return None
+                    return None;
                 }
 
-                CStr::from_ptr(string as *const c_char).to_str()
-                    .ok().map(|string| string.to_owned())
+                CStr::from_ptr(string as *const c_char)
+                    .to_str()
+                    .ok()
+                    .map(|string| string.to_owned())
             }
         }
 
@@ -396,14 +389,13 @@ mod fc {
                 let mut integer = 0;
                 let res = ffi::FcPatternGetInteger(self.d, object.as_ptr(), 0, &mut integer);
                 if res != ffi::FcResultMatch {
-                    return None
+                    return None;
                 }
 
                 Some(integer)
             }
         }
     }
-
 
     pub struct FontSet {
         d: *mut ffi::FcFontSet,
@@ -416,9 +408,7 @@ mod fc {
         }
 
         pub fn len(&self) -> usize {
-            unsafe {
-                (*self.d).nfont as usize
-            }
+            unsafe { (*self.d).nfont as usize }
         }
     }
 
@@ -444,12 +434,9 @@ mod fc {
 
     impl Drop for FontSet {
         fn drop(&mut self) {
-            unsafe {
-                ffi::FcFontSetDestroy(self.d)
-            }
+            unsafe { ffi::FcFontSetDestroy(self.d) }
         }
     }
-
 
     pub struct ObjectSet {
         d: *mut ffi::FcObjectSet,
@@ -459,7 +446,9 @@ mod fc {
         // FcObjectSetCreate
         pub fn new() -> Self {
             unsafe {
-                ObjectSet { d: ffi::FcObjectSetCreate() }
+                ObjectSet {
+                    d: ffi::FcObjectSetCreate(),
+                }
             }
         }
 
@@ -475,9 +464,7 @@ mod fc {
 
     impl Drop for ObjectSet {
         fn drop(&mut self) {
-            unsafe {
-                ffi::FcObjectSetDestroy(self.d)
-            }
+            unsafe { ffi::FcObjectSetDestroy(self.d) }
         }
     }
 }

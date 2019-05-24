@@ -22,14 +22,15 @@ impl FamilyHandle {
     /// Creates an empty set of family handles.
     #[inline]
     pub fn new() -> FamilyHandle {
-        FamilyHandle {
-            fonts: vec![],
-        }
+        FamilyHandle { fonts: vec![] }
     }
 
     /// Creates a set of font family handles.
     #[inline]
-    pub fn from_font_handles<I>(fonts: I) -> FamilyHandle where I: Iterator<Item = Handle> {
+    pub fn from_font_handles<I>(fonts: I) -> FamilyHandle
+    where
+        I: Iterator<Item = Handle>,
+    {
         FamilyHandle {
             fonts: fonts.collect::<Vec<Handle>>(),
         }

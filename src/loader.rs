@@ -47,8 +47,7 @@ pub trait Loader: Clone + Sized {
     ///
     /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
     /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
-    fn from_path<P>(path: P, font_index: u32) -> Result<Self, FontLoadingError>
-                    where P: AsRef<Path> {
+    fn from_path<P: AsRef<Path>>(path: P, font_index: u32) -> Result<Self, FontLoadingError> {
         Loader::from_file(&mut File::open(path)?, font_index)
     }
 
@@ -78,7 +77,7 @@ pub trait Loader: Clone + Sized {
 
     /// Determines whether a path points to a supported font, and, if so, what type of font it is.
     #[inline]
-    fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
+    fn analyze_path<P: AsRef<Path>>(path: P) -> Result<FileType, FontLoadingError> {
         <Self as Loader>::analyze_file(&mut File::open(path)?)
     }
 
@@ -124,9 +123,14 @@ pub trait Loader: Clone + Sized {
     /// sending the hinding outlines to the builder.
     ///
     /// TODO(pcwalton): What should we do for bitmap glyphs?
-    fn outline<B>(&self, glyph_id: u32, hinting_mode: HintingOptions, path_builder: &mut B)
-                  -> Result<(), GlyphLoadingError>
-                  where B: PathBuilder;
+    fn outline<B>(
+        &self,
+        glyph_id: u32,
+        hinting_mode: HintingOptions,
+        path_builder: &mut B,
+    ) -> Result<(), GlyphLoadingError>
+    where
+        B: PathBuilder;
 
     /// Returns the boundaries of a glyph in font units.
     fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError>;
@@ -146,7 +150,8 @@ pub trait Loader: Clone + Sized {
     /// This is useful if you want to open the font with a different loader.
     fn handle(&self) -> Option<Handle> {
         // FIXME(pcwalton): This doesn't handle font collections!
-        self.copy_font_data().map(|font_data| Handle::from_memory(font_data, 0))
+        self.copy_font_data()
+            .map(|font_data| Handle::from_memory(font_data, 0))
     }
 
     /// Attempts to return the raw font data (contents of the font file).
@@ -161,22 +166,29 @@ pub trait Loader: Clone + Sized {
     /// `for_rasterization` is false, this function returns true if and only if the loader supports
     /// retrieval of hinted *outlines*. If `for_rasterization` is true, this function returns true
     /// if and only if the loader supports *rasterizing* hinted glyphs.
-    fn supports_hinting_options(&self, hinting_options: HintingOptions, for_rasterization: bool)
-                                -> bool;
+    fn supports_hinting_options(
+        &self,
+        hinting_options: HintingOptions,
+        for_rasterization: bool,
+    ) -> bool;
 
     /// Returns the pixel boundaries that the glyph will take up when rendered using this loader's
     /// rasterizer at the given size and origin.
-    fn raster_bounds(&self,
-                     glyph_id: u32,
-                     point_size: f32,
-                     origin: &Point2D<f32>,
-                     _: HintingOptions,
-                     _: RasterizationOptions)
-                     -> Result<Rect<i32>, GlyphLoadingError> {
+    fn raster_bounds(
+        &self,
+        glyph_id: u32,
+        point_size: f32,
+        origin: &Point2D<f32>,
+        _: HintingOptions,
+        _: RasterizationOptions,
+    ) -> Result<Rect<i32>, GlyphLoadingError> {
         let typographic_bounds = self.typographic_bounds(glyph_id)?;
-        let typographic_raster_bounds = typographic_bounds * point_size /
-            self.metrics().units_per_em as f32;
-        Ok(typographic_raster_bounds.translate(&origin.to_vector()).round_out().to_i32())
+        let typographic_raster_bounds =
+            typographic_bounds * point_size / self.metrics().units_per_em as f32;
+        Ok(typographic_raster_bounds
+            .translate(&origin.to_vector())
+            .round_out()
+            .to_i32())
     }
 
     /// Rasterizes a glyph to a canvas with the given size and origin.
@@ -188,14 +200,15 @@ pub trait Loader: Clone + Sized {
     /// loader.
     ///
     /// If `hinting_options` is not None, the requested grid fitting is performed.
-    fn rasterize_glyph(&self,
-                       canvas: &mut Canvas,
-                       glyph_id: u32,
-                       point_size: f32,
-                       origin: &Point2D<f32>,
-                       hinting_options: HintingOptions,
-                       rasterization_options: RasterizationOptions)
-                       -> Result<(), GlyphLoadingError>;
+    fn rasterize_glyph(
+        &self,
+        canvas: &mut Canvas,
+        glyph_id: u32,
+        point_size: f32,
+        origin: &Point2D<f32>,
+        hinting_options: HintingOptions,
+        rasterization_options: RasterizationOptions,
+    ) -> Result<(), GlyphLoadingError>;
 
     /// Get font fallback results for the given text and locale.
     ///
@@ -217,6 +230,5 @@ pub struct FallbackFont<Font> {
     pub font: Font,
     /// A scale factor that should be applied to the fallback font.
     pub scale: f32,
-
     // TODO: add font simulation data
 }

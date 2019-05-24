@@ -95,8 +95,7 @@ impl FsSource {
     }
 
     /// Looks up a font family by name and returns the handles of all the fonts in that family.
-    pub fn select_family_by_name(&self, family_name: &str)
-                                 -> Result<FamilyHandle, SelectionError> {
+    pub fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
         self.mem_source.select_family_by_name(family_name)
     }
 
@@ -104,16 +103,21 @@ impl FsSource {
     ///
     /// This implementation does a brute-force search of installed fonts to find the one that
     /// matches.
-    pub fn select_by_postscript_name(&self, postscript_name: &str)
-                                     -> Result<Handle, SelectionError> {
+    pub fn select_by_postscript_name(
+        &self,
+        postscript_name: &str,
+    ) -> Result<Handle, SelectionError> {
         self.mem_source.select_by_postscript_name(postscript_name)
     }
 
     /// Performs font matching according to the CSS Fonts Level 3 specification and returns the
     /// handle.
     #[inline]
-    pub fn select_best_match(&self, family_names: &[FamilyName], properties: &Properties)
-                             -> Result<Handle, SelectionError> {
+    pub fn select_best_match(
+        &self,
+        family_names: &[FamilyName],
+        properties: &Properties,
+    ) -> Result<Handle, SelectionError> {
         <Self as Source>::select_best_match(self, family_names, properties)
     }
 }

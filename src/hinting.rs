@@ -48,11 +48,9 @@ impl HintingOptions {
     pub fn grid_fitting_size(&self) -> Option<f32> {
         match *self {
             HintingOptions::None => None,
-            HintingOptions::Vertical(size) |
-            HintingOptions::VerticalSubpixel(size) |
-            HintingOptions::Full(size) => {
-                Some(size)
-            }
+            HintingOptions::Vertical(size)
+            | HintingOptions::VerticalSubpixel(size)
+            | HintingOptions::Full(size) => Some(size),
         }
     }
 }

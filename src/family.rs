@@ -18,25 +18,30 @@ use loader::Loader;
 
 /// Defines a set of faces that vary in weight, width or slope.
 #[derive(Debug)]
-pub struct Family<F = Font> where F: Loader {
+pub struct Family<F = Font>
+where
+    F: Loader,
+{
     fonts: Vec<F>,
 }
 
-impl<F> Family<F> where F: Loader {
+impl<F> Family<F>
+where
+    F: Loader,
+{
     pub(crate) fn from_font_handles<'a, I>(font_handles: I) -> Result<Family<F>, FontLoadingError>
-                                           where I: Iterator<Item = &'a Handle> {
+    where
+        I: Iterator<Item = &'a Handle>,
+    {
         let mut fonts = vec![];
         for font_handle in font_handles {
             fonts.push(F::from_handle(font_handle)?)
         }
-        Ok(Family {
-            fonts,
-        })
+        Ok(Family { fonts })
     }
 
     #[inline]
-    pub(crate) fn from_handle(family_handle: &FamilyHandle)
-                              -> Result<Family<F>, FontLoadingError> {
+    pub(crate) fn from_handle(family_handle: &FamilyHandle) -> Result<Family<F>, FontLoadingError> {
         Family::from_font_handles(family_handle.fonts.iter())
     }
 
