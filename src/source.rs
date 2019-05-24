@@ -73,7 +73,7 @@ pub trait Source {
     /// does a brute-force search of installed fonts to find the one that matches.
     fn select_by_postscript_name(&self, postscript_name: &str) -> Result<Handle, SelectionError> {
         // TODO(pcwalton): Optimize this by searching for families with similar names first.
-        for family_name in try!(self.all_families()) {
+        for family_name in self.all_families()? {
             if let Ok(family_handle) = self.select_family_by_name(&family_name) {
                 if let Ok(family) = Family::<Font>::from_handle(&family_handle) {
                     for (handle, font) in family_handle.fonts().iter().zip(family.fonts().iter()) {
@@ -111,7 +111,7 @@ pub trait Source {
                          -> Result<Handle, SelectionError> {
         for family_name in family_names {
             if let Ok(family_handle) = self.select_family_by_generic_name(family_name) {
-                let candidates = try!(self.select_descriptions_in_family(&family_handle));
+                let candidates = self.select_descriptions_in_family(&family_handle)?;
                 if let Ok(index) = matching::find_best_match(&candidates, properties) {
                     return Ok(family_handle.fonts[index].clone())
                 }

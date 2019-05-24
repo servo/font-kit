@@ -70,13 +70,13 @@ impl Font {
         // Sadly, there's no API to load OpenType collections on macOS, I don't believe…
         if font_is_collection(&**font_data) {
             let mut new_font_data = (*font_data).clone();
-            try!(unpack_otc_font(&mut new_font_data, font_index));
+            unpack_otc_font(&mut new_font_data, font_index)?;
             font_data = Arc::new(new_font_data);
         }
 
         let data_provider = CGDataProvider::from_buffer(font_data.clone());
         let core_graphics_font =
-            try!(CGFont::from_data_provider(data_provider).map_err(|_| FontLoadingError::Parse));
+            CGFont::from_data_provider(data_provider).map_err(|_| FontLoadingError::Parse)?;
         let core_text_font = core_text::font::new_from_CGFont(&core_graphics_font, 16.0);
         Ok(Font {
             core_text_font,
@@ -89,20 +89,20 @@ impl Font {
     /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
     /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
-        try!(file.seek(SeekFrom::Start(0)));
+        file.seek(SeekFrom::Start(0))?;
         unsafe {
-            let mut mmap = try!(MmapOptions::new().map_copy(file).map_err(FontLoadingError::Io));
+            let mut mmap = MmapOptions::new().map_copy(file).map_err(FontLoadingError::Io)?;
 
             // Sadly, there's no API to load OpenType collections on macOS, I don't believe…
             if font_is_collection(&*mmap) {
-                try!(unpack_otc_font(&mut *mmap, font_index));
+                unpack_otc_font(&mut *mmap, font_index)?;
             }
 
-            let mmap = Arc::new(try!(mmap.make_read_only().map_err(FontLoadingError::Io)));
+            let mmap = Arc::new(mmap.make_read_only().map_err(FontLoadingError::Io)?);
             let mmap_data = Box::new(Box::new(MmapData::new(mmap.clone())) as Box<CustomData>);
             let provider = CGDataProvider::from_custom_data(mmap_data);
             let core_graphics_font =
-                try!(CGFont::from_data_provider(provider).map_err(|_| FontLoadingError::Parse));
+                CGFont::from_data_provider(provider).map_err(|_| FontLoadingError::Parse)?;
             let core_text_font = core_text::font::new_from_CGFont(&core_graphics_font, 16.0);
 
             Ok(Font {
@@ -184,10 +184,10 @@ impl Font {
 
     /// Determines whether a file represents a supported font, and if so, what type of font it is.
     pub fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
-        try!(file.seek(SeekFrom::Start(0)));
+        file.seek(SeekFrom::Start(0))?;
         unsafe {
-            let mmap = try!(MmapOptions::new().map_copy(file).map_err(FontLoadingError::Io));
-            let mmap = Arc::new(try!(mmap.make_read_only().map_err(FontLoadingError::Io)));
+            let mmap = MmapOptions::new().map_copy(file).map_err(FontLoadingError::Io)?;
+            let mmap = Arc::new(mmap.make_read_only().map_err(FontLoadingError::Io)?);
             if let Ok(font_count) = read_number_of_fonts_from_otc_header(&*mmap) {
                 return Ok(FileType::Collection(font_count))
             }
@@ -320,7 +320,7 @@ impl Font {
             Err(_) => {
                 // This will happen if the path is empty (rdar://42832439). To distinguish this
                 // case from the case in which the glyph does not exist, call another API.
-                drop(try!(self.typographic_bounds(glyph_id)));
+                drop(self.typographic_bounds(glyph_id)?);
                 return Ok(())
             }
         };
@@ -473,12 +473,12 @@ impl Font {
                     // FIXME(pcwalton): Could improve this by only allocating a canvas with a tight
                     // bounding rect and blitting only that part.
                     let mut temp_canvas = Canvas::new(&canvas.size, Format::Rgba32);
-                    try!(self.rasterize_glyph(&mut temp_canvas,
-                                            glyph_id,
-                                            point_size,
-                                            origin,
-                                            hinting_options,
-                                            rasterization_options));
+                    self.rasterize_glyph(&mut temp_canvas,
+                                         glyph_id,
+                                         point_size,
+                                         origin,
+                                         hinting_options,
+                                         rasterization_options)?;
                     canvas.blit_from_canvas(&temp_canvas);
                     return Ok(());
                 }
@@ -778,21 +778,21 @@ fn read_number_of_fonts_from_otc_header(header: &[u8]) -> Result<u32, FontLoadin
     if !font_is_collection(header) {
         return Err(FontLoadingError::UnknownFormat)
     }
-    Ok(try!((&header[8..]).read_u32::<BigEndian>()))
+    Ok((&header[8..]).read_u32::<BigEndian>()?)
 }
 
 // Unpacks an OTC font "in-place".
 fn unpack_otc_font(data: &mut [u8], font_index: u32) -> Result<(), FontLoadingError> {
-    if font_index >= try!(read_number_of_fonts_from_otc_header(data)) {
+    if font_index >= read_number_of_fonts_from_otc_header(data)? {
         return Err(FontLoadingError::NoSuchFontInCollection)
     }
 
     let offset_table_pos_pos = 12 + 4 * font_index as usize;
-    let offset_table_pos = try!((&data[offset_table_pos_pos..]).read_u32::<BigEndian>()) as usize;
+    let offset_table_pos = (&data[offset_table_pos_pos..]).read_u32::<BigEndian>()? as usize;
     debug_assert!(utils::SFNT_VERSIONS.iter().any(|version| {
         data[offset_table_pos..(offset_table_pos + 4)] == *version
     }));
-    let num_tables = try!((&data[(offset_table_pos + 4)..]).read_u16::<BigEndian>());
+    let num_tables = (&data[(offset_table_pos + 4)..]).read_u16::<BigEndian>()?;
 
     // Must copy forward in order to avoid problems with overlapping memory.
     let offset_table_and_table_record_size = 12 + (num_tables as usize) * 16;

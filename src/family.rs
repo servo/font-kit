@@ -27,7 +27,7 @@ impl<F> Family<F> where F: Loader {
                                            where I: Iterator<Item = &'a Handle> {
         let mut fonts = vec![];
         for font_handle in font_handles {
-            fonts.push(try!(F::from_handle(font_handle)))
+            fonts.push(F::from_handle(font_handle)?)
         }
         Ok(Family {
             fonts,

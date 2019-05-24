@@ -149,7 +149,7 @@ impl Font {
     /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
         unsafe {
-            let mmap = try!(Mmap::map(&file));
+            let mmap = Mmap::map(&file)?;
             FREETYPE_LIBRARY.with(|freetype_library| {
                 let mut freetype_face = ptr::null_mut();
                 if FT_New_Memory_Face(*freetype_library,
@@ -236,7 +236,7 @@ impl Font {
     pub fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         FREETYPE_LIBRARY.with(|freetype_library| {
             unsafe {
-                let mmap = try!(Mmap::map(&file));
+                let mmap = Mmap::map(&file)?;
                 let mut freetype_face = ptr::null_mut();
                 if FT_New_Memory_Face(*freetype_library,
                                       (*mmap).as_ptr(),

@@ -42,7 +42,7 @@ impl MemSource {
                          where I: Iterator<Item = Handle> {
         let mut families = vec![];
         for handle in fonts {
-            let font = try!(Font::from_handle(&handle));
+            let font = Font::from_handle(&handle)?;
             if let Some(postscript_name) = font.postscript_name() {
                 families.push(FamilyEntry {
                     family_name: font.family_name(),
@@ -80,9 +80,9 @@ impl MemSource {
     /// FIXME(pcwalton): Case-insensitive comparison.
     pub fn select_family_by_name(&self, family_name: &str)
                                  -> Result<FamilyHandle, SelectionError> {
-        let mut first_family_index = try!(self.families.binary_search_by(|family| {
+        let mut first_family_index = self.families.binary_search_by(|family| {
             (&*family.family_name).cmp(family_name)
-        }).map_err(|_| SelectionError::NotFound));
+        }).map_err(|_| SelectionError::NotFound)?;
 
         while first_family_index > 0 &&
                 self.families[first_family_index - 1].family_name == family_name {

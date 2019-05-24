@@ -49,7 +49,7 @@ pub trait Loader: Clone + Sized {
     /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     fn from_path<P>(path: P, font_index: u32) -> Result<Self, FontLoadingError>
                     where P: AsRef<Path> {
-        Loader::from_file(&mut try!(File::open(path)), font_index)
+        Loader::from_file(&mut File::open(path)?, font_index)
     }
 
     /// Creates a font from a native API handle.
@@ -79,7 +79,7 @@ pub trait Loader: Clone + Sized {
     /// Determines whether a path points to a supported font, and, if so, what type of font it is.
     #[inline]
     fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
-        <Self as Loader>::analyze_file(&mut try!(File::open(path)))
+        <Self as Loader>::analyze_file(&mut File::open(path)?)
     }
 
     /// Returns the wrapped native font handle.
@@ -173,7 +173,7 @@ pub trait Loader: Clone + Sized {
                      _: HintingOptions,
                      _: RasterizationOptions)
                      -> Result<Rect<i32>, GlyphLoadingError> {
-        let typographic_bounds = try!(self.typographic_bounds(glyph_id));
+        let typographic_bounds = self.typographic_bounds(glyph_id)?;
         let typographic_raster_bounds = typographic_bounds * point_size /
             self.metrics().units_per_em as f32;
         Ok(typographic_raster_bounds.translate(&origin.to_vector()).round_out().to_i32())
