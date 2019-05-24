@@ -23,8 +23,10 @@ use properties::Properties;
 pub use sources::core_text::CoreTextSource as SystemSource;
 #[cfg(all(target_family = "windows", not(feature = "source-fontconfig-default")))]
 pub use sources::directwrite::DirectWriteSource as SystemSource;
-#[cfg(any(not(any(target_os = "android", target_os = "macos", target_family = "windows")),
-          feature = "source-fontconfig-default"))]
+#[cfg(any(
+    not(any(target_os = "android", target_os = "macos", target_family = "windows")),
+    feature = "source-fontconfig-default"
+))]
 pub use sources::fontconfig::FontconfigSource as SystemSource;
 #[cfg(all(target_os = "android", not(feature = "source-fontconfig-default")))]
 pub use sources::fs::FsSource as SystemSource;
@@ -79,7 +81,7 @@ pub trait Source {
                     for (handle, font) in family_handle.fonts().iter().zip(family.fonts().iter()) {
                         if let Some(font_postscript_name) = font.postscript_name() {
                             if font_postscript_name == postscript_name {
-                                return Ok((*handle).clone())
+                                return Ok((*handle).clone());
                             }
                         }
                     }
@@ -92,8 +94,10 @@ pub trait Source {
     // FIXME(pcwalton): This only returns one family instead of multiple families for the generic
     // family names.
     #[doc(hidden)]
-    fn select_family_by_generic_name(&self, family_name: &FamilyName)
-                              -> Result<FamilyHandle, SelectionError> {
+    fn select_family_by_generic_name(
+        &self,
+        family_name: &FamilyName,
+    ) -> Result<FamilyHandle, SelectionError> {
         match *family_name {
             FamilyName::Title(ref title) => self.select_family_by_name(title),
             FamilyName::Serif => self.select_family_by_name(DEFAULT_FONT_FAMILY_SERIF),
@@ -107,13 +111,16 @@ pub trait Source {
     /// Performs font matching according to the CSS Fonts Level 3 specification and returns the
     /// handle.
     #[inline]
-    fn select_best_match(&self, family_names: &[FamilyName], properties: &Properties)
-                         -> Result<Handle, SelectionError> {
+    fn select_best_match(
+        &self,
+        family_names: &[FamilyName],
+        properties: &Properties,
+    ) -> Result<Handle, SelectionError> {
         for family_name in family_names {
             if let Ok(family_handle) = self.select_family_by_generic_name(family_name) {
                 let candidates = self.select_descriptions_in_family(&family_handle)?;
                 if let Ok(index) = matching::find_best_match(&candidates, properties) {
-                    return Ok(family_handle.fonts[index].clone())
+                    return Ok(family_handle.fonts[index].clone());
                 }
             }
         }
@@ -121,8 +128,10 @@ pub trait Source {
     }
 
     #[doc(hidden)]
-    fn select_descriptions_in_family(&self, family: &FamilyHandle)
-                                     -> Result<Vec<Description>, SelectionError> {
+    fn select_descriptions_in_family(
+        &self,
+        family: &FamilyHandle,
+    ) -> Result<Vec<Description>, SelectionError> {
         let mut fields = vec![];
         for font_handle in family.fonts() {
             let font = Font::from_handle(font_handle).unwrap();

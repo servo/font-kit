@@ -27,46 +27,53 @@ static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "ArialMT";
 static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "DejaVuSans";
 
 fn get_args() -> ArgMatches<'static> {
-    let postscript_name_arg =
-        Arg::with_name("POSTSCRIPT-NAME").help("PostScript name of the font")
-                                         .default_value(SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME)
-                                         .index(1);
-    let glyph_arg = Arg::with_name("GLYPH").help("Character to render")
-                                           .default_value("A")
-                                           .index(2);
-    let size_arg = Arg::with_name("SIZE").help("Font size in blocks")
-                                         .default_value("32")
-                                         .index(3);
-    let grayscale_arg = Arg::with_name("grayscale").long("grayscale")
-                                                   .help("Use grayscale antialiasing (default)");
-    let bilevel_arg = Arg::with_name("bilevel").help("Use bilevel (black & white) rasterization")
-                                               .short("b")
-                                               .long("bilevel");
-    let subpixel_arg = Arg::with_name("subpixel").help("Use subpixel (LCD) rasterization")
-                                                 .short("s")
-                                                 .long("subpixel");
-    let hinting_arg = Arg::with_name("hinting").help("Select hinting type")
-                                               .short("H")
-                                               .long("hinting")
-                                               .takes_value(true)
-                                               .possible_value("none")
-                                               .possible_value("vertical")
-                                               .possible_value("full")
-                                               .value_names(&["TYPE"]);
+    let postscript_name_arg = Arg::with_name("POSTSCRIPT-NAME")
+        .help("PostScript name of the font")
+        .default_value(SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME)
+        .index(1);
+    let glyph_arg = Arg::with_name("GLYPH")
+        .help("Character to render")
+        .default_value("A")
+        .index(2);
+    let size_arg = Arg::with_name("SIZE")
+        .help("Font size in blocks")
+        .default_value("32")
+        .index(3);
+    let grayscale_arg = Arg::with_name("grayscale")
+        .long("grayscale")
+        .help("Use grayscale antialiasing (default)");
+    let bilevel_arg = Arg::with_name("bilevel")
+        .help("Use bilevel (black & white) rasterization")
+        .short("b")
+        .long("bilevel");
+    let subpixel_arg = Arg::with_name("subpixel")
+        .help("Use subpixel (LCD) rasterization")
+        .short("s")
+        .long("subpixel");
+    let hinting_arg = Arg::with_name("hinting")
+        .help("Select hinting type")
+        .short("H")
+        .long("hinting")
+        .takes_value(true)
+        .possible_value("none")
+        .possible_value("vertical")
+        .possible_value("full")
+        .value_names(&["TYPE"]);
     let rasterization_mode_group =
         ArgGroup::with_name("rasterization-mode").args(&["grayscale", "bilevel", "subpixel"]);
-    App::new("render-glyph").version("0.1")
-                            .author("The Pathfinder Project Developers")
-                            .about("Simple example tool to render glyphs with `font-kit`")
-                            .arg(postscript_name_arg)
-                            .arg(glyph_arg)
-                            .arg(size_arg)
-                            .arg(grayscale_arg)
-                            .arg(bilevel_arg)
-                            .arg(subpixel_arg)
-                            .group(rasterization_mode_group)
-                            .arg(hinting_arg)
-                            .get_matches()
+    App::new("render-glyph")
+        .version("0.1")
+        .author("The Pathfinder Project Developers")
+        .about("Simple example tool to render glyphs with `font-kit`")
+        .arg(postscript_name_arg)
+        .arg(glyph_arg)
+        .arg(size_arg)
+        .arg(grayscale_arg)
+        .arg(bilevel_arg)
+        .arg(subpixel_arg)
+        .group(rasterization_mode_group)
+        .arg(hinting_arg)
+        .get_matches()
 }
 
 fn main() {
@@ -90,29 +97,35 @@ fn main() {
         _ => HintingOptions::None,
     };
 
-    let font = SystemSource::new().select_by_postscript_name(&postscript_name)
-                                  .unwrap()
-                                  .load()
-                                  .unwrap();
+    let font = SystemSource::new()
+        .select_by_postscript_name(&postscript_name)
+        .unwrap()
+        .load()
+        .unwrap();
     let glyph_id = font.glyph_for_char(character).unwrap();
 
-    let raster_rect = font.raster_bounds(glyph_id,
-                                         size,
-                                         &Point2D::zero(),
-                                         hinting_options,
-                                         rasterization_options)
-                          .unwrap();
+    let raster_rect = font
+        .raster_bounds(
+            glyph_id,
+            size,
+            &Point2D::zero(),
+            hinting_options,
+            rasterization_options,
+        )
+        .unwrap();
 
     let mut canvas = Canvas::new(&raster_rect.size.to_u32(), canvas_format);
 
     let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
-    font.rasterize_glyph(&mut canvas,
-                         glyph_id,
-                         size,
-                         &origin,
-                         hinting_options,
-                         rasterization_options)
-        .unwrap();
+    font.rasterize_glyph(
+        &mut canvas,
+        glyph_id,
+        size,
+        &origin,
+        hinting_options,
+        rasterization_options,
+    )
+    .unwrap();
 
     println!("glyph {}:", glyph_id);
     for y in 0..raster_rect.size.height {
@@ -123,11 +136,14 @@ fn main() {
             match canvas.format {
                 Format::Rgba32 => unimplemented!(),
                 Format::Rgb24 => {
-                    write!(&mut line,
-                           "{}{}{}",
-                           shade(row[x as usize * 3 + 0]).to_string().red(),
-                           shade(row[x as usize * 3 + 1]).to_string().green(),
-                           shade(row[x as usize * 3 + 2]).to_string().blue()).unwrap();
+                    write!(
+                        &mut line,
+                        "{}{}{}",
+                        shade(row[x as usize * 3 + 0]).to_string().red(),
+                        shade(row[x as usize * 3 + 1]).to_string().green(),
+                        shade(row[x as usize * 3 + 2]).to_string().blue()
+                    )
+                    .unwrap();
                 }
                 Format::A8 => {
                     let shade = shade(row[x as usize]);

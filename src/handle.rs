@@ -54,10 +54,7 @@ impl Handle {
     /// collection. If the path points to a single font file, pass 0.
     #[inline]
     pub fn from_path(path: PathBuf, font_index: u32) -> Handle {
-        Handle::Path {
-            path,
-            font_index,
-        }
+        Handle::Path { path, font_index }
     }
 
     /// Creates a new handle from raw TTF/OTF/etc. data in memory.
@@ -66,10 +63,7 @@ impl Handle {
     /// collection. If the memory represents a single font file, pass 0.
     #[inline]
     pub fn from_memory(bytes: Arc<Vec<u8>>, font_index: u32) -> Handle {
-        Handle::Memory {
-            bytes,
-            font_index,
-        }
+        Handle::Memory { bytes, font_index }
     }
 
     /// A convenience method to load this handle with the default loader, producing a Font.

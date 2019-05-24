@@ -20,12 +20,12 @@ use dwrote::FontStyle as DWriteFontStyle;
 use dwrote::GlyphOffset as DWriteGlyphOffset;
 use dwrote::GlyphRunAnalysis as DWriteGlyphRunAnalysis;
 use dwrote::InformationalStringId as DWriteInformationalStringId;
-use dwrote::{DWRITE_GLYPH_RUN, DWRITE_MEASURING_MODE_NATURAL, DWRITE_RENDERING_MODE_ALIASED};
-use dwrote::{DWRITE_RENDERING_MODE_NATURAL, DWRITE_TEXTURE_ALIASED_1x1};
+use dwrote::{DWRITE_TEXTURE_ALIASED_1x1, DWRITE_RENDERING_MODE_NATURAL};
 use dwrote::{DWRITE_TEXTURE_CLEARTYPE_3x1, OutlineBuilder};
+use dwrote::{DWRITE_GLYPH_RUN, DWRITE_MEASURING_MODE_NATURAL, DWRITE_RENDERING_MODE_ALIASED};
 use euclid::{Point2D, Rect, Size2D, Vector2D};
-use lyon_path::PathEvent;
 use lyon_path::builder::PathBuilder;
+use lyon_path::PathEvent;
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::fmt::{self, Debug, Formatter};
@@ -37,8 +37,9 @@ use std::os::windows::io::AsRawHandle;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 use winapi::shared::minwindef::{FALSE, MAX_PATH};
-use winapi::um::dwrite::{DWRITE_NUMBER_SUBSTITUTION_METHOD_NONE, DWRITE_READING_DIRECTION,
-    DWRITE_READING_DIRECTION_LEFT_TO_RIGHT
+use winapi::um::dwrite::{
+    DWRITE_NUMBER_SUBSTITUTION_METHOD_NONE, DWRITE_READING_DIRECTION,
+    DWRITE_READING_DIRECTION_LEFT_TO_RIGHT,
 };
 use winapi::um::fileapi;
 
@@ -47,7 +48,7 @@ use error::{FontLoadingError, GlyphLoadingError};
 use file_type::FileType;
 use handle::Handle;
 use hinting::HintingOptions;
-use loader::{FallbackResult, FallbackFont, Loader};
+use loader::{FallbackFont, FallbackResult, Loader};
 use metrics::Metrics;
 use properties::{Properties, Stretch, Style, Weight};
 
@@ -84,10 +85,11 @@ impl dwrote::TextAnalysisSourceMethods for MyTextAnalysisSource {
 }
 
 impl Font {
-    fn from_dwrite_font_file(font_file: DWriteFontFile,
-                             mut font_index: u32,
-                             font_data: Option<Arc<Vec<u8>>>)
-                             -> Result<Font, FontLoadingError> {
+    fn from_dwrite_font_file(
+        font_file: DWriteFontFile,
+        mut font_index: u32,
+        font_data: Option<Arc<Vec<u8>>>,
+    ) -> Result<Font, FontLoadingError> {
         let collection_loader = CustomFontCollectionLoaderImpl::new(&[font_file.clone()]);
         let collection = DWriteFontCollection::from_loader(collection_loader);
         let families = collection.families_iter();
@@ -95,7 +97,7 @@ impl Font {
             for family_font_index in 0..family.get_font_count() {
                 if font_index > 0 {
                     font_index -= 1;
-                    continue
+                    continue;
                 }
                 let dwrite_font = family.get_font(family_font_index);
                 let dwrite_font_face = dwrite_font.create_font_face();
@@ -103,7 +105,7 @@ impl Font {
                     dwrite_font,
                     dwrite_font_face,
                     cached_data: Mutex::new(font_data),
-                })
+                });
             }
         }
         Err(FontLoadingError::NoSuchFontInCollection)
@@ -126,12 +128,14 @@ impl Font {
     pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
         unsafe {
             let mut path = vec![0; MAX_PATH + 1];
-            let path_len = fileapi::GetFinalPathNameByHandleW(file.as_raw_handle(),
-                                                              path.as_mut_ptr(),
-                                                              path.len() as u32 - 1,
-                                                              0);
+            let path_len = fileapi::GetFinalPathNameByHandleW(
+                file.as_raw_handle(),
+                path.as_mut_ptr(),
+                path.len() as u32 - 1,
+                0,
+            );
             if path_len == 0 {
-                return Err(FontLoadingError::Io(io::Error::last_os_error()))
+                return Err(FontLoadingError::Io(io::Error::last_os_error()));
             }
             path.truncate(path_len as usize);
             Font::from_path(PathBuf::from(OsString::from_wide(&path)), font_index)
@@ -143,8 +147,7 @@ impl Font {
     /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
     /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     #[inline]
-    pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, FontLoadingError>
-                        where P: AsRef<Path> {
+    pub fn from_path<P: AsRef<Path>>(path: P, font_index: u32) -> Result<Font, FontLoadingError> {
         let font_file = DWriteFontFile::new_from_path(path).ok_or(FontLoadingError::Parse)?;
         Font::from_dwrite_font_file(font_file, font_index, None)
     }
@@ -178,7 +181,8 @@ impl Font {
     /// Determines whether a file represents a supported font, and, if so, what type of font it is.
     pub fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         let mut font_data = vec![];
-        file.seek(SeekFrom::Start(0)).map_err(FontLoadingError::Io)?;
+        file.seek(SeekFrom::Start(0))
+            .map_err(FontLoadingError::Io)?;
         match file.read_to_end(&mut font_data) {
             Err(io_error) => Err(FontLoadingError::Io(io_error)),
             Ok(_) => Font::analyze_bytes(Arc::new(font_data)),
@@ -195,7 +199,7 @@ impl Font {
 
     /// Determines whether a path points to a supported font, and, if so, what type of font it is.
     #[inline]
-    pub fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
+    pub fn analyze_path<P: AsRef<Path>>(path: P) -> Result<FileType, FontLoadingError> {
         <Self as Loader>::analyze_path(path)
     }
 
@@ -210,8 +214,9 @@ impl Font {
     #[inline]
     pub fn full_name(&self) -> String {
         let dwrite_font = &self.dwrite_font;
-        dwrite_font.informational_string(DWriteInformationalStringId::FullName)
-                   .unwrap_or_else(|| dwrite_font.family_name())
+        dwrite_font
+            .informational_string(DWriteInformationalStringId::FullName)
+            .unwrap_or_else(|| dwrite_font.family_name())
     }
 
     /// Returns the name of the font family.
@@ -243,7 +248,11 @@ impl Font {
     /// use cases like "what does character X look like on its own".
     pub fn glyph_for_char(&self, character: char) -> Option<u32> {
         let chars = [character as u32];
-        self.dwrite_font_face.get_glyph_indices(&chars).into_iter().next().map(|g| g as u32)
+        self.dwrite_font_face
+            .get_glyph_indices(&chars)
+            .into_iter()
+            .next()
+            .map(|g| g as u32)
     }
 
     /// Returns the glyph ID for the specified glyph name.
@@ -266,24 +275,34 @@ impl Font {
     /// sending the hinding outlines to the builder.
     ///
     /// TODO(pcwalton): What should we do for bitmap glyphs?
-    pub fn outline<B>(&self, glyph_id: u32, _: HintingOptions, path_builder: &mut B)
-                      -> Result<(), GlyphLoadingError>
-                      where B: PathBuilder {
+    pub fn outline<B>(
+        &self,
+        glyph_id: u32,
+        _: HintingOptions,
+        path_builder: &mut B,
+    ) -> Result<(), GlyphLoadingError>
+    where
+        B: PathBuilder,
+    {
         let outline_buffer = OutlineBuffer::new();
-        self.dwrite_font_face.get_glyph_run_outline(self.metrics().units_per_em as f32,
-                                                    &[glyph_id as u16],
-                                                    None,
-                                                    None,
-                                                    false,
-                                                    false,
-                                                    Box::new(outline_buffer.clone()));
+        self.dwrite_font_face.get_glyph_run_outline(
+            self.metrics().units_per_em as f32,
+            &[glyph_id as u16],
+            None,
+            None,
+            false,
+            false,
+            Box::new(outline_buffer.clone()),
+        );
         outline_buffer.flush(path_builder);
         Ok(())
     }
 
     /// Returns the boundaries of a glyph in font units.
     pub fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError> {
-        let metrics = self.dwrite_font_face.get_design_glyph_metrics(&[glyph_id as u16], false);
+        let metrics = self
+            .dwrite_font_face
+            .get_design_glyph_metrics(&[glyph_id as u16], false);
 
         let metrics = &metrics[0];
         let advance_width = metrics.advanceWidth as i32;
@@ -298,24 +317,30 @@ impl Font {
         let width = advance_width - (left_side_bearing + right_side_bearing);
         let height = advance_height - (top_side_bearing + bottom_side_bearing);
 
-        Ok(Rect::new(Point2D::new(left_side_bearing as f32, y_offset as f32),
-                     Size2D::new(width as f32, height as f32)))
+        Ok(Rect::new(
+            Point2D::new(left_side_bearing as f32, y_offset as f32),
+            Size2D::new(width as f32, height as f32),
+        ))
     }
 
     /// Returns the distance from the origin of the glyph with the given ID to the next, in font
     /// units.
     pub fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError> {
-        let metrics = self.dwrite_font_face.get_design_glyph_metrics(&[glyph_id as u16], false);
+        let metrics = self
+            .dwrite_font_face
+            .get_design_glyph_metrics(&[glyph_id as u16], false);
         let metrics = &metrics[0];
         Ok(Vector2D::new(metrics.advanceWidth as f32, 0.0))
     }
 
     /// Returns the amount that the given glyph should be displaced from the origin.
     pub fn origin(&self, glyph: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
-        let metrics = self.dwrite_font_face.get_design_glyph_metrics(&[glyph as u16], false);
+        let metrics = self
+            .dwrite_font_face
+            .get_design_glyph_metrics(&[glyph as u16], false);
         Ok(Point2D::new(
             metrics[0].leftSideBearing as f32,
-            (metrics[0].verticalOriginY + metrics[0].bottomSideBearing) as f32
+            (metrics[0].verticalOriginY + metrics[0].bottomSideBearing) as f32,
         ))
     }
 
@@ -362,18 +387,21 @@ impl Font {
     /// Returns the pixel boundaries that the glyph will take up when rendered using this loader's
     /// rasterizer at the given size and origin.
     #[inline]
-    pub fn raster_bounds(&self,
-                         glyph_id: u32,
-                         point_size: f32,
-                         origin: &Point2D<f32>,
-                         hinting_options: HintingOptions,
-                         rasterization_options: RasterizationOptions)
-                         -> Result<Rect<i32>, GlyphLoadingError> {
-        let dwrite_analysis = self.build_glyph_analysis(glyph_id,
-                                                        point_size,
-                                                        origin,
-                                                        hinting_options,
-                                                        rasterization_options)?;
+    pub fn raster_bounds(
+        &self,
+        glyph_id: u32,
+        point_size: f32,
+        origin: &Point2D<f32>,
+        hinting_options: HintingOptions,
+        rasterization_options: RasterizationOptions,
+    ) -> Result<Rect<i32>, GlyphLoadingError> {
+        let dwrite_analysis = self.build_glyph_analysis(
+            glyph_id,
+            point_size,
+            origin,
+            hinting_options,
+            rasterization_options,
+        )?;
 
         let texture_type = match rasterization_options {
             RasterizationOptions::Bilevel => DWRITE_TEXTURE_ALIASED_1x1,
@@ -386,7 +414,10 @@ impl Font {
         let texture_width = texture_bounds.right - texture_bounds.left;
         let texture_height = texture_bounds.bottom - texture_bounds.top;
 
-        Ok(Rect::new(Point2D::new(0, 0), Size2D::new(texture_width, texture_height).to_i32()))
+        Ok(Rect::new(
+            Point2D::new(0, 0),
+            Size2D::new(texture_width, texture_height).to_i32(),
+        ))
     }
 
     /// Rasterizes a glyph to a canvas with the given size and origin.
@@ -398,22 +429,25 @@ impl Font {
     /// loader.
     ///
     /// If `hinting_options` is not None, the requested grid fitting is performed.
-    pub fn rasterize_glyph(&self,
-                           canvas: &mut Canvas,
-                           glyph_id: u32,
-                           point_size: f32,
-                           origin: &Point2D<f32>,
-                           hinting_options: HintingOptions,
-                           rasterization_options: RasterizationOptions)
-                           -> Result<(), GlyphLoadingError> {
+    pub fn rasterize_glyph(
+        &self,
+        canvas: &mut Canvas,
+        glyph_id: u32,
+        point_size: f32,
+        origin: &Point2D<f32>,
+        hinting_options: HintingOptions,
+        rasterization_options: RasterizationOptions,
+    ) -> Result<(), GlyphLoadingError> {
         // TODO(pcwalton): This is woefully incomplete. See WebRender's code for a more complete
         // implementation.
 
-        let dwrite_analysis = self.build_glyph_analysis(glyph_id,
-                                                        point_size,
-                                                        origin,
-                                                        hinting_options,
-                                                        rasterization_options)?;
+        let dwrite_analysis = self.build_glyph_analysis(
+            glyph_id,
+            point_size,
+            origin,
+            hinting_options,
+            rasterization_options,
+        )?;
 
         let texture_type = match rasterization_options {
             RasterizationOptions::Bilevel => DWRITE_TEXTURE_ALIASED_1x1,
@@ -436,11 +470,14 @@ impl Font {
         let texture_size = Size2D::new(texture_width, texture_height).to_u32();
         let texture_stride = texture_width as usize * texture_bytes_per_pixel;
 
-        let mut texture_bytes = dwrite_analysis.create_alpha_texture(texture_type, texture_bounds)?;
-        canvas.blit_from(&mut texture_bytes,
-                         &texture_size,
-                         texture_stride,
-                         texture_format);
+        let mut texture_bytes =
+            dwrite_analysis.create_alpha_texture(texture_type, texture_bounds)?;
+        canvas.blit_from(
+            &mut texture_bytes,
+            &texture_size,
+            texture_stride,
+            texture_format,
+        );
 
         Ok(())
     }
@@ -451,27 +488,29 @@ impl Font {
     /// `for_rasterization` is false, this function returns true if and only if the loader supports
     /// retrieval of hinted *outlines*. If `for_rasterization` is true, this function returns true
     /// if and only if the loader supports *rasterizing* hinted glyphs.
-    pub fn supports_hinting_options(&self,
-                                    hinting_options: HintingOptions,
-                                    for_rasterization: bool)
-                                    -> bool {
+    pub fn supports_hinting_options(
+        &self,
+        hinting_options: HintingOptions,
+        for_rasterization: bool,
+    ) -> bool {
         match (hinting_options, for_rasterization) {
-            (HintingOptions::None, _) |
-            (HintingOptions::Vertical(_), true) |
-            (HintingOptions::VerticalSubpixel(_), true) => true,
-            (HintingOptions::Vertical(_), false) |
-            (HintingOptions::VerticalSubpixel(_), false) |
-            (HintingOptions::Full(_), _) => false,
+            (HintingOptions::None, _)
+            | (HintingOptions::Vertical(_), true)
+            | (HintingOptions::VerticalSubpixel(_), true) => true,
+            (HintingOptions::Vertical(_), false)
+            | (HintingOptions::VerticalSubpixel(_), false)
+            | (HintingOptions::Full(_), _) => false,
         }
     }
 
-    fn build_glyph_analysis(&self,
-                            glyph_id: u32,
-                            point_size: f32,
-                            origin: &Point2D<f32>,
-                            hinting_options: HintingOptions,
-                            rasterization_options: RasterizationOptions)
-                            -> Result<DWriteGlyphRunAnalysis, GlyphLoadingError> {
+    fn build_glyph_analysis(
+        &self,
+        glyph_id: u32,
+        point_size: f32,
+        origin: &Point2D<f32>,
+        hinting_options: HintingOptions,
+        rasterization_options: RasterizationOptions,
+    ) -> Result<DWriteGlyphRunAnalysis, GlyphLoadingError> {
         unsafe {
             let glyph_id = glyph_id as u16;
             let advance = 0.0;
@@ -497,13 +536,15 @@ impl Font {
                 }
             };
 
-            Ok(DWriteGlyphRunAnalysis::create(&glyph_run,
-                                           1.0,
-                                           None,
-                                           rendering_mode,
-                                           DWRITE_MEASURING_MODE_NATURAL,
-                                           0.0,
-                                           0.0)?)
+            Ok(DWriteGlyphRunAnalysis::create(
+                &glyph_run,
+                1.0,
+                None,
+                rendering_mode,
+                DWRITE_MEASURING_MODE_NATURAL,
+                0.0,
+                0.0,
+            )?)
         }
     }
 
@@ -519,18 +560,17 @@ impl Font {
         }
         let text_utf16: Vec<u16> = text.encode_utf16().collect();
         let text_utf16_len = text_utf16.len() as u32;
-        let number_subst = dwrote::NumberSubstitution::new(
-            DWRITE_NUMBER_SUBSTITUTION_METHOD_NONE,
-            locale,
-            true
-        );
+        let number_subst =
+            dwrote::NumberSubstitution::new(DWRITE_NUMBER_SUBSTITUTION_METHOD_NONE, locale, true);
         let text_analysis_source = MyTextAnalysisSource {
             text_utf16_len,
             locale: locale.to_owned(),
         };
         let text_analysis = dwrote::TextAnalysisSource::from_text_and_number_subst(
             Box::new(text_analysis_source),
-            text_utf16, number_subst);
+            text_utf16,
+            number_subst,
+        );
         let sys_fallback = sys_fallback.unwrap();
         // TODO: I think the MapCharacters can take a null pointer, update
         // dwrote to accept an optional collection. This appears to be what
@@ -563,10 +603,7 @@ impl Font {
         } else {
             vec![]
         };
-        FallbackResult {
-            fonts,
-            valid_len,
-        }
+        FallbackResult { fonts, valid_len }
     }
 }
 
@@ -593,7 +630,7 @@ impl Clone for Font {
         Font {
             dwrite_font: self.dwrite_font.clone(),
             dwrite_font_face: self.dwrite_font_face.clone(),
-            cached_data: Mutex::new((*self.cached_data.lock().unwrap()).clone())
+            cached_data: Mutex::new((*self.cached_data.lock().unwrap()).clone()),
         }
     }
 }
@@ -678,9 +715,15 @@ impl Loader for Font {
     }
 
     #[inline]
-    fn outline<B>(&self, glyph_id: u32, hinting: HintingOptions, path_builder: &mut B)
-                  -> Result<(), GlyphLoadingError>
-                  where B: PathBuilder {
+    fn outline<B>(
+        &self,
+        glyph_id: u32,
+        hinting: HintingOptions,
+        path_builder: &mut B,
+    ) -> Result<(), GlyphLoadingError>
+    where
+        B: PathBuilder,
+    {
         self.outline(glyph_id, hinting, path_builder)
     }
 
@@ -705,8 +748,11 @@ impl Loader for Font {
     }
 
     #[inline]
-    fn supports_hinting_options(&self, hinting_options: HintingOptions, for_rasterization: bool)
-                                -> bool {
+    fn supports_hinting_options(
+        &self,
+        hinting_options: HintingOptions,
+        for_rasterization: bool,
+    ) -> bool {
         self.supports_hinting_options(hinting_options, for_rasterization)
     }
 
@@ -716,20 +762,23 @@ impl Loader for Font {
     }
 
     #[inline]
-    fn rasterize_glyph(&self,
-                       canvas: &mut Canvas,
-                       glyph_id: u32,
-                       point_size: f32,
-                       origin: &Point2D<f32>,
-                       hinting_options: HintingOptions,
-                       rasterization_options: RasterizationOptions)
-                       -> Result<(), GlyphLoadingError> {
-        self.rasterize_glyph(canvas,
-                             glyph_id,
-                             point_size,
-                             origin,
-                             hinting_options,
-                             rasterization_options)
+    fn rasterize_glyph(
+        &self,
+        canvas: &mut Canvas,
+        glyph_id: u32,
+        point_size: f32,
+        origin: &Point2D<f32>,
+        hinting_options: HintingOptions,
+        rasterization_options: RasterizationOptions,
+    ) -> Result<(), GlyphLoadingError> {
+        self.rasterize_glyph(
+            canvas,
+            glyph_id,
+            point_size,
+            origin,
+            hinting_options,
+            rasterization_options,
+        )
     }
 
     #[inline]
@@ -750,7 +799,10 @@ impl OutlineBuffer {
         }
     }
 
-    pub fn flush<PB>(&self, path_builder: &mut PB) where PB: PathBuilder {
+    pub fn flush<B>(&self, path_builder: &mut B)
+    where
+        B: PathBuilder,
+    {
         let mut path_events = self.path_events.lock().unwrap();
         for path_event in path_events.drain(..) {
             path_builder.path_event(path_event)
@@ -760,12 +812,17 @@ impl OutlineBuffer {
 
 impl OutlineBuilder for OutlineBuffer {
     fn move_to(&mut self, x: f32, y: f32) {
-        self.path_events.lock().unwrap().push(PathEvent::MoveTo(Point2D::new(x, -y)))
+        self.path_events
+            .lock()
+            .unwrap()
+            .push(PathEvent::MoveTo(Point2D::new(x, -y)))
     }
 
     fn line_to(&mut self, x: f32, y: f32) {
-        self.path_events.lock().unwrap().push(PathEvent::LineTo(Point2D::new(x, -y)))
-
+        self.path_events
+            .lock()
+            .unwrap()
+            .push(PathEvent::LineTo(Point2D::new(x, -y)))
     }
 
     fn curve_to(&mut self, cp0x: f32, cp0y: f32, cp1x: f32, cp1y: f32, x: f32, y: f32) {
@@ -776,10 +833,10 @@ impl OutlineBuilder for OutlineBuffer {
         // See Sederberg § 2.6, "Distance Between Two Bézier Curves".
         let mut path_events = self.path_events.lock().unwrap();
         let from = match *path_events.last().unwrap() {
-            PathEvent::MoveTo(point) |
-            PathEvent::LineTo(point) |
-            PathEvent::QuadraticTo(_, point) |
-            PathEvent::CubicTo(_, _, point) => point,
+            PathEvent::MoveTo(point)
+            | PathEvent::LineTo(point)
+            | PathEvent::QuadraticTo(_, point)
+            | PathEvent::CubicTo(_, _, point) => point,
             PathEvent::Close | PathEvent::Arc(..) => unreachable!(),
         };
         let approx_ctrl_0 = (ctrl0 * 3.0 - from) * 0.5;

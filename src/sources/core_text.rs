@@ -27,12 +27,11 @@ use family_name::FamilyName;
 use file_type::FileType;
 use font::Font;
 use handle::Handle;
-use source::Source;
 use properties::{Properties, Stretch, Weight};
+use source::Source;
 use utils;
 
-pub(crate) static FONT_WEIGHT_MAPPING: [f32; 9] =
-    [-0.7, -0.5, -0.23, 0.0, 0.2, 0.3, 0.4, 0.6, 0.8];
+pub(crate) static FONT_WEIGHT_MAPPING: [f32; 9] = [-0.7, -0.5, -0.23, 0.0, 0.2, 0.3, 0.4, 0.6, 0.8];
 
 /// A source that contains the installed fonts on macOS.
 pub struct CoreTextSource;
@@ -64,11 +63,11 @@ impl CoreTextSource {
     }
 
     /// Looks up a font family by name and returns the handles of all the fonts in that family.
-    pub fn select_family_by_name(&self, family_name: &str)
-                                 -> Result<FamilyHandle, SelectionError> {
-        let attributes: CFDictionary<CFString, CFType> = CFDictionary::from_CFType_pairs(&[
-            (CFString::new("NSFontFamilyAttribute"), CFString::new(family_name).as_CFType()),
-        ]);
+    pub fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
+        let attributes: CFDictionary<CFString, CFType> = CFDictionary::from_CFType_pairs(&[(
+            CFString::new("NSFontFamilyAttribute"),
+            CFString::new(family_name).as_CFType(),
+        )]);
 
         let descriptor = font_descriptor::new_from_attributes(&attributes);
         let descriptors = CFArray::from_CFTypes(&[descriptor]);
@@ -78,11 +77,14 @@ impl CoreTextSource {
     }
 
     /// Selects a font by PostScript name, which should be a unique identifier.
-    pub fn select_by_postscript_name(&self, postscript_name: &str)
-                                     -> Result<Handle, SelectionError> {
-        let attributes: CFDictionary<CFString, CFType> = CFDictionary::from_CFType_pairs(&[
-            (CFString::new("NSFontNameAttribute"), CFString::new(postscript_name).as_CFType()),
-        ]);
+    pub fn select_by_postscript_name(
+        &self,
+        postscript_name: &str,
+    ) -> Result<Handle, SelectionError> {
+        let attributes: CFDictionary<CFString, CFType> = CFDictionary::from_CFType_pairs(&[(
+            CFString::new("NSFontNameAttribute"),
+            CFString::new(postscript_name).as_CFType(),
+        )]);
 
         let descriptor = font_descriptor::new_from_attributes(&attributes);
         let descriptors = CFArray::from_CFTypes(&[descriptor]);
@@ -96,8 +98,11 @@ impl CoreTextSource {
     /// Performs font matching according to the CSS Fonts Level 3 specification and returns the
     /// handle.
     #[inline]
-    pub fn select_best_match(&self, family_names: &[FamilyName], properties: &Properties)
-                             -> Result<Handle, SelectionError> {
+    pub fn select_best_match(
+        &self,
+        family_names: &[FamilyName],
+        properties: &Properties,
+    ) -> Result<Handle, SelectionError> {
         <Self as Source>::select_best_match(self, family_names, properties)
     }
 }
@@ -127,14 +132,14 @@ pub(crate) fn piecewise_linear_lookup(index: f32, mapping: &[f32]) -> f32 {
 }
 
 pub(crate) fn piecewise_linear_find_index(query_value: f32, mapping: &[f32]) -> f32 {
-    let upper_index = match mapping.binary_search_by(|value| {
-        value.partial_cmp(&query_value).unwrap_or(Ordering::Less)
-    }) {
+    let upper_index = match mapping
+        .binary_search_by(|value| value.partial_cmp(&query_value).unwrap_or(Ordering::Less))
+    {
         Ok(index) => return index as f32,
         Err(upper_index) => upper_index,
     };
     if upper_index == 0 {
-        return upper_index as f32
+        return upper_index as f32;
     }
     let lower_index = upper_index - 1;
     let (upper_value, lower_value) = (mapping[upper_index], mapping[lower_index]);
@@ -144,7 +149,10 @@ pub(crate) fn piecewise_linear_find_index(query_value: f32, mapping: &[f32]) -> 
 
 #[allow(dead_code)]
 fn css_to_core_text_font_weight(css_weight: Weight) -> f32 {
-    piecewise_linear_lookup(f32::max(100.0, css_weight.0) / 100.0 - 1.0, &FONT_WEIGHT_MAPPING)
+    piecewise_linear_lookup(
+        f32::max(100.0, css_weight.0) / 100.0 - 1.0,
+        &FONT_WEIGHT_MAPPING,
+    )
 }
 
 #[allow(dead_code)]
@@ -153,8 +161,9 @@ fn css_stretchiness_to_core_text_width(css_stretchiness: Stretch) -> f32 {
     0.25 * piecewise_linear_find_index(css_stretchiness, &Stretch::MAPPING) - 1.0
 }
 
-fn create_handles_from_core_text_collection(collection: CTFontCollection)
-                                            -> Result<Vec<Handle>, SelectionError> {
+fn create_handles_from_core_text_collection(
+    collection: CTFontCollection,
+) -> Result<Vec<Handle>, SelectionError> {
     let mut fonts = vec![];
     if let Some(descriptors) = collection.get_descriptors() {
         for index in 0..descriptors.len() {
@@ -178,7 +187,7 @@ fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Handle {
             if let Ok(font) = Font::from_handle(&font_handle) {
                 if let Some(font_postscript_name) = font.postscript_name() {
                     if postscript_name == font_postscript_name {
-                        return font_handle
+                        return font_handle;
                     }
                 }
             }
@@ -206,11 +215,23 @@ mod test {
     #[test]
     fn test_css_to_core_text_font_stretch() {
         // Exact matches
-        assert_eq!(super::css_stretchiness_to_core_text_width(Stretch(1.0)), 0.0);
-        assert_eq!(super::css_stretchiness_to_core_text_width(Stretch(0.5)), -1.0);
-        assert_eq!(super::css_stretchiness_to_core_text_width(Stretch(2.0)), 1.0);
+        assert_eq!(
+            super::css_stretchiness_to_core_text_width(Stretch(1.0)),
+            0.0
+        );
+        assert_eq!(
+            super::css_stretchiness_to_core_text_width(Stretch(0.5)),
+            -1.0
+        );
+        assert_eq!(
+            super::css_stretchiness_to_core_text_width(Stretch(2.0)),
+            1.0
+        );
 
         // Linear interpolation
-        assert_eq!(super::css_stretchiness_to_core_text_width(Stretch(1.7)), 0.85);
+        assert_eq!(
+            super::css_stretchiness_to_core_text_width(Stretch(1.7)),
+            0.85
+        );
     }
 }

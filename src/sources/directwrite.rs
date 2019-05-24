@@ -49,20 +49,22 @@ impl DirectWriteSource {
 
     /// Returns the names of all families installed on the system.
     pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
-        Ok(self.system_font_collection
-               .families_iter()
-               .map(|dwrite_family| dwrite_family.name())
-               .collect())
+        Ok(self
+            .system_font_collection
+            .families_iter()
+            .map(|dwrite_family| dwrite_family.name())
+            .collect())
     }
 
     /// Looks up a font family by name and returns the handles of all the fonts in that family.
     ///
     /// TODO(pcwalton): Case-insensitivity.
-    pub fn select_family_by_name(&self, family_name: &str)
-                                 -> Result<FamilyHandle, SelectionError> {
+    pub fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
         let mut family = FamilyHandle::new();
-        let dwrite_family = match self.system_font_collection
-                                      .get_font_family_by_name(family_name) {
+        let dwrite_family = match self
+            .system_font_collection
+            .get_font_family_by_name(family_name)
+        {
             Some(dwrite_family) => dwrite_family,
             None => return Err(SelectionError::NotFound),
         };
@@ -77,16 +79,21 @@ impl DirectWriteSource {
     ///
     /// On the DirectWrite backend, this does a brute-force search of installed fonts to find the
     /// one that matches.
-    pub fn select_by_postscript_name(&self, postscript_name: &str)
-                                     -> Result<Handle, SelectionError> {
+    pub fn select_by_postscript_name(
+        &self,
+        postscript_name: &str,
+    ) -> Result<Handle, SelectionError> {
         <Self as Source>::select_by_postscript_name(self, postscript_name)
     }
 
     /// Performs font matching according to the CSS Fonts Level 3 specification and returns the
     /// handle.
     #[inline]
-    pub fn select_best_match(&self, family_names: &[FamilyName], properties: &Properties)
-                             -> Result<Handle, SelectionError> {
+    pub fn select_best_match(
+        &self,
+        family_names: &[FamilyName],
+        properties: &Properties,
+    ) -> Result<Handle, SelectionError> {
         <Self as Source>::select_best_match(self, family_names, properties)
     }
 
@@ -95,7 +102,7 @@ impl DirectWriteSource {
         let dwrite_font_files = dwrite_font_face.get_files();
         Handle::Path {
             path: dwrite_font_files[0].get_font_file_path().unwrap(),
-            font_index: dwrite_font_face.get_index()
+            font_index: dwrite_font_face.get_index(),
         }
     }
 }
@@ -116,4 +123,3 @@ impl Source for DirectWriteSource {
         self.select_family_by_name(family_name)
     }
 }
-

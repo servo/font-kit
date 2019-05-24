@@ -51,7 +51,11 @@ impl Canvas {
     /// The canvas is initialized with transparent black (all values 0).
     #[inline]
     pub fn new(size: &Size2D<u32>, format: Format) -> Canvas {
-        Canvas::with_stride(size, size.width as usize * format.bytes_per_pixel() as usize, format)
+        Canvas::with_stride(
+            size,
+            size.width as usize * format.bytes_per_pixel() as usize,
+            format,
+        )
     }
 
     /// Creates a new blank canvas with the given pixel size, stride (number of bytes between
@@ -73,19 +77,21 @@ impl Canvas {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn blit_from(&mut self,
-                            src_bytes: &[u8],
-                            src_size: &Size2D<u32>,
-                            src_stride: usize,
-                            src_format: Format) {
+    pub(crate) fn blit_from(
+        &mut self,
+        src_bytes: &[u8],
+        src_size: &Size2D<u32>,
+        src_stride: usize,
+        src_format: Format,
+    ) {
         let width = cmp::min(src_size.width as usize, self.size.width as usize);
         let height = cmp::min(src_size.height as usize, self.size.height as usize);
         let size = Size2D::new(width, height);
 
         match (self.format, src_format) {
-            (Format::A8, Format::A8) |
-            (Format::Rgb24, Format::Rgb24) |
-            (Format::Rgba32, Format::Rgba32) => {
+            (Format::A8, Format::A8)
+            | (Format::Rgb24, Format::Rgb24)
+            | (Format::Rgba32, Format::Rgba32) => {
                 self.blit_from_with::<BlitMemcpy>(src_bytes, &size, src_stride, src_format)
             }
             (Format::A8, Format::Rgb24) => {
@@ -97,17 +103,19 @@ impl Canvas {
             (Format::Rgb24, Format::Rgba32) => {
                 self.blit_from_with::<BlitRgba32ToRgb24>(src_bytes, &size, src_stride, src_format)
             }
-            (Format::Rgba32, Format::Rgb24) |
-            (Format::Rgba32, Format::A8) |
-            (Format::A8, Format::Rgba32) => unimplemented!(),
+            (Format::Rgba32, Format::Rgb24)
+            | (Format::Rgba32, Format::A8)
+            | (Format::A8, Format::Rgba32) => unimplemented!(),
         }
     }
 
     #[allow(dead_code)]
-    pub(crate) fn blit_from_bitmap_1bpp(&mut self,
-                                        src_bytes: &[u8],
-                                        src_size: &Size2D<u32>,
-                                        src_stride: usize) {
+    pub(crate) fn blit_from_bitmap_1bpp(
+        &mut self,
+        src_bytes: &[u8],
+        src_size: &Size2D<u32>,
+        src_stride: usize,
+    ) {
         if self.format != Format::A8 {
             unimplemented!()
         }
@@ -136,12 +144,13 @@ impl Canvas {
         }
     }
 
-    fn blit_from_with<B>(&mut self,
-                         src_bytes: &[u8],
-                         size: &Size2D<usize>,
-                         src_stride: usize,
-                         src_format: Format)
-                         where B: Blit {
+    fn blit_from_with<B: Blit>(
+        &mut self,
+        src_bytes: &[u8],
+        size: &Size2D<usize>,
+        src_stride: usize,
+        src_format: Format,
+    ) {
         let src_bytes_per_pixel = src_format.bytes_per_pixel() as usize;
         let dest_bytes_per_pixel = self.format.bytes_per_pixel() as usize;
 
