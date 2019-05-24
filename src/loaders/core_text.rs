@@ -288,6 +288,11 @@ impl Font {
                 src.as_ptr(), dest.as_mut_ptr(), 2
             );
 
+            dbg!(character);
+            dbg!(ok);
+            dbg!(src);
+            dbg!(dest);
+
             if ok {
                 Some(dest[0] as u32)
             } else {
