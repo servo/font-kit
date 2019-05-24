@@ -73,7 +73,7 @@ impl CoreTextSource {
         let descriptor = font_descriptor::new_from_attributes(&attributes);
         let descriptors = CFArray::from_CFTypes(&[descriptor]);
         let collection = font_collection::new_from_descriptors(&descriptors);
-        let handles = try!(create_handles_from_core_text_collection(collection));
+        let handles = create_handles_from_core_text_collection(collection)?;
         Ok(FamilyHandle::from_font_handles(handles.into_iter()))
     }
 

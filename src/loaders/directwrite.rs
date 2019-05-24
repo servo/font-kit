@@ -115,7 +115,7 @@ impl Font {
     /// of the font to load from it. If the data represents a single font, pass 0 for `font_index`.
     pub fn from_bytes(font_data: Arc<Vec<u8>>, font_index: u32) -> Result<Font, FontLoadingError> {
         let font_file =
-            try!(DWriteFontFile::new_from_data(font_data.clone()).ok_or(FontLoadingError::Parse));
+            DWriteFontFile::new_from_data(font_data.clone()).ok_or(FontLoadingError::Parse)?;
         Font::from_dwrite_font_file(font_file, font_index, Some(font_data))
     }
 
@@ -145,7 +145,7 @@ impl Font {
     #[inline]
     pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, FontLoadingError>
                         where P: AsRef<Path> {
-        let font_file = try!(DWriteFontFile::new_from_path(path).ok_or(FontLoadingError::Parse));
+        let font_file = DWriteFontFile::new_from_path(path).ok_or(FontLoadingError::Parse)?;
         Font::from_dwrite_font_file(font_file, font_index, None)
     }
 
@@ -178,7 +178,7 @@ impl Font {
     /// Determines whether a file represents a supported font, and, if so, what type of font it is.
     pub fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         let mut font_data = vec![];
-        try!(file.seek(SeekFrom::Start(0)).map_err(FontLoadingError::Io));
+        file.seek(SeekFrom::Start(0)).map_err(FontLoadingError::Io)?;
         match file.read_to_end(&mut font_data) {
             Err(io_error) => Err(FontLoadingError::Io(io_error)),
             Ok(_) => Font::analyze_bytes(Arc::new(font_data)),
