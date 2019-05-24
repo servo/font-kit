@@ -284,17 +284,13 @@ impl Font {
         unsafe {
             let (mut dest, mut src) = ([0, 0], [0, 0]);
             let src = character.encode_utf16(&mut src);
-            let ok = self.core_text_font.get_glyphs_for_characters(
+            self.core_text_font.get_glyphs_for_characters(
                 src.as_ptr(), dest.as_mut_ptr(), 2
             );
 
-            dbg!(character);
-            dbg!(ok);
-            dbg!(src);
-            dbg!(dest);
-
-            if ok {
-                Some(dest[0] as u32)
+            let id = dest[0] as u32;
+            if id != 0 {
+                Some(id)
             } else {
                 None
             }
