@@ -10,15 +10,6 @@
 
 //! A source that keeps fonts in memory.
 
-#[cfg(target_family = "windows")]
-use std::ffi::OsString;
-#[cfg(target_family = "windows")]
-use std::os::windows::ffi::OsStringExt;
-#[cfg(target_family = "windows")]
-use winapi::shared::minwindef::{MAX_PATH, UINT};
-#[cfg(target_family = "windows")]
-use winapi::um::sysinfoapi;
-
 use error::{FontLoadingError, SelectionError};
 use family_handle::FamilyHandle;
 use family_name::FamilyName;

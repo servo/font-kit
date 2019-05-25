@@ -31,11 +31,10 @@ use std::ffi::OsString;
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
-use std::ops::Deref;
 use std::os::windows::ffi::OsStringExt;
 use std::os::windows::io::AsRawHandle;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use winapi::shared::minwindef::{FALSE, MAX_PATH};
 use winapi::um::dwrite::{
     DWRITE_NUMBER_SUBSTITUTION_METHOD_NONE, DWRITE_READING_DIRECTION,
@@ -257,7 +256,7 @@ impl Font {
 
     /// Returns the glyph ID for the specified glyph name.
     #[inline]
-    pub fn glyph_by_name(&self, name: &str) -> Option<u32> {
+    pub fn glyph_by_name(&self, _name: &str) -> Option<u32> {
         None
     }
 
@@ -507,8 +506,8 @@ impl Font {
         &self,
         glyph_id: u32,
         point_size: f32,
-        origin: &Point2D<f32>,
-        hinting_options: HintingOptions,
+        _origin: &Point2D<f32>,
+        _hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
     ) -> Result<DWriteGlyphRunAnalysis, GlyphLoadingError> {
         unsafe {
