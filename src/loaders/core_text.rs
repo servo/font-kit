@@ -589,6 +589,7 @@ impl Font {
     /// Note: this is currently just a stub implementation, a proper implementation
     /// would use CTFontCopyDefaultCascadeListForLanguages.
     fn get_fallbacks(&self, text: &str, _locale: &str) -> FallbackResult<Font> {
+        warn!("unsupported");
         FallbackResult {
             fonts: Vec::new(),
             valid_len: text.len(),

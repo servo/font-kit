@@ -627,6 +627,7 @@ impl Font {
     ///
     /// FIXME(pcwalton): This always returns zero on FreeType.
     pub fn origin(&self, _: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
+        warn!("unimplemented");
         Ok(Point2D::zero())
     }
 
@@ -890,6 +891,7 @@ impl Font {
     /// would likely use FontConfig, at least on Linux. It's not clear what a
     /// FreeType loader with a non-FreeType source should do.
     fn get_fallbacks(&self, text: &str, _locale: &str) -> FallbackResult<Font> {
+        warn!("unsupported");
         FallbackResult {
             fonts: Vec::new(),
             valid_len: text.len(),

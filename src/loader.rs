@@ -114,6 +114,7 @@ pub trait Loader: Clone + Sized {
     /// Returns the glyph ID for the specified glyph name.
     #[inline]
     fn glyph_by_name(&self, _name: &str) -> Option<u32> {
+        warn!("unimplemented");
         None
     }
 
