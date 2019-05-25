@@ -10,8 +10,6 @@
 
 //! A source that keeps fonts in memory.
 
-use itertools::Itertools;
-
 #[cfg(target_family = "windows")]
 use std::ffi::OsString;
 #[cfg(target_family = "windows")]
@@ -68,13 +66,16 @@ impl MemSource {
 
     /// Returns the names of all families installed on the system.
     pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
-        Ok(self
-            .families
-            .iter()
-            .map(|family| &*family.family_name)
-            .dedup()
-            .map(|name| name.to_owned())
-            .collect())
+        let mut families = vec![];
+        for family in &self.families {
+            if families.last() == Some(&family.family_name) {
+                continue;
+            }
+
+            families.push(family.family_name.clone());
+        }
+
+        Ok(families)
     }
 
     /// Looks up a font family by name and returns the handles of all the fonts in that family.

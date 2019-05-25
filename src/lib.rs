@@ -123,7 +123,6 @@ extern crate byteorder;
 extern crate dirs;
 extern crate euclid;
 extern crate float_ord;
-extern crate itertools;
 extern crate libc;
 extern crate lyon_path;
 extern crate memmap;
