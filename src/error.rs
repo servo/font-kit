@@ -42,6 +42,9 @@ pub enum FontLoadingError {
     NoSuchFontInCollection,
     /// Attempted to load a malformed or corrupted font.
     Parse,
+    /// Attempted to load a font from the filesystem, but there is no filesystem (e.g. in
+    /// WebAssembly).
+    NoFilesystem,
     /// A disk or similar I/O error occurred while attempting to load the font.
     Io(io::Error),
 }
@@ -52,6 +55,7 @@ impl_display! { FontLoadingError, {
         UnknownFormat => "unknown format",
         NoSuchFontInCollection => "no such font in the collection",
         Parse => "parse error",
+        NoFilesystem => "no filesystem present",
         Io(e) => format!("I/O error: {}", e),
     }
 }

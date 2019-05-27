@@ -119,14 +119,10 @@
 #![warn(missing_docs)]
 
 extern crate byteorder;
-#[allow(unused_imports)]
-extern crate dirs;
 extern crate euclid;
 extern crate float_ord;
 extern crate libc;
 extern crate lyon_path;
-extern crate memmap;
-extern crate walkdir;
 
 #[allow(unused_imports)]
 #[macro_use]
@@ -144,7 +140,7 @@ extern crate core_text;
 #[cfg(target_family = "windows")]
 extern crate dwrote;
 #[cfg(any(
-    not(any(target_os = "macos", target_family = "windows")),
+    not(any(target_os = "macos", target_family = "windows", target_arch = "wasm32")),
     feature = "source-fontconfig"
 ))]
 extern crate fontconfig;
@@ -155,6 +151,13 @@ extern crate fontconfig;
 extern crate freetype;
 #[cfg(target_family = "windows")]
 extern crate winapi;
+#[cfg(not(target_arch = "wasm32"))]
+#[allow(unused_imports)]
+extern crate dirs;
+#[cfg(not(target_arch = "wasm32"))]
+extern crate memmap;
+#[cfg(not(target_arch = "wasm32"))]
+extern crate walkdir;
 
 pub mod canvas;
 pub mod error;

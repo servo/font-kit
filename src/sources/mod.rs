@@ -21,11 +21,12 @@ pub mod core_text;
 pub mod directwrite;
 
 #[cfg(any(
-    not(any(target_os = "macos", target_family = "windows")),
+    not(any(target_os = "macos", target_family = "windows", target_arch = "wasm32")),
     feature = "source-fontconfig"
 ))]
 pub mod fontconfig;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub mod fs;
 pub mod mem;
 pub mod multi;

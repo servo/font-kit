@@ -17,15 +17,12 @@ source-fontconfig-default = ["source-fontconfig"]
 
 [dependencies]
 byteorder = "1.2"
-dirs = "1.0"
 euclid = "0.19"
 float-ord = "0.2"
 lazy_static = "1.0"
 libc = "0.2"
 log = "0.4"
 lyon_path = "0.12"
-memmap = "0.6"
-walkdir = "2.1"
 
 [dependencies.freetype]
 version = "^0.4.1"
@@ -55,4 +52,11 @@ core-text = "13.2"
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos")))'.dependencies]
 freetype = "^0.4.1"
+
+[target.'cfg(not(any(target_family = "windows", target_os = "macos", target_arch = "wasm32")))'.dependencies]
 servo-fontconfig = "0.4"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+dirs = "1.0"
+memmap = "0.6"
+walkdir = "2.1"
