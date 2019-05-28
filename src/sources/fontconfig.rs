@@ -50,7 +50,7 @@ impl FontconfigSource {
         object_set.push_string(fc::Object::Index);
 
         let patterns = pattern
-            .list(Some(&self.config), object_set)
+            .list(&self.config, object_set)
             .map_err(|_| SelectionError::NotFound)?;
 
         let mut handles = vec![];
@@ -87,7 +87,7 @@ impl FontconfigSource {
         object_set.push_string(fc::Object::Family);
 
         let patterns = pattern
-            .list(Some(&self.config), object_set)
+            .list(&self.config, object_set)
             .map_err(|_| SelectionError::NotFound)?;
 
         let mut result_families = vec![];
@@ -109,13 +109,26 @@ impl FontconfigSource {
 
     /// Looks up a font family by name and returns the handles of all the fonts in that family.
     pub fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
-        let mut pattern = fc::Pattern::from_name(family_name);
-        pattern.config_substitute(None, fc::MatchKind::Pattern);
-        pattern.default_substitute();
+        use std::borrow::Cow;
 
-        let patterns = pattern.sorted(None).map_err(|_| SelectionError::NotFound)?;
+        let family_name = match family_name {
+            "serif" | "sans-serif" | "monospace" | "cursive" | "fantasy" => {
+                Cow::from(self.select_generic_font(family_name)?)
+            }
+            _ => Cow::from(family_name),
+        };
 
-        let mut handles = Vec::new();
+        let pattern = fc::Pattern::from_name(family_name.as_ref());
+
+        let mut object_set = fc::ObjectSet::new();
+        object_set.push_string(fc::Object::File);
+        object_set.push_string(fc::Object::Index);
+
+        let patterns = pattern
+            .list(&self.config, object_set)
+            .map_err(|_| SelectionError::NotFound)?;
+
+        let mut handles = vec![];
         for patt in patterns {
             let font_path = patt.get_string(fc::Object::File).unwrap();
             let font_index = patt.get_integer(fc::Object::Index).unwrap() as u32;
@@ -128,6 +141,27 @@ impl FontconfigSource {
         } else {
             Err(SelectionError::NotFound)
         }
+    }
+
+    /// Selects a font by a generic name.
+    ///
+    /// Accepts: serif, sans-serif, monospace, cursive and fantasy.
+    fn select_generic_font(&self, name: &str) -> Result<String, SelectionError> {
+        let mut pattern = fc::Pattern::from_name(name);
+        pattern.config_substitute(fc::MatchKind::Pattern);
+        pattern.default_substitute();
+
+        let patterns = pattern
+            .sorted(&self.config)
+            .map_err(|_| SelectionError::NotFound)?;
+
+        if let Some(patt) = patterns.into_iter().next() {
+            if let Some(family) = patt.get_string(fc::Object::Family) {
+                return Ok(family);
+            }
+        }
+
+        Err(SelectionError::NotFound)
     }
 
     /// Selects a font by PostScript name, which should be a unique identifier.
@@ -147,7 +181,7 @@ impl FontconfigSource {
         object_set.push_string(fc::Object::Index);
 
         let patterns = pattern
-            .list(Some(&self.config), object_set)
+            .list(&self.config, object_set)
             .map_err(|_| SelectionError::NotFound)?;
 
         if let Some(patt) = patterns.into_iter().next() {
@@ -194,7 +228,7 @@ impl Source for FontconfigSource {
     }
 }
 
-// TODO: move to a separate crate
+// A minimal fontconfig wrapper.
 mod fc {
     #![allow(dead_code)]
 
@@ -308,10 +342,9 @@ mod fc {
         }
 
         // FcConfigSubstitute
-        pub fn config_substitute(&mut self, config: Option<Config>, match_kind: MatchKind) {
-            let config = config.map(|c| c.d).unwrap_or(ptr::null_mut());
+        pub fn config_substitute(&mut self, match_kind: MatchKind) {
             unsafe {
-                ffi::FcConfigSubstitute(config, self.d, match_kind.to_u32());
+                ffi::FcConfigSubstitute(ptr::null_mut(), self.d, match_kind.to_u32());
             }
         }
 
@@ -323,11 +356,9 @@ mod fc {
         }
 
         // FcFontSort
-        pub fn sorted(&self, config: Option<Config>) -> Result<FontSet, Error> {
-            let config = config.map(|c| c.d).unwrap_or(ptr::null_mut());
-
+        pub fn sorted(&self, config: &Config) -> Result<FontSet, Error> {
             let mut res = ffi::FcResultMatch;
-            let d = unsafe { ffi::FcFontSort(config, self.d, 1, ptr::null_mut(), &mut res) };
+            let d = unsafe { ffi::FcFontSort(config.d, self.d, 1, ptr::null_mut(), &mut res) };
 
             match res {
                 ffi::FcResultMatch => Ok(FontSet { d, idx: 0 }),
@@ -339,9 +370,8 @@ mod fc {
         }
 
         // FcFontList
-        pub fn list(&self, config: Option<&Config>, set: ObjectSet) -> Result<FontSet, Error> {
-            let config = config.map(|c| c.d).unwrap_or(ptr::null_mut());
-            let d = unsafe { ffi::FcFontList(config, self.d, set.d) };
+        pub fn list(&self, config: &Config, set: ObjectSet) -> Result<FontSet, Error> {
+            let d = unsafe { ffi::FcFontList(config.d, self.d, set.d) };
             if !d.is_null() {
                 Ok(FontSet { d, idx: 0 })
             } else {

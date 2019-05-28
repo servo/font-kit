@@ -15,6 +15,7 @@ use float_ord::FloatOrd;
 use error::SelectionError;
 use properties::{Properties, Stretch, Style, Weight};
 
+#[derive(Debug)]
 pub struct Description {
     pub family_name: String,
     pub properties: Properties,
