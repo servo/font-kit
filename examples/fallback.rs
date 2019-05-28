@@ -13,8 +13,7 @@ extern crate font_kit;
 
 use clap::{App, Arg, ArgMatches};
 
-use font_kit::loader::Loader;
-use font_kit::source::SystemSource;
+use font_kit::Loader;
 
 #[cfg(any(target_family = "windows", target_os = "macos"))]
 static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "ArialMT";
@@ -47,7 +46,7 @@ fn main() {
     let postscript_name = matches.value_of("POSTSCRIPT-NAME").unwrap();
     let text = matches.value_of("TEXT").unwrap();
     let locale = matches.value_of("LOCALE").unwrap();
-    let font = SystemSource::new()
+    let font = font_kit::SystemSource::new()
         .select_by_postscript_name(&postscript_name)
         .expect("Font not found")
         .load()

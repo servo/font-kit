@@ -14,30 +14,33 @@
 //!
 //! ## Synopsis
 //!
-//!     # extern crate euclid;
-//!     # extern crate font_kit;
-//!     #
-//!     use euclid::{Point2D, Size2D};
-//!     use font_kit::canvas::{Canvas, Format, RasterizationOptions};
-//!     use font_kit::family_name::FamilyName;
-//!     use font_kit::hinting::HintingOptions;
-//!     use font_kit::properties::Properties;
-//!     use font_kit::source::SystemSource;
+//! ```rust
+//! # extern crate euclid;
+//! # extern crate font_kit;
+//! #
 //!
-//!     let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif],
-//!                                                      &Properties::new())
-//!                                   .unwrap()
-//!                                   .load()
-//!                                   .unwrap();
-//!     let glyph_id = font.glyph_for_char('A').unwrap();
-//!     let mut canvas = Canvas::new(&Size2D::new(32, 32), Format::A8);
-//!     font.rasterize_glyph(&mut canvas,
-//!                          glyph_id,
-//!                          32.0,
-//!                          &Point2D::zero(),
-//!                          HintingOptions::None,
-//!                          RasterizationOptions::GrayscaleAa)
-//!         .unwrap();
+//!    use euclid::{Point2D, Size2D};
+//!    use font_kit::{
+//!        Canvas, FamilyName, Format, HintingOptions, Properties, RasterizationOptions,
+//!        SystemSource,
+//!    };
+//!
+//!    let font = SystemSource::new()
+//!        .select_best_match(&[FamilyName::SansSerif], &Properties::new())
+//!        .unwrap()
+//!        .load()
+//!        .unwrap();
+//!    let glyph_id = font.glyph_for_char('A').unwrap();
+//!    let mut canvas = Canvas::new(&Size2D::new(32, 32), Format::A8);
+//!    font.rasterize_glyph(
+//!        &mut canvas,
+//!        glyph_id,
+//!        32.0,
+//!        &Point2D::zero(),
+//!        HintingOptions::None,
+//!        RasterizationOptions::GrayscaleAa,
+//!    )
+//! ```
 //!
 //! ## Backends
 //!
@@ -161,24 +164,37 @@ extern crate walkdir;
 #[cfg(target_family = "windows")]
 extern crate winapi;
 
-pub mod canvas;
-pub mod error;
-pub mod family;
-pub mod family_handle;
-pub mod family_name;
-pub mod file_type;
-pub mod font;
-pub mod handle;
-pub mod hinting;
-pub mod loader;
-pub mod loaders;
-pub mod metrics;
-pub mod properties;
-pub mod source;
-pub mod sources;
+mod canvas;
+mod error;
+mod family;
+mod family_handle;
+mod family_name;
+mod file_type;
+mod handle;
+mod hinting;
+mod loader;
+mod loaders;
+mod matching;
+mod metrics;
+mod properties;
+mod source;
+mod sources;
+mod utils;
 
 #[cfg(test)]
-pub mod test;
+mod test;
 
-mod matching;
-mod utils;
+pub use canvas::{Canvas, Format, RasterizationOptions};
+pub use error::{FontLoadingError, GlyphLoadingError, SelectionError};
+pub use family::Family;
+pub use family_handle::FamilyHandle;
+pub use family_name::FamilyName;
+pub use file_type::FileType;
+pub use handle::Handle;
+pub use hinting::HintingOptions;
+pub use loader::{FallbackFont, FallbackResult, Loader};
+pub use loaders::Font;
+pub use metrics::Metrics;
+pub use properties::{Properties, Stretch, Style, Weight};
+pub use source::{Source, SystemSource};
+pub use sources::*;

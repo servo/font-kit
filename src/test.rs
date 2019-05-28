@@ -16,14 +16,11 @@ use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
 
-use canvas::{Canvas, Format, RasterizationOptions};
-use family_name::FamilyName;
-use file_type::FileType;
-use font::Font;
-use hinting::HintingOptions;
-use properties::{Properties, Stretch, Weight};
-use source::SystemSource;
 use utils;
+use {
+    Canvas, FamilyName, FileType, Font, Format, HintingOptions, Properties, RasterizationOptions,
+    Stretch, SystemSource, Weight,
+};
 
 static TEST_FONT_FILE_PATH: &'static str = "resources/tests/eb-garamond/EBGaramond12-Regular.otf";
 static TEST_FONT_POSTSCRIPT_NAME: &'static str = "EBGaramond12-Regular";
@@ -38,7 +35,7 @@ static FILE_PATH_INCONSOLATA_TTF: &'static str =
     "resources/tests/inconsolata/Inconsolata-Regular.ttf";
 
 #[test]
-pub fn get_font_full_name() {
+fn get_font_full_name() {
     let font = SystemSource::new()
         .select_best_match(
             &[FamilyName::Title("Arial".to_string())],
@@ -51,14 +48,14 @@ pub fn get_font_full_name() {
 }
 
 #[test]
-pub fn load_font_from_file() {
+fn load_font_from_file() {
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
     let font = Font::from_file(&mut file, 0).unwrap();
     assert_eq!(font.postscript_name().unwrap(), TEST_FONT_POSTSCRIPT_NAME);
 }
 
 #[test]
-pub fn load_font_from_memory() {
+fn load_font_from_memory() {
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
     let mut font_data = vec![];
     file.read_to_end(&mut font_data).unwrap();
@@ -67,13 +64,13 @@ pub fn load_font_from_memory() {
 }
 
 #[test]
-pub fn analyze_file() {
+fn analyze_file() {
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
     assert_eq!(Font::analyze_file(&mut file).unwrap(), FileType::Single);
 }
 
 #[test]
-pub fn analyze_bytes() {
+fn analyze_bytes() {
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
     let mut font_data = vec![];
     file.read_to_end(&mut font_data).unwrap();
@@ -84,7 +81,7 @@ pub fn analyze_bytes() {
 }
 
 #[test]
-pub fn get_glyph_for_char() {
+fn get_glyph_for_char() {
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
@@ -96,7 +93,7 @@ pub fn get_glyph_for_char() {
 
 #[cfg(any(target_family = "windows", target_os = "macos"))]
 #[test]
-pub fn get_glyph_outline() {
+fn get_glyph_outline() {
     let mut path_builder = Path::builder();
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
@@ -147,7 +144,7 @@ pub fn get_glyph_outline() {
 
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
 #[test]
-pub fn get_glyph_outline() {
+fn get_glyph_outline() {
     let mut path_builder = Path::builder();
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
@@ -202,7 +199,7 @@ pub fn get_glyph_outline() {
     feature = "loader-freetype-default"
 ))]
 #[test]
-pub fn get_vertically_hinted_glyph_outline() {
+fn get_vertically_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
@@ -253,7 +250,7 @@ pub fn get_vertically_hinted_glyph_outline() {
 
 #[cfg(not(any(target_os = "macos", target_family = "windows")))]
 #[test]
-pub fn get_vertically_hinted_glyph_outline() {
+fn get_vertically_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
@@ -308,7 +305,7 @@ pub fn get_vertically_hinted_glyph_outline() {
     feature = "loader-freetype-default"
 ))]
 #[test]
-pub fn get_fully_hinted_glyph_outline() {
+fn get_fully_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
@@ -359,7 +356,7 @@ pub fn get_fully_hinted_glyph_outline() {
 
 #[cfg(not(any(target_os = "macos", target_family = "windows")))]
 #[test]
-pub fn get_fully_hinted_glyph_outline() {
+fn get_fully_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
@@ -409,7 +406,7 @@ pub fn get_fully_hinted_glyph_outline() {
 }
 
 #[test]
-pub fn get_empty_glyph_outline() {
+fn get_empty_glyph_outline() {
     let mut path_builder = Path::builder();
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
     let font = Font::from_file(&mut file, 0).unwrap();
@@ -424,7 +421,7 @@ pub fn get_empty_glyph_outline() {
 
 #[cfg(any(target_family = "windows", target_os = "macos"))]
 #[test]
-pub fn get_glyph_typographic_bounds() {
+fn get_glyph_typographic_bounds() {
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
@@ -442,7 +439,7 @@ pub fn get_glyph_typographic_bounds() {
 
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
 #[test]
-pub fn get_glyph_typographic_bounds() {
+fn get_glyph_typographic_bounds() {
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
@@ -460,7 +457,7 @@ pub fn get_glyph_typographic_bounds() {
 
 #[cfg(target_family = "windows")]
 #[test]
-pub fn get_glyph_advance_and_origin() {
+fn get_glyph_advance_and_origin() {
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
@@ -473,7 +470,7 @@ pub fn get_glyph_advance_and_origin() {
 
 #[cfg(target_os = "macos")]
 #[test]
-pub fn get_glyph_advance_and_origin() {
+fn get_glyph_advance_and_origin() {
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
@@ -486,7 +483,7 @@ pub fn get_glyph_advance_and_origin() {
 
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
 #[test]
-pub fn get_glyph_advance_and_origin() {
+fn get_glyph_advance_and_origin() {
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
@@ -499,7 +496,7 @@ pub fn get_glyph_advance_and_origin() {
 
 #[cfg(any(target_family = "windows", target_os = "macos"))]
 #[test]
-pub fn get_font_metrics() {
+fn get_font_metrics() {
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
@@ -518,7 +515,7 @@ pub fn get_font_metrics() {
 
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
 #[test]
-pub fn get_font_metrics() {
+fn get_font_metrics() {
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
@@ -536,7 +533,7 @@ pub fn get_font_metrics() {
 }
 
 #[test]
-pub fn get_font_properties() {
+fn get_font_properties() {
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
@@ -548,7 +545,7 @@ pub fn get_font_properties() {
 }
 
 #[test]
-pub fn get_font_data() {
+fn get_font_data() {
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
@@ -561,7 +558,7 @@ pub fn get_font_data() {
 }
 
 #[test]
-pub fn rasterize_glyph_with_grayscale_aa() {
+fn rasterize_glyph_with_grayscale_aa() {
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
@@ -593,7 +590,7 @@ pub fn rasterize_glyph_with_grayscale_aa() {
 }
 
 #[test]
-pub fn rasterize_glyph_bilevel() {
+fn rasterize_glyph_bilevel() {
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
@@ -633,7 +630,7 @@ pub fn rasterize_glyph_bilevel() {
     feature = "loader-freetype-default"
 ))]
 #[test]
-pub fn rasterize_glyph_with_full_hinting() {
+fn rasterize_glyph_with_full_hinting() {
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()

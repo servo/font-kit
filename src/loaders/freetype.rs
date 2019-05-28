@@ -38,13 +38,10 @@ use std::ptr;
 use std::slice;
 use std::sync::Arc;
 
-use error::{FontLoadingError, GlyphLoadingError};
-use file_type::FileType;
-use handle::Handle;
-use hinting::HintingOptions;
-use loader::{FallbackResult, Loader};
-use metrics::Metrics;
-use properties::{Properties, Stretch, Style, Weight};
+use {
+    FallbackResult, FileType, FontLoadingError, GlyphLoadingError, Handle, HintingOptions, Loader,
+    Metrics, Properties, Stretch, Style, Weight,
+};
 
 #[cfg(not(target_arch = "wasm32"))]
 use memmap::Mmap;

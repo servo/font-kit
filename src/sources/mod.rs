@@ -15,18 +15,33 @@
 //! query fonts not installed on the system.
 
 #[cfg(target_os = "macos")]
-pub mod core_text;
+mod core_text;
+#[cfg(target_os = "macos")]
+pub use self::core_text::CoreTextSource;
 
 #[cfg(target_family = "windows")]
-pub mod directwrite;
+mod directwrite;
+#[cfg(target_family = "windows")]
+pub use self::directwrite::DirectWriteSource;
 
 #[cfg(any(
     not(any(target_os = "macos", target_family = "windows", target_arch = "wasm32")),
     feature = "source-fontconfig"
 ))]
-pub mod fontconfig;
+mod fontconfig;
+#[cfg(any(
+    not(any(target_os = "macos", target_family = "windows", target_arch = "wasm32")),
+    feature = "source-fontconfig"
+))]
+pub use self::fontconfig::FontconfigSource;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub mod fs;
-pub mod mem;
-pub mod multi;
+mod fs;
+#[cfg(not(target_arch = "wasm32"))]
+pub use self::fs::FsSource;
+
+mod mem;
+mod multi;
+
+pub use self::mem::MemSource;
+pub use self::multi::MultiSource;

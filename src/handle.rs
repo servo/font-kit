@@ -17,8 +17,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use error::FontLoadingError;
-use font::Font;
+use {Font, FontLoadingError};
 
 /// Encapsulates the information needed to locate and open a font.
 ///

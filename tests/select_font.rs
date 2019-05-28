@@ -10,11 +10,7 @@
 
 extern crate font_kit;
 
-use font_kit::error::SelectionError;
-use font_kit::family_name::FamilyName;
-use font_kit::handle::Handle;
-use font_kit::properties::Properties;
-use font_kit::source::SystemSource;
+use font_kit::{FamilyName, Handle, Properties, SelectionError, SystemSource};
 
 macro_rules! match_handle {
     ($handle:expr, $path:expr, $index:expr) => {
@@ -208,9 +204,9 @@ mod test {
             .select_best_match(
                 &[FamilyName::SansSerif],
                 &Properties {
-                    style: font_kit::properties::Style::Normal,
-                    weight: font_kit::properties::Weight::BOLD,
-                    stretch: font_kit::properties::Stretch::NORMAL,
+                    style: font_kit::Style::Normal,
+                    weight: font_kit::Weight::BOLD,
+                    stretch: font_kit::Stretch::NORMAL,
                 },
             )
             .unwrap();

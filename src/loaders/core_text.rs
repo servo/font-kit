@@ -34,16 +34,10 @@ use std::ops::Deref;
 use std::path::Path;
 use std::sync::Arc;
 
-use canvas::{Canvas, Format, RasterizationOptions};
-use error::{FontLoadingError, GlyphLoadingError};
-use file_type::FileType;
-use handle::Handle;
-use hinting::HintingOptions;
-use loader::{FallbackResult, Loader};
-use metrics::Metrics;
-use properties::{Properties, Stretch, Style, Weight};
-use sources;
-use utils;
+use {
+    utils, Canvas, FallbackResult, FileType, FontLoadingError, Format, GlyphLoadingError, Handle,
+    HintingOptions, Loader, Metrics, Properties, RasterizationOptions, Stretch, Style, Weight,
+};
 
 const TTC_TAG: [u8; 4] = [b't', b't', b'c', b'f'];
 

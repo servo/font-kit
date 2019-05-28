@@ -13,12 +13,7 @@
 use dwrote::Font as DWriteFont;
 use dwrote::FontCollection as DWriteFontCollection;
 
-use error::SelectionError;
-use family_handle::FamilyHandle;
-use family_name::FamilyName;
-use handle::Handle;
-use properties::Properties;
-use source::Source;
+use {FamilyHandle, FamilyName, Handle, Properties, SelectionError, Source};
 
 /// A source that contains the installed fonts on Windows.
 #[allow(missing_debug_implementations)]

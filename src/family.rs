@@ -10,11 +10,7 @@
 
 //! Defines a set of faces that vary in weight, width or slope.
 
-use error::FontLoadingError;
-use family_handle::FamilyHandle;
-use font::Font;
-use handle::Handle;
-use loader::Loader;
+use {FamilyHandle, Font, FontLoadingError, Handle, Loader};
 
 /// Defines a set of faces that vary in weight, width or slope.
 #[derive(Debug)]

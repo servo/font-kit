@@ -15,12 +15,7 @@
 //! support. To prefer it over the native font source (only if you know what you're doing), use the
 //! `source-fontconfig-default` feature.
 
-use error::SelectionError;
-use family_handle::FamilyHandle;
-use family_name::FamilyName;
-use handle::Handle;
-use properties::Properties;
-use source::Source;
+use {FamilyHandle, FamilyName, Handle, Properties, SelectionError, Source};
 
 /// A source that contains the fonts installed on the system, as reported by the Fontconfig
 /// library.

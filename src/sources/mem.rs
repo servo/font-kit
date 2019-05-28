@@ -10,13 +10,9 @@
 
 //! A source that keeps fonts in memory.
 
-use error::{FontLoadingError, SelectionError};
-use family_handle::FamilyHandle;
-use family_name::FamilyName;
-use font::Font;
-use handle::Handle;
-use properties::Properties;
-use source::Source;
+use {
+    FamilyHandle, FamilyName, Font, FontLoadingError, Handle, Properties, SelectionError, Source,
+};
 
 /// A source that keeps fonts in memory.
 #[allow(missing_debug_implementations)]

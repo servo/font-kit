@@ -42,14 +42,11 @@ use winapi::um::dwrite::{
 };
 use winapi::um::fileapi;
 
-use canvas::{Canvas, Format, RasterizationOptions};
-use error::{FontLoadingError, GlyphLoadingError};
-use file_type::FileType;
-use handle::Handle;
-use hinting::HintingOptions;
-use loader::{FallbackFont, FallbackResult, Loader};
-use metrics::Metrics;
-use properties::{Properties, Stretch, Style, Weight};
+use {
+    Canvas, FallbackFont, FallbackResult, FileType, FontLoadingError, Format, GlyphLoadingError,
+    Handle, HintingOptions, Loader, Metrics, Properties, RasterizationOptions, Stretch, Style,
+    Weight,
+};
 
 const ERROR_BOUND: f32 = 0.0001;
 

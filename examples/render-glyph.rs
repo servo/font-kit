@@ -16,9 +16,7 @@ extern crate font_kit;
 use clap::{App, Arg, ArgGroup, ArgMatches};
 use colored::Colorize;
 use euclid::Point2D;
-use font_kit::canvas::{Canvas, Format, RasterizationOptions};
-use font_kit::hinting::HintingOptions;
-use font_kit::source::SystemSource;
+use font_kit::{Canvas, Format, HintingOptions, RasterizationOptions, SystemSource};
 use std::fmt::Write;
 
 #[cfg(any(target_family = "windows", target_os = "macos"))]

@@ -12,8 +12,7 @@
 
 use float_ord::FloatOrd;
 
-use error::SelectionError;
-use properties::{Properties, Stretch, Style, Weight};
+use {Properties, SelectionError, Stretch, Style, Weight};
 
 #[derive(Debug)]
 pub struct Description {

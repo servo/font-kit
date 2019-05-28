@@ -29,15 +29,9 @@ use winapi::shared::minwindef::{MAX_PATH, UINT};
 #[cfg(target_family = "windows")]
 use winapi::um::sysinfoapi;
 
-use error::SelectionError;
-use family_handle::FamilyHandle;
-use family_name::FamilyName;
-use file_type::FileType;
-use font::Font;
-use handle::Handle;
-use properties::Properties;
-use source::Source;
-use sources::mem::MemSource;
+use {
+    FamilyHandle, FamilyName, FileType, Font, Handle, MemSource, Properties, SelectionError, Source,
+};
 
 /// A source that loads fonts from a directory or directories on disk.
 ///

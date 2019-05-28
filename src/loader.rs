@@ -15,13 +15,10 @@ use euclid::{Point2D, Rect, Vector2D};
 use lyon_path::builder::PathBuilder;
 use std::sync::Arc;
 
-use canvas::{Canvas, RasterizationOptions};
-use error::{FontLoadingError, GlyphLoadingError};
-use file_type::FileType;
-use handle::Handle;
-use hinting::HintingOptions;
-use metrics::Metrics;
-use properties::Properties;
+use {
+    Canvas, FileType, FontLoadingError, GlyphLoadingError, Handle, HintingOptions, Metrics,
+    Properties, RasterizationOptions,
+};
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;

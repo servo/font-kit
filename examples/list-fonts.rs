@@ -14,7 +14,6 @@ extern crate font_kit;
 extern crate pbr;
 extern crate prettytable;
 
-use font_kit::source::SystemSource;
 use pbr::ProgressBar;
 use prettytable::cell::Cell;
 use prettytable::row::Row;
@@ -32,7 +31,7 @@ fn main() {
         Cell::new("Stretch").with_style(Attr::Bold),
     ]));
 
-    let source = SystemSource::new();
+    let source = font_kit::SystemSource::new();
     let fonts = source.all_fonts().unwrap();
     let mut progress_bar = ProgressBar::new(fonts.len() as u64);
     progress_bar.message("Loading fonts… ");
