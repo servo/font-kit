@@ -53,7 +53,9 @@ pub trait Loader: Clone + Sized {
     /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     #[cfg(not(target_arch = "wasm32"))]
     fn from_path<P>(path: P, font_index: u32) -> Result<Self, FontLoadingError>
-                    where P: AsRef<Path> {
+    where
+        P: AsRef<Path>,
+    {
         Loader::from_file(&mut try!(File::open(path)), font_index)
     }
 
@@ -88,7 +90,10 @@ pub trait Loader: Clone + Sized {
     /// Determines whether a path points to a supported font, and, if so, what type of font it is.
     #[inline]
     #[cfg(not(target_arch = "wasm32"))]
-    fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
+    fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError>
+    where
+        P: AsRef<Path>,
+    {
         <Self as Loader>::analyze_file(&mut try!(File::open(path)))
     }
 

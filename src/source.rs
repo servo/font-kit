@@ -23,11 +23,15 @@ use properties::Properties;
 pub use sources::core_text::CoreTextSource as SystemSource;
 #[cfg(all(target_family = "windows", not(feature = "source-fontconfig-default")))]
 pub use sources::directwrite::DirectWriteSource as SystemSource;
-#[cfg(any(not(any(target_os = "android",
-                  target_os = "macos",
-                  target_family = "windows",
-                  target_arch = "wasm32")),
-          feature = "source-fontconfig-default"))]
+#[cfg(any(
+    not(any(
+        target_os = "android",
+        target_os = "macos",
+        target_family = "windows",
+        target_arch = "wasm32"
+    )),
+    feature = "source-fontconfig-default"
+))]
 pub use sources::fontconfig::FontconfigSource as SystemSource;
 #[cfg(all(target_os = "android", not(feature = "source-fontconfig-default")))]
 pub use sources::fs::FsSource as SystemSource;

@@ -188,7 +188,9 @@ impl Font {
     #[inline]
     #[cfg(not(target_arch = "wasm32"))]
     pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, FontLoadingError>
-                        where P: AsRef<Path> {
+    where
+        P: AsRef<Path>,
+    {
         // TODO(pcwalton): Perhaps use the native FreeType support for opening paths?
         <Font as Loader>::from_path(path, font_index)
     }
@@ -276,7 +278,10 @@ impl Font {
     /// Determines whether a path points to a supported font, and, if so, what type of font it is.
     #[inline]
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
+    pub fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError>
+    where
+        P: AsRef<Path>,
+    {
         <Self as Loader>::analyze_path(path)
     }
 

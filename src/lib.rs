@@ -137,6 +137,9 @@ extern crate core_foundation;
 extern crate core_graphics;
 #[cfg(target_os = "macos")]
 extern crate core_text;
+#[cfg(not(target_arch = "wasm32"))]
+#[allow(unused_imports)]
+extern crate dirs;
 #[cfg(target_family = "windows")]
 extern crate dwrote;
 #[cfg(any(
@@ -149,15 +152,12 @@ extern crate fontconfig;
     feature = "loader-freetype"
 ))]
 extern crate freetype;
-#[cfg(target_family = "windows")]
-extern crate winapi;
-#[cfg(not(target_arch = "wasm32"))]
-#[allow(unused_imports)]
-extern crate dirs;
 #[cfg(not(target_arch = "wasm32"))]
 extern crate memmap;
 #[cfg(not(target_arch = "wasm32"))]
 extern crate walkdir;
+#[cfg(target_family = "windows")]
+extern crate winapi;
 
 pub mod canvas;
 pub mod error;
