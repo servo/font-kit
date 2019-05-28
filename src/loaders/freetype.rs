@@ -27,16 +27,13 @@ use freetype::freetype::{FT_Set_Char_Size, FT_Set_Transform, FT_Sfnt_Tag, FT_UIn
 use freetype::freetype::{FT_UShort, FT_Vector};
 use freetype::tt_os2::TT_OS2;
 use lyon_path::builder::PathBuilder;
-use memmap::Mmap;
 use std::f32;
 use std::ffi::{CStr, CString};
 use std::fmt::{self, Debug, Formatter};
-use std::fs::File;
 use std::iter;
 use std::mem;
 use std::ops::Deref;
 use std::os::raw::{c_char, c_void};
-use std::path::Path;
 use std::ptr;
 use std::slice;
 use std::sync::Arc;
@@ -48,6 +45,13 @@ use hinting::HintingOptions;
 use loader::{FallbackResult, Loader};
 use metrics::Metrics;
 use properties::{Properties, Stretch, Style, Weight};
+
+#[cfg(not(target_arch = "wasm32"))]
+use memmap::Mmap;
+#[cfg(not(target_arch = "wasm32"))]
+use std::fs::File;
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
 
 const PS_DICT_FULL_NAME: u32 = 38;
 const TT_NAME_ID_FULL_NAME: u16 = 4;
@@ -150,6 +154,7 @@ impl Font {
     ///
     /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
     /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
         unsafe {
             let mmap = Mmap::map(&file)?;
@@ -181,7 +186,9 @@ impl Font {
     /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
     /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     #[inline]
-    pub fn from_path<P: AsRef<Path>>(path: P, font_index: u32) -> Result<Font, FontLoadingError> {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn from_path<P>(path: P, font_index: u32) -> Result<Font, FontLoadingError>
+                        where P: AsRef<Path> {
         // TODO(pcwalton): Perhaps use the native FreeType support for opening paths?
         <Font as Loader>::from_path(path, font_index)
     }
@@ -241,6 +248,7 @@ impl Font {
     }
 
     /// Determines whether a file represents a supported font, and, if so, what type of font it is.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         FREETYPE_LIBRARY.with(|freetype_library| unsafe {
             let mmap = Mmap::map(&file)?;
@@ -267,7 +275,8 @@ impl Font {
 
     /// Determines whether a path points to a supported font, and, if so, what type of font it is.
     #[inline]
-    pub fn analyze_path<P: AsRef<Path>>(path: P) -> Result<FileType, FontLoadingError> {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
         <Self as Loader>::analyze_path(path)
     }
 
@@ -880,6 +889,7 @@ impl Font {
     /// collection.
     pub fn copy_font_data(&self) -> Option<Arc<Vec<u8>>> {
         match self.font_data {
+            #[cfg(not(target_arch = "wasm32"))]
             FontData::File(ref file) => Some(Arc::new((*file).to_vec())),
             FontData::Memory(ref memory) => Some((*memory).clone()),
         }
@@ -936,6 +946,7 @@ impl Loader for Font {
     }
 
     #[inline]
+    #[cfg(not(target_arch = "wasm32"))]
     fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
         Font::from_file(file, font_index)
     }
@@ -945,6 +956,7 @@ impl Loader for Font {
         Font::analyze_bytes(font_data)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         Font::analyze_file(file)
     }
@@ -1075,6 +1087,7 @@ impl Loader for Font {
 #[derive(Clone)]
 enum FontData {
     Memory(Arc<Vec<u8>>),
+    #[cfg(not(target_arch = "wasm32"))]
     File(Arc<Mmap>),
 }
 
@@ -1082,6 +1095,7 @@ impl Deref for FontData {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
         match *self {
+            #[cfg(not(target_arch = "wasm32"))]
             FontData::File(ref mmap) => &***mmap,
             FontData::Memory(ref data) => &***data,
         }

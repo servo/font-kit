@@ -13,8 +13,6 @@
 
 use euclid::{Point2D, Rect, Vector2D};
 use lyon_path::builder::PathBuilder;
-use std::fs::File;
-use std::path::Path;
 use std::sync::Arc;
 
 use canvas::{Canvas, RasterizationOptions};
@@ -24,6 +22,11 @@ use handle::Handle;
 use hinting::HintingOptions;
 use metrics::Metrics;
 use properties::Properties;
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::fs::File;
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
 
 /// Provides a common interface to the platform-specific API that loads, parses, and rasterizes
 /// fonts.
@@ -41,14 +44,17 @@ pub trait Loader: Clone + Sized {
     ///
     /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
     /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
+    #[cfg(not(target_arch = "wasm32"))]
     fn from_file(file: &mut File, font_index: u32) -> Result<Self, FontLoadingError>;
 
     /// Loads a font from the path to a `.ttf`/`.otf`/etc. file.
     ///
     /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
     /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
-    fn from_path<P: AsRef<Path>>(path: P, font_index: u32) -> Result<Self, FontLoadingError> {
-        Loader::from_file(&mut File::open(path)?, font_index)
+    #[cfg(not(target_arch = "wasm32"))]
+    fn from_path<P>(path: P, font_index: u32) -> Result<Self, FontLoadingError>
+                    where P: AsRef<Path> {
+        Loader::from_file(&mut try!(File::open(path)), font_index)
     }
 
     /// Creates a font from a native API handle.
@@ -61,10 +67,13 @@ pub trait Loader: Clone + Sized {
                 ref bytes,
                 font_index,
             } => Self::from_bytes((*bytes).clone(), font_index),
+            #[cfg(not(target_arch = "wasm32"))]
             Handle::Path {
                 ref path,
                 font_index,
             } => Self::from_path(path, font_index),
+            #[cfg(target_arch = "wasm32")]
+            Handle::Path { .. } => Err(FontLoadingError::NoFilesystem),
         }
     }
 
@@ -73,12 +82,14 @@ pub trait Loader: Clone + Sized {
     fn analyze_bytes(font_data: Arc<Vec<u8>>) -> Result<FileType, FontLoadingError>;
 
     /// Determines whether a file represents a supported font, and, if so, what type of font it is.
+    #[cfg(not(target_arch = "wasm32"))]
     fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError>;
 
     /// Determines whether a path points to a supported font, and, if so, what type of font it is.
     #[inline]
-    fn analyze_path<P: AsRef<Path>>(path: P) -> Result<FileType, FontLoadingError> {
-        <Self as Loader>::analyze_file(&mut File::open(path)?)
+    #[cfg(not(target_arch = "wasm32"))]
+    fn analyze_path<P>(path: P) -> Result<FileType, FontLoadingError> where P: AsRef<Path> {
+        <Self as Loader>::analyze_file(&mut try!(File::open(path)))
     }
 
     /// Returns the wrapped native font handle.
