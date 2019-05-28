@@ -28,6 +28,7 @@ use source::Source;
 /// On macOS and Windows, the Cargo feature `source-fontconfig` can be used to opt into fontconfig
 /// support. To prefer it over the native font source (only if you know what you're doing), use the
 /// `source-fontconfig-default` feature.
+#[allow(missing_debug_implementations)]
 pub struct FontconfigSource {
     config: fc::Config,
 }

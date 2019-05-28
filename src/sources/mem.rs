@@ -19,6 +19,7 @@ use properties::Properties;
 use source::Source;
 
 /// A source that keeps fonts in memory.
+#[allow(missing_debug_implementations)]
 pub struct MemSource {
     families: Vec<FamilyEntry>,
 }

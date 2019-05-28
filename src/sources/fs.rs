@@ -44,6 +44,7 @@ use sources::mem::MemSource;
 /// This source uses the WalkDir abstraction from the `walkdir` crate to locate fonts.
 ///
 /// This is the native source on Android.
+#[allow(missing_debug_implementations)]
 pub struct FsSource {
     mem_source: MemSource,
 }

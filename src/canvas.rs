@@ -12,6 +12,7 @@
 
 use euclid::Size2D;
 use std::cmp;
+use std::fmt;
 
 use utils;
 
@@ -162,6 +163,17 @@ impl Canvas {
             let src_row_pixels = &src_bytes[src_row_start..src_row_end];
             B::blit(dest_row_pixels, src_row_pixels)
         }
+    }
+}
+
+impl fmt::Debug for Canvas {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Canvas")
+            .field("pixels", &self.pixels.len()) // Do not dump a vector content.
+            .field("size", &self.size)
+            .field("stride", &self.stride)
+            .field("format", &self.format)
+            .finish()
     }
 }
 

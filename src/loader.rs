@@ -234,6 +234,7 @@ pub trait Loader: Clone + Sized {
 }
 
 /// The result of a fallback query.
+#[derive(Debug)]
 pub struct FallbackResult<Font> {
     /// A list of fallback fonts.
     pub fonts: Vec<FallbackFont<Font>>,
@@ -242,6 +243,7 @@ pub struct FallbackResult<Font> {
 }
 
 /// A single font record for a fallback query result.
+#[derive(Debug)]
 pub struct FallbackFont<Font> {
     /// The font.
     pub font: Font,

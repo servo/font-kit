@@ -24,6 +24,7 @@ use source::Source;
 ///
 /// This is useful when an application wants a library of fonts consisting of the installed system
 /// fonts plus some other application-supplied fonts.
+#[allow(missing_debug_implementations)]
 pub struct MultiSource {
     subsources: Vec<Box<Source>>,
 }

@@ -34,6 +34,7 @@ use utils;
 pub(crate) static FONT_WEIGHT_MAPPING: [f32; 9] = [-0.7, -0.5, -0.23, 0.0, 0.2, 0.3, 0.4, 0.6, 0.8];
 
 /// A source that contains the installed fonts on macOS.
+#[allow(missing_debug_implementations)]
 pub struct CoreTextSource;
 
 impl CoreTextSource {

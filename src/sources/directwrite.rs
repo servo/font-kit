@@ -21,6 +21,7 @@ use properties::Properties;
 use source::Source;
 
 /// A source that contains the installed fonts on Windows.
+#[allow(missing_debug_implementations)]
 pub struct DirectWriteSource {
     system_font_collection: DWriteFontCollection,
 }

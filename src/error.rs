@@ -67,7 +67,7 @@ impl From<io::Error> for FontLoadingError {
 }
 
 /// Reasons why a font might fail to load a glyph.
-#[derive(PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum GlyphLoadingError {
     /// The font didn't contain a glyph with that ID.
     NoSuchGlyph,
@@ -91,7 +91,7 @@ impl From<winapi::um::winnt::HRESULT> for GlyphLoadingError {
 }
 
 /// Reasons why a source might fail to look up a font or fonts.
-#[derive(PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum SelectionError {
     /// No font matching the given query was found.
     NotFound,

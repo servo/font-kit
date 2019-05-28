@@ -117,6 +117,8 @@
 //! [CSS Fonts Module Level 3]: https://drafts.csswg.org/css-fonts-3/#font-matching-algorithm
 
 #![warn(missing_docs)]
+#![warn(missing_debug_implementations)]
+#![warn(missing_copy_implementations)]
 
 extern crate byteorder;
 extern crate euclid;
