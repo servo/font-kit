@@ -92,13 +92,19 @@ rarely what you want on those two platforms!
 * Looking up glyph advances and origins.
 
 * Rasterizing glyphs using the native rasterizer, optionally using hinting. (Custom rasterizers,
-  such as Pathfinder, can be used in conjuction with the outline API.)
+  such as Pathfinder, can be used in conjunction with the outline API.)
 
 * Looking up all fonts on the system.
 
 * Searching for specific fonts by family or PostScript name.
 
 * Performing font matching according to the [CSS Fonts Module Level 3] specification.
+
+## Dependencies
+
+**Ubuntu Linux**
+
+`sudo apt install pkg-config libfreetype6-dev libfontconfig1-dev`
 
 ## License
 
