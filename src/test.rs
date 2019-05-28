@@ -17,37 +17,13 @@ use std::io::Read;
 use std::sync::Arc;
 
 use canvas::{Canvas, Format, RasterizationOptions};
-use error::SelectionError;
 use family_name::FamilyName;
 use file_type::FileType;
 use font::Font;
 use hinting::HintingOptions;
-use properties::{Properties, Stretch, Style, Weight};
+use properties::{Properties, Stretch, Weight};
 use source::SystemSource;
-use sources::fs::FsSource;
 use utils;
-
-#[cfg(any(target_family = "windows", target_os = "macos"))]
-static SANS_SERIF_FONT_FAMILY_NAME: &'static str = "Arial";
-#[cfg(any(target_family = "windows", target_os = "macos"))]
-static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "ArialMT";
-#[cfg(any(target_family = "windows", target_os = "macos"))]
-static SANS_SERIF_FONT_BOLD_POSTSCRIPT_NAME: &'static str = "Arial-BoldMT";
-#[cfg(any(target_family = "windows", target_os = "macos"))]
-static SANS_SERIF_FONT_ITALIC_POSTSCRIPT_NAME: &'static str = "Arial-ItalicMT";
-#[cfg(any(target_family = "windows", target_os = "macos"))]
-static SANS_SERIF_FONT_FULL_NAME: &'static str = "Arial";
-
-#[cfg(not(any(target_family = "windows", target_os = "macos")))]
-static SANS_SERIF_FONT_FAMILY_NAME: &'static str = "DejaVu Sans";
-#[cfg(not(any(target_family = "windows", target_os = "macos")))]
-static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "DejaVuSans";
-#[cfg(not(any(target_family = "windows", target_os = "macos")))]
-static SANS_SERIF_FONT_BOLD_POSTSCRIPT_NAME: &'static str = "DejaVuSans-Bold";
-#[cfg(not(any(target_family = "windows", target_os = "macos")))]
-static SANS_SERIF_FONT_ITALIC_POSTSCRIPT_NAME: &'static str = "LiberationSans-Italic";
-#[cfg(not(any(target_family = "windows", target_os = "macos")))]
-static SANS_SERIF_FONT_FULL_NAME: &'static str = "DejaVu Sans";
 
 static TEST_FONT_FILE_PATH: &'static str = "resources/tests/eb-garamond/EBGaramond12-Regular.otf";
 static TEST_FONT_POSTSCRIPT_NAME: &'static str = "EBGaramond12-Regular";
@@ -62,87 +38,16 @@ static FILE_PATH_INCONSOLATA_TTF: &'static str =
     "resources/tests/inconsolata/Inconsolata-Regular.ttf";
 
 #[test]
-pub fn lookup_single_regular_font() {
-    let font = SystemSource::new()
-        .select_best_match(&[FamilyName::SansSerif], &Properties::new())
-        .unwrap()
-        .load()
-        .unwrap();
-    assert_eq!(
-        font.postscript_name().unwrap(),
-        SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME
-    );
-}
-
-#[test]
-pub fn lookup_single_bold_font() {
+pub fn get_font_full_name() {
     let font = SystemSource::new()
         .select_best_match(
-            &[FamilyName::SansSerif],
-            Properties::new().weight(Weight::BOLD),
+            &[FamilyName::Title("Arial".to_string())],
+            &Properties::new(),
         )
         .unwrap()
         .load()
         .unwrap();
-    assert_eq!(
-        font.postscript_name().unwrap(),
-        SANS_SERIF_FONT_BOLD_POSTSCRIPT_NAME
-    );
-}
-
-#[test]
-pub fn lookup_single_italic_font() {
-    let font = SystemSource::new()
-        .select_best_match(
-            &[FamilyName::SansSerif],
-            Properties::new().style(Style::Italic),
-        )
-        .unwrap()
-        .load()
-        .unwrap();
-    assert_eq!(
-        font.postscript_name().unwrap(),
-        SANS_SERIF_FONT_ITALIC_POSTSCRIPT_NAME
-    );
-}
-
-#[test]
-pub fn lookup_all_fonts_in_a_family() {
-    let family = SystemSource::new()
-        .select_family_by_name(SANS_SERIF_FONT_FAMILY_NAME)
-        .unwrap();
-    assert!(family.fonts().len() > 2);
-}
-
-// Ignored because the `fs` backend is *slow*.
-#[ignore]
-#[test]
-pub fn lookup_all_fonts_in_a_family_in_system_font_directories() {
-    let family = FsSource::new()
-        .select_family_by_name(SANS_SERIF_FONT_FAMILY_NAME)
-        .unwrap();
-    assert!(family.fonts().len() > 0);
-}
-
-#[test]
-pub fn lookup_font_by_postscript_name() {
-    let font = SystemSource::new()
-        .select_by_postscript_name(SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME)
-        .unwrap()
-        .load()
-        .unwrap();
-    assert_eq!(
-        font.postscript_name().unwrap(),
-        SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME
-    );
-}
-
-#[test]
-pub fn fail_to_lookup_font_by_postscript_name() {
-    match SystemSource::new().select_by_postscript_name("zxhjfgkadsfhg") {
-        Err(SelectionError::NotFound) => {}
-        other => panic!("unexpected error: {:?}", other),
-    }
+    assert_eq!(font.full_name(), "Arial");
 }
 
 #[test]
@@ -628,16 +533,6 @@ pub fn get_font_metrics() {
     assert_eq!(metrics.underline_thickness, 90.0);
     assert_eq!(metrics.cap_height, 0.0); // FIXME(pcwalton): Huh?!
     assert_eq!(metrics.x_height, 0.0); // FIXME(pcwalton): Huh?!
-}
-
-#[test]
-pub fn get_font_full_name() {
-    let font = SystemSource::new()
-        .select_best_match(&[FamilyName::SansSerif], &Properties::new())
-        .unwrap()
-        .load()
-        .unwrap();
-    assert_eq!(font.full_name(), SANS_SERIF_FONT_FULL_NAME);
 }
 
 #[test]
