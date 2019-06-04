@@ -1081,17 +1081,17 @@ fn check_L_shape(canvas: &Canvas) {
     let mut y = 0;
     while y < canvas.size.height {
         let (row_start, row_end) = (canvas.stride * y as usize, canvas.stride * (y + 1) as usize);
-        y += 1;
         if canvas.pixels[row_start..row_end].iter().any(|&p| p != 0) {
             break;
         }
+        y += 1;
     }
+    assert!(y < canvas.size.height);
 
     // Find the top part of the L.
     let mut top_stripe_width = None;
     while y < canvas.size.height {
         let (row_start, row_end) = (canvas.stride * y as usize, canvas.stride * (y + 1) as usize);
-        y += 1;
         if let Some(stripe_width) = stripe_width(&canvas.pixels[row_start..row_end]) {
             if let Some(top_stripe_width) = top_stripe_width {
                 if stripe_width > top_stripe_width {
@@ -1101,7 +1101,9 @@ fn check_L_shape(canvas: &Canvas) {
             }
             top_stripe_width = Some(stripe_width);
         }
+        y += 1;
     }
+    assert!(y < canvas.size.height);
 
     // Find the bottom part of the L.
     let mut bottom_stripe_width = None;
