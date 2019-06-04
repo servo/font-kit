@@ -15,7 +15,7 @@
 
 use byteorder::{BigEndian, ReadBytesExt};
 use canvas::{Canvas, Format, RasterizationOptions};
-use euclid::{Point2D, Rect, Size2D, Vector2D};
+use euclid::{point2, Point2D, Rect, Size2D, Vector2D};
 use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_Face, FT_FACE_FLAG_FIXED_WIDTH};
 use freetype::freetype::{
     FT_Get_Char_Index, FT_Get_Name_Index, FT_Get_Postscript_Name, FT_Get_Sfnt_Table,
@@ -838,17 +838,24 @@ impl Font {
             let bitmap_buffer = (*bitmap).buffer as *const i8 as *const u8;
             let bitmap_length = bitmap_stride * bitmap_height as usize;
             let buffer = slice::from_raw_parts(bitmap_buffer, bitmap_length);
+            let dst_point = point2(0, 0);
 
             // FIXME(pcwalton): This function should return a Result instead.
             match (*bitmap).pixel_mode {
                 FT_PIXEL_MODE_GRAY => {
-                    canvas.blit_from(buffer, &bitmap_size, bitmap_stride, Format::A8);
+                    canvas.blit_from(dst_point, buffer, &bitmap_size, bitmap_stride, Format::A8);
                 }
                 FT_PIXEL_MODE_LCD | FT_PIXEL_MODE_LCD_V => {
-                    canvas.blit_from(buffer, &bitmap_size, bitmap_stride, Format::Rgb24);
+                    canvas.blit_from(
+                        dst_point,
+                        buffer,
+                        &bitmap_size,
+                        bitmap_stride,
+                        Format::Rgb24,
+                    );
                 }
                 FT_PIXEL_MODE_MONO => {
-                    canvas.blit_from_bitmap_1bpp(buffer, &bitmap_size, bitmap_stride);
+                    canvas.blit_from_bitmap_1bpp(dst_point, buffer, &bitmap_size, bitmap_stride);
                 }
                 _ => panic!("Unexpected FreeType pixel mode!"),
             }

@@ -23,6 +23,7 @@ use dwrote::InformationalStringId as DWriteInformationalStringId;
 use dwrote::{DWRITE_TEXTURE_ALIASED_1x1, DWRITE_RENDERING_MODE_NATURAL};
 use dwrote::{DWRITE_TEXTURE_CLEARTYPE_3x1, OutlineBuilder};
 use dwrote::{DWRITE_GLYPH_RUN, DWRITE_MEASURING_MODE_NATURAL, DWRITE_RENDERING_MODE_ALIASED};
+use euclid::point2;
 use euclid::{Point2D, Rect, Size2D, Vector2D};
 use lyon_path::builder::PathBuilder;
 use lyon_path::PathEvent;
@@ -466,6 +467,7 @@ impl Font {
         let mut texture_bytes =
             dwrite_analysis.create_alpha_texture(texture_type, texture_bounds)?;
         canvas.blit_from(
+            point2(0, 0),
             &mut texture_bytes,
             &texture_size,
             texture_stride,
@@ -500,7 +502,7 @@ impl Font {
         &self,
         glyph_id: u32,
         point_size: f32,
-        _origin: &Point2D<f32>,
+        origin: &Point2D<f32>,
         _hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
     ) -> Result<DWriteGlyphRunAnalysis, GlyphLoadingError> {
@@ -532,7 +534,14 @@ impl Font {
             Ok(DWriteGlyphRunAnalysis::create(
                 &glyph_run,
                 1.0,
-                None,
+                Some(dwrote::DWRITE_MATRIX {
+                    m11: 1.,
+                    m12: 0.,
+                    m21: 0.,
+                    m22: 1.,
+                    dx: origin.x,
+                    dy: origin.y,
+                }),
                 rendering_mode,
                 DWRITE_MEASURING_MODE_NATURAL,
                 0.0,
