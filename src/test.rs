@@ -578,7 +578,11 @@ pub fn rasterize_glyph_with_grayscale_aa() {
             RasterizationOptions::GrayscaleAa,
         )
         .unwrap();
-    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
+    let origin = Point2D::new(
+        -raster_rect.origin.x,
+        raster_rect.size.height + raster_rect.origin.y,
+    )
+    .to_f32();
     let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
@@ -610,7 +614,11 @@ pub fn rasterize_glyph_bilevel() {
             RasterizationOptions::Bilevel,
         )
         .unwrap();
-    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
+    let origin = Point2D::new(
+        -raster_rect.origin.x,
+        raster_rect.size.height + raster_rect.origin.y,
+    )
+    .to_f32();
     let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
@@ -650,7 +658,11 @@ pub fn rasterize_glyph_with_full_hinting() {
             RasterizationOptions::Bilevel,
         )
         .unwrap();
-    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
+    let origin = Point2D::new(
+        -raster_rect.origin.x,
+        raster_rect.size.height + raster_rect.origin.y,
+    )
+    .to_f32();
     let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
@@ -664,7 +676,11 @@ pub fn rasterize_glyph_with_full_hinting() {
     check_L_shape(&canvas);
 
     // Make sure the top and bottom (non-blank) rows have some fully black pixels in them.
-    let top_row = &canvas.pixels[0..canvas.stride];
+    let mut top_row = &canvas.pixels[0..canvas.stride];
+    if top_row.iter().all(|&value| value == 0) {
+        top_row = &canvas.pixels[(1 * canvas.stride)..(2 * canvas.stride)];
+    }
+
     assert!(top_row.iter().any(|&value| value == 0xff));
     for y in (0..(canvas.size.height as usize)).rev() {
         let bottom_row = &canvas.pixels[(y * canvas.stride)..((y + 1) * canvas.stride)];
@@ -976,17 +992,17 @@ fn check_L_shape(canvas: &Canvas) {
     let mut y = 0;
     while y < canvas.size.height {
         let (row_start, row_end) = (canvas.stride * y as usize, canvas.stride * (y + 1) as usize);
-        y += 1;
         if canvas.pixels[row_start..row_end].iter().any(|&p| p != 0) {
             break;
         }
+        y += 1;
     }
+    assert!(y < canvas.size.height);
 
     // Find the top part of the L.
     let mut top_stripe_width = None;
     while y < canvas.size.height {
         let (row_start, row_end) = (canvas.stride * y as usize, canvas.stride * (y + 1) as usize);
-        y += 1;
         if let Some(stripe_width) = stripe_width(&canvas.pixels[row_start..row_end]) {
             if let Some(top_stripe_width) = top_stripe_width {
                 if stripe_width > top_stripe_width {
@@ -996,7 +1012,9 @@ fn check_L_shape(canvas: &Canvas) {
             }
             top_stripe_width = Some(stripe_width);
         }
+        y += 1;
     }
+    assert!(y < canvas.size.height);
 
     // Find the bottom part of the L.
     let mut bottom_stripe_width = None;
