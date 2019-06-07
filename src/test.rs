@@ -578,7 +578,11 @@ pub fn rasterize_glyph_with_grayscale_aa() {
             RasterizationOptions::GrayscaleAa,
         )
         .unwrap();
-    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
+    let origin = Point2D::new(
+        -raster_rect.origin.x,
+        raster_rect.size.height + raster_rect.origin.y,
+    )
+    .to_f32();
     let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
@@ -610,7 +614,11 @@ pub fn rasterize_glyph_bilevel() {
             RasterizationOptions::Bilevel,
         )
         .unwrap();
-    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
+    let origin = Point2D::new(
+        -raster_rect.origin.x,
+        raster_rect.size.height + raster_rect.origin.y,
+    )
+    .to_f32();
     let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
@@ -650,7 +658,11 @@ pub fn rasterize_glyph_with_full_hinting() {
             RasterizationOptions::Bilevel,
         )
         .unwrap();
-    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
+    let origin = Point2D::new(
+        -raster_rect.origin.x,
+        raster_rect.size.height + raster_rect.origin.y,
+    )
+    .to_f32();
     let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
@@ -664,7 +676,11 @@ pub fn rasterize_glyph_with_full_hinting() {
     check_L_shape(&canvas);
 
     // Make sure the top and bottom (non-blank) rows have some fully black pixels in them.
-    let top_row = &canvas.pixels[0..canvas.stride];
+    let mut top_row = &canvas.pixels[0..canvas.stride];
+    if top_row.iter().all(|&value| value == 0) {
+        top_row = &canvas.pixels[(1 * canvas.stride)..(2 * canvas.stride)];
+    }
+
     assert!(top_row.iter().any(|&value| value == 0xff));
     for y in (0..(canvas.size.height as usize)).rev() {
         let bottom_row = &canvas.pixels[(y * canvas.stride)..((y + 1) * canvas.stride)];

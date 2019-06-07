@@ -803,7 +803,7 @@ impl Font {
         unsafe {
             let mut delta = FT_Vector {
                 x: f32_to_ft_fixed_26_6(origin.x),
-                y: f32_to_ft_fixed_26_6(origin.y),
+                y: f32_to_ft_fixed_26_6(-origin.y),
             };
             FT_Set_Transform(self.freetype_face, ptr::null_mut(), &mut delta);
 
@@ -838,7 +838,10 @@ impl Font {
             let bitmap_buffer = (*bitmap).buffer as *const i8 as *const u8;
             let bitmap_length = bitmap_stride * bitmap_height as usize;
             let buffer = slice::from_raw_parts(bitmap_buffer, bitmap_length);
-            let dst_point = point2(0, 0);
+            let dst_point = point2(
+                (*(*self.freetype_face).glyph).bitmap_left,
+                -(*(*self.freetype_face).glyph).bitmap_top,
+            );
 
             // FIXME(pcwalton): This function should return a Result instead.
             match (*bitmap).pixel_mode {

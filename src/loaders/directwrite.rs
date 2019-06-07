@@ -467,7 +467,7 @@ impl Font {
         let mut texture_bytes =
             dwrite_analysis.create_alpha_texture(texture_type, texture_bounds)?;
         canvas.blit_from(
-            point2(0, 0),
+            point2(texture_bounds.left, texture_bounds.top),
             &mut texture_bytes,
             &texture_size,
             texture_stride,
