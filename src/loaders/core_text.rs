@@ -24,6 +24,7 @@ use core_text::font::CTFont;
 use core_text::font_descriptor::kCTFontDefaultOrientation;
 use core_text::font_descriptor::{SymbolicTraitAccessors, TraitAccessors};
 use euclid::{Point2D, Rect, Size2D, Vector2D};
+use log::warn;
 use lyon_path::builder::PathBuilder;
 use memmap::{Mmap, MmapOptions};
 use std::f32;
@@ -870,8 +871,8 @@ fn format_to_cg_color_space_and_image_format(format: Format) -> Option<(CGColorS
 #[cfg(test)]
 mod test {
     use super::Font;
-    use properties::{Stretch, Weight};
-    use source::SystemSource;
+    use crate::properties::{Stretch, Weight};
+    use crate::source::SystemSource;
 
     static TEST_FONT_POSTSCRIPT_NAME: &'static str = "ArialMT";
 

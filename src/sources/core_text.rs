@@ -199,7 +199,7 @@ fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Handle {
 
 #[cfg(test)]
 mod test {
-    use properties::{Stretch, Weight};
+    use crate::properties::{Stretch, Weight};
 
     #[test]
     fn test_css_to_core_text_font_weight() {

@@ -120,47 +120,6 @@
 #![warn(missing_debug_implementations)]
 #![warn(missing_copy_implementations)]
 
-extern crate byteorder;
-extern crate euclid;
-extern crate float_ord;
-extern crate libc;
-extern crate lyon_path;
-
-#[allow(unused_imports)]
-#[macro_use]
-extern crate lazy_static;
-#[allow(unused_imports)]
-#[macro_use]
-extern crate log;
-
-#[cfg(target_os = "macos")]
-extern crate core_foundation;
-#[cfg(target_os = "macos")]
-extern crate core_graphics;
-#[cfg(target_os = "macos")]
-extern crate core_text;
-#[cfg(not(target_arch = "wasm32"))]
-#[allow(unused_imports)]
-extern crate dirs;
-#[cfg(target_family = "windows")]
-extern crate dwrote;
-#[cfg(any(
-    not(any(target_os = "macos", target_family = "windows", target_arch = "wasm32")),
-    feature = "source-fontconfig"
-))]
-extern crate fontconfig;
-#[cfg(any(
-    not(any(target_os = "macos", target_family = "windows")),
-    feature = "loader-freetype"
-))]
-extern crate freetype;
-#[cfg(not(target_arch = "wasm32"))]
-extern crate memmap;
-#[cfg(not(target_arch = "wasm32"))]
-extern crate walkdir;
-#[cfg(target_family = "windows")]
-extern crate winapi;
-
 pub mod canvas;
 pub mod error;
 pub mod family;

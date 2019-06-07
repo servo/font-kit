@@ -12,6 +12,7 @@
 //! fonts.
 
 use euclid::{Point2D, Rect, Vector2D};
+use log::warn;
 use lyon_path::builder::PathBuilder;
 use std::sync::Arc;
 
