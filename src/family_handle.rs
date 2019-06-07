@@ -10,7 +10,7 @@
 
 //! Encapsulates the information needed to locate and open the fonts in a family.
 
-use handle::Handle;
+use crate::handle::Handle;
 
 /// Encapsulates the information needed to locate and open the fonts in a family.
 #[derive(Debug)]

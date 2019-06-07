@@ -8,6 +8,7 @@ readme = "README.md"
 repository = "https://github.com/pcwalton/font-kit"
 homepage = "https://github.com/pcwalton/font-kit"
 exclude = ["resources/**"]
+edition = "2018"
 
 [features]
 loader-freetype = ["freetype"]

@@ -38,13 +38,13 @@ use std::ptr;
 use std::slice;
 use std::sync::Arc;
 
-use error::{FontLoadingError, GlyphLoadingError};
-use file_type::FileType;
-use handle::Handle;
-use hinting::HintingOptions;
-use loader::{FallbackResult, Loader};
-use metrics::Metrics;
-use properties::{Properties, Stretch, Style, Weight};
+use crate::error::{FontLoadingError, GlyphLoadingError};
+use crate::file_type::FileType;
+use crate::handle::Handle;
+use crate::hinting::HintingOptions;
+use crate::loader::{FallbackResult, Loader};
+use crate::metrics::Metrics;
+use crate::properties::{Properties, Stretch, Style, Weight};
 
 #[cfg(not(target_arch = "wasm32"))]
 use memmap::Mmap;

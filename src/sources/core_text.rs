@@ -21,15 +21,15 @@ use std::cmp::Ordering;
 use std::f32;
 use std::path::Path;
 
-use error::SelectionError;
-use family_handle::FamilyHandle;
-use family_name::FamilyName;
-use file_type::FileType;
-use font::Font;
-use handle::Handle;
-use properties::{Properties, Stretch, Weight};
-use source::Source;
-use utils;
+use crate::error::SelectionError;
+use crate::family_handle::FamilyHandle;
+use crate::family_name::FamilyName;
+use crate::file_type::FileType;
+use crate::font::Font;
+use crate::handle::Handle;
+use crate::properties::{Properties, Stretch, Weight};
+use crate::source::Source;
+use crate::utils;
 
 pub(crate) static FONT_WEIGHT_MAPPING: [f32; 9] = [-0.7, -0.5, -0.23, 0.0, 0.2, 0.3, 0.4, 0.6, 0.8];
 

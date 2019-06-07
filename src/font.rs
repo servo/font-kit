@@ -12,4 +12,4 @@
 //!
 //! The Font type in this crate represents the default loader.
 
-pub use loaders::default::Font;
+pub use crate::loaders::default::Font;

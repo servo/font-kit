@@ -11,16 +11,16 @@
 //! The different system services that can load and rasterize fonts.
 
 #[cfg(all(target_os = "macos", not(feature = "loader-freetype-default")))]
-pub use loaders::core_text as default;
+pub use crate::loaders::core_text as default;
 
 #[cfg(all(target_family = "windows", not(feature = "loader-freetype-default")))]
-pub use loaders::directwrite as default;
+pub use crate::loaders::directwrite as default;
 
 #[cfg(any(
     not(any(target_os = "macos", target_family = "windows")),
     feature = "loader-freetype-default"
 ))]
-pub use loaders::freetype as default;
+pub use crate::loaders::freetype as default;
 
 #[cfg(all(target_os = "macos"))]
 pub mod core_text;

@@ -34,16 +34,16 @@ use std::ops::Deref;
 use std::path::Path;
 use std::sync::Arc;
 
-use canvas::{Canvas, Format, RasterizationOptions};
-use error::{FontLoadingError, GlyphLoadingError};
-use file_type::FileType;
-use handle::Handle;
-use hinting::HintingOptions;
-use loader::{FallbackResult, Loader};
-use metrics::Metrics;
-use properties::{Properties, Stretch, Style, Weight};
-use sources;
-use utils;
+use crate::canvas::{Canvas, Format, RasterizationOptions};
+use crate::error::{FontLoadingError, GlyphLoadingError};
+use crate::file_type::FileType;
+use crate::handle::Handle;
+use crate::hinting::HintingOptions;
+use crate::loader::{FallbackResult, Loader};
+use crate::metrics::Metrics;
+use crate::properties::{Properties, Stretch, Style, Weight};
+use crate::sources;
+use crate::utils;
 
 const TTC_TAG: [u8; 4] = [b't', b't', b'c', b'f'];
 

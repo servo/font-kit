@@ -13,12 +13,12 @@
 //! This is useful when an application wants a library of fonts consisting of the installed system
 //! fonts plus some other application-supplied fonts.
 
-use error::SelectionError;
-use family_handle::FamilyHandle;
-use family_name::FamilyName;
-use handle::Handle;
-use properties::Properties;
-use source::Source;
+use crate::error::SelectionError;
+use crate::family_handle::FamilyHandle;
+use crate::family_name::FamilyName;
+use crate::handle::Handle;
+use crate::properties::Properties;
+use crate::source::Source;
 
 /// A source that encapsulates multiple sources and allows them to be queried as a group.
 ///
