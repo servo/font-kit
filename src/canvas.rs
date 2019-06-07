@@ -10,7 +10,7 @@
 
 //! An in-memory bitmap surface for glyph rasterization.
 
-use euclid::Size2D;
+use euclid::{point2, rect, Point2D, Rect, Size2D};
 use std::cmp;
 use std::fmt;
 
@@ -74,36 +74,40 @@ impl Canvas {
 
     #[allow(dead_code)]
     pub(crate) fn blit_from_canvas(&mut self, src: &Canvas) {
-        self.blit_from(&src.pixels, &src.size, src.stride, src.format)
+        self.blit_from(point2(0, 0), &src.pixels, &src.size, src.stride, src.format)
     }
 
     #[allow(dead_code)]
     pub(crate) fn blit_from(
         &mut self,
+        dst_point: Point2D<i32>,
         src_bytes: &[u8],
         src_size: &Size2D<u32>,
         src_stride: usize,
         src_format: Format,
     ) {
-        let width = cmp::min(src_size.width as usize, self.size.width as usize);
-        let height = cmp::min(src_size.height as usize, self.size.height as usize);
-        let size = Size2D::new(width, height);
+        let dst_rect = Rect::new(dst_point, src_size.to_i32());
+        let dst_rect = dst_rect.intersection(&Rect::new(point2(0, 0), self.size.to_i32()));
+        let dst_rect = match dst_rect {
+            Some(dst_rect) => dst_rect,
+            None => return,
+        };
+        let dst_rect = dst_rect.to_usize();
 
         match (self.format, src_format) {
             (Format::A8, Format::A8)
             | (Format::Rgb24, Format::Rgb24)
             | (Format::Rgba32, Format::Rgba32) => {
-                self.blit_from_with::<BlitMemcpy>(src_bytes, &size, src_stride, src_format)
+                self.blit_from_with::<BlitMemcpy>(&dst_rect, src_bytes, src_stride, src_format)
             }
             (Format::A8, Format::Rgb24) => {
-                self.blit_from_with::<BlitRgb24ToA8>(src_bytes, &size, src_stride, src_format)
+                self.blit_from_with::<BlitRgb24ToA8>(&dst_rect, src_bytes, src_stride, src_format)
             }
             (Format::Rgb24, Format::A8) => {
-                self.blit_from_with::<BlitA8ToRgb24>(src_bytes, &size, src_stride, src_format)
+                self.blit_from_with::<BlitA8ToRgb24>(&dst_rect, src_bytes, src_stride, src_format)
             }
-            (Format::Rgb24, Format::Rgba32) => {
-                self.blit_from_with::<BlitRgba32ToRgb24>(src_bytes, &size, src_stride, src_format)
-            }
+            (Format::Rgb24, Format::Rgba32) => self
+                .blit_from_with::<BlitRgba32ToRgb24>(&dst_rect, src_bytes, src_stride, src_format),
             (Format::Rgba32, Format::Rgb24)
             | (Format::Rgba32, Format::A8)
             | (Format::A8, Format::Rgba32) => unimplemented!(),
@@ -113,6 +117,7 @@ impl Canvas {
     #[allow(dead_code)]
     pub(crate) fn blit_from_bitmap_1bpp(
         &mut self,
+        dst_point: Point2D<i32>,
         src_bytes: &[u8],
         src_size: &Size2D<u32>,
         src_stride: usize,
@@ -121,16 +126,25 @@ impl Canvas {
             unimplemented!()
         }
 
-        let width = cmp::min(src_size.width as usize, self.size.width as usize);
-        let height = cmp::min(src_size.height as usize, self.size.height as usize);
-        let size = Size2D::new(width, height);
+        let dst_rect = Rect::new(dst_point, src_size.to_i32());
+        let dst_rect = dst_rect.intersection(&Rect::new(point2(0, 0), self.size.to_i32()));
+        let dst_rect = match dst_rect {
+            Some(dst_rect) => dst_rect,
+            None => return,
+        };
+        let dst_rect = dst_rect.to_usize();
+
+        let size = dst_rect.size;
 
         let dest_bytes_per_pixel = self.format.bytes_per_pixel() as usize;
         let dest_row_stride = size.width * dest_bytes_per_pixel;
         let src_row_stride = utils::div_round_up(size.width, 8);
 
         for y in 0..size.height {
-            let (dest_row_start, src_row_start) = (y * self.stride, y * src_stride);
+            let (dest_row_start, src_row_start) = (
+                (y + dst_rect.origin.y) * self.stride + dst_rect.origin.x * dest_bytes_per_pixel,
+                y * src_stride,
+            );
             let dest_row_end = dest_row_start + dest_row_stride;
             let src_row_end = src_row_start + src_row_stride;
             let dest_row_pixels = &mut self.pixels[dest_row_start..dest_row_end];
@@ -147,18 +161,21 @@ impl Canvas {
 
     fn blit_from_with<B: Blit>(
         &mut self,
+        rect: &Rect<usize>,
         src_bytes: &[u8],
-        size: &Size2D<usize>,
         src_stride: usize,
         src_format: Format,
     ) {
         let src_bytes_per_pixel = src_format.bytes_per_pixel() as usize;
         let dest_bytes_per_pixel = self.format.bytes_per_pixel() as usize;
 
-        for y in 0..size.height {
-            let (dest_row_start, src_row_start) = (y * self.stride, y * src_stride);
-            let dest_row_end = dest_row_start + size.width * dest_bytes_per_pixel;
-            let src_row_end = src_row_start + size.width * src_bytes_per_pixel;
+        for y in 0..rect.size.height {
+            let (dest_row_start, src_row_start) = (
+                (y + rect.origin.y) * self.stride + rect.origin.x * dest_bytes_per_pixel,
+                y * src_stride,
+            );
+            let dest_row_end = dest_row_start + rect.size.width * dest_bytes_per_pixel;
+            let src_row_end = src_row_start + rect.size.width * src_bytes_per_pixel;
             let dest_row_pixels = &mut self.pixels[dest_row_start..dest_row_end];
             let src_row_pixels = &src_bytes[src_row_start..src_row_end];
             B::blit(dest_row_pixels, src_row_pixels)
