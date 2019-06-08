@@ -16,14 +16,14 @@ use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
 
-use canvas::{Canvas, Format, RasterizationOptions};
-use family_name::FamilyName;
-use file_type::FileType;
-use font::Font;
-use hinting::HintingOptions;
-use properties::{Properties, Stretch, Weight};
-use source::SystemSource;
-use utils;
+use crate::canvas::{Canvas, Format, RasterizationOptions};
+use crate::family_name::FamilyName;
+use crate::file_type::FileType;
+use crate::font::Font;
+use crate::hinting::HintingOptions;
+use crate::properties::{Properties, Stretch, Weight};
+use crate::source::SystemSource;
+use crate::utils;
 
 static TEST_FONT_FILE_PATH: &'static str = "resources/tests/eb-garamond/EBGaramond12-Regular.otf";
 static TEST_FONT_POSTSCRIPT_NAME: &'static str = "EBGaramond12-Regular";

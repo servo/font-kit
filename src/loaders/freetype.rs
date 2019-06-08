@@ -14,7 +14,6 @@
 //! loader by default.
 
 use byteorder::{BigEndian, ReadBytesExt};
-use canvas::{Canvas, Format, RasterizationOptions};
 use euclid::{point2, Point2D, Rect, Size2D, Vector2D};
 use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_Face, FT_FACE_FLAG_FIXED_WIDTH};
 use freetype::freetype::{
@@ -26,6 +25,7 @@ use freetype::freetype::{FT_New_Memory_Face, FT_Reference_Face, FT_STYLE_FLAG_IT
 use freetype::freetype::{FT_Set_Char_Size, FT_Set_Transform, FT_Sfnt_Tag, FT_UInt, FT_ULong};
 use freetype::freetype::{FT_UShort, FT_Vector};
 use freetype::tt_os2::TT_OS2;
+use log::warn;
 use lyon_path::builder::PathBuilder;
 use std::f32;
 use std::ffi::{CStr, CString};
@@ -38,13 +38,14 @@ use std::ptr;
 use std::slice;
 use std::sync::Arc;
 
-use error::{FontLoadingError, GlyphLoadingError};
-use file_type::FileType;
-use handle::Handle;
-use hinting::HintingOptions;
-use loader::{FallbackResult, Loader};
-use metrics::Metrics;
-use properties::{Properties, Stretch, Style, Weight};
+use crate::canvas::{Canvas, Format, RasterizationOptions};
+use crate::error::{FontLoadingError, GlyphLoadingError};
+use crate::file_type::FileType;
+use crate::handle::Handle;
+use crate::hinting::HintingOptions;
+use crate::loader::{FallbackResult, Loader};
+use crate::metrics::Metrics;
+use crate::properties::{Properties, Stretch, Style, Weight};
 
 #[cfg(not(target_arch = "wasm32"))]
 use memmap::Mmap;
@@ -1170,7 +1171,7 @@ extern "C" {
 
 #[cfg(test)]
 mod test {
-    use loaders::freetype::Font;
+    use crate::loaders::freetype::Font;
 
     static PCF_FONT_PATH: &'static str = "resources/tests/times-roman-pcf/timR12.pcf";
     static PCF_FONT_POSTSCRIPT_NAME: &'static str = "Times-Roman";

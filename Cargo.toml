@@ -8,6 +8,7 @@ readme = "README.md"
 repository = "https://github.com/pcwalton/font-kit"
 homepage = "https://github.com/pcwalton/font-kit"
 exclude = ["resources/**"]
+edition = "2018"
 
 [features]
 loader-freetype = ["freetype"]
@@ -56,7 +57,9 @@ freetype = "^0.4.1"
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_arch = "wasm32")))'.dependencies]
 servo-fontconfig = "0.4"
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+[target.'cfg(not(any(target_arch = "wasm32", target_family = "windows", target_os = "android")))'.dependencies]
 dirs = "1.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 memmap = "0.7"
 walkdir = "2.1"

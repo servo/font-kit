@@ -10,13 +10,13 @@
 
 //! A source that keeps fonts in memory.
 
-use error::{FontLoadingError, SelectionError};
-use family_handle::FamilyHandle;
-use family_name::FamilyName;
-use font::Font;
-use handle::Handle;
-use properties::Properties;
-use source::Source;
+use crate::error::{FontLoadingError, SelectionError};
+use crate::family_handle::FamilyHandle;
+use crate::family_name::FamilyName;
+use crate::font::Font;
+use crate::handle::Handle;
+use crate::properties::Properties;
+use crate::source::Source;
 
 /// A source that keeps fonts in memory.
 #[allow(missing_debug_implementations)]

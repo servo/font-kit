@@ -10,11 +10,11 @@
 
 //! Defines a set of faces that vary in weight, width or slope.
 
-use error::FontLoadingError;
-use family_handle::FamilyHandle;
-use font::Font;
-use handle::Handle;
-use loader::Loader;
+use crate::error::FontLoadingError;
+use crate::family_handle::FamilyHandle;
+use crate::font::Font;
+use crate::handle::Handle;
+use crate::loader::Loader;
 
 /// Defines a set of faces that vary in weight, width or slope.
 #[derive(Debug)]

@@ -43,14 +43,14 @@ use winapi::um::dwrite::{
 };
 use winapi::um::fileapi;
 
-use canvas::{Canvas, Format, RasterizationOptions};
-use error::{FontLoadingError, GlyphLoadingError};
-use file_type::FileType;
-use handle::Handle;
-use hinting::HintingOptions;
-use loader::{FallbackFont, FallbackResult, Loader};
-use metrics::Metrics;
-use properties::{Properties, Stretch, Style, Weight};
+use crate::canvas::{Canvas, Format, RasterizationOptions};
+use crate::error::{FontLoadingError, GlyphLoadingError};
+use crate::file_type::FileType;
+use crate::handle::Handle;
+use crate::hinting::HintingOptions;
+use crate::loader::{FallbackFont, FallbackResult, Loader};
+use crate::metrics::Metrics;
+use crate::properties::{Properties, Stretch, Style, Weight};
 
 const ERROR_BOUND: f32 = 0.0001;
 

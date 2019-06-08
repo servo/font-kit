@@ -12,16 +12,17 @@
 //! fonts.
 
 use euclid::{Point2D, Rect, Vector2D};
+use log::warn;
 use lyon_path::builder::PathBuilder;
 use std::sync::Arc;
 
-use canvas::{Canvas, RasterizationOptions};
-use error::{FontLoadingError, GlyphLoadingError};
-use file_type::FileType;
-use handle::Handle;
-use hinting::HintingOptions;
-use metrics::Metrics;
-use properties::Properties;
+use crate::canvas::{Canvas, RasterizationOptions};
+use crate::error::{FontLoadingError, GlyphLoadingError};
+use crate::file_type::FileType;
+use crate::handle::Handle;
+use crate::hinting::HintingOptions;
+use crate::metrics::Metrics;
+use crate::properties::Properties;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
@@ -56,7 +57,7 @@ pub trait Loader: Clone + Sized {
     where
         P: AsRef<Path>,
     {
-        Loader::from_file(&mut try!(File::open(path)), font_index)
+        Loader::from_file(&mut File::open(path)?, font_index)
     }
 
     /// Creates a font from a native API handle.
@@ -94,7 +95,7 @@ pub trait Loader: Clone + Sized {
     where
         P: AsRef<Path>,
     {
-        <Self as Loader>::analyze_file(&mut try!(File::open(path)))
+        <Self as Loader>::analyze_file(&mut File::open(path)?)
     }
 
     /// Returns the wrapped native font handle.

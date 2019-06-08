@@ -11,10 +11,11 @@
 //! An in-memory bitmap surface for glyph rasterization.
 
 use euclid::{point2, rect, Point2D, Rect, Size2D};
+use lazy_static::lazy_static;
 use std::cmp;
 use std::fmt;
 
-use utils;
+use crate::utils;
 
 lazy_static! {
     static ref BITMAP_1BPP_TO_8BPP_LUT: [[u8; 8]; 256] = {

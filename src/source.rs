@@ -10,19 +10,19 @@
 
 //! A database of installed fonts that can be queried.
 
-use error::SelectionError;
-use family::Family;
-use family_handle::FamilyHandle;
-use family_name::FamilyName;
-use font::Font;
-use handle::Handle;
-use matching::{self, Description};
-use properties::Properties;
+use crate::error::SelectionError;
+use crate::family::Family;
+use crate::family_handle::FamilyHandle;
+use crate::family_name::FamilyName;
+use crate::font::Font;
+use crate::handle::Handle;
+use crate::matching::{self, Description};
+use crate::properties::Properties;
 
 #[cfg(all(target_os = "macos", not(feature = "source-fontconfig-default")))]
-pub use sources::core_text::CoreTextSource as SystemSource;
+pub use crate::sources::core_text::CoreTextSource as SystemSource;
 #[cfg(all(target_family = "windows", not(feature = "source-fontconfig-default")))]
-pub use sources::directwrite::DirectWriteSource as SystemSource;
+pub use crate::sources::directwrite::DirectWriteSource as SystemSource;
 #[cfg(any(
     not(any(
         target_os = "android",
@@ -32,9 +32,9 @@ pub use sources::directwrite::DirectWriteSource as SystemSource;
     )),
     feature = "source-fontconfig-default"
 ))]
-pub use sources::fontconfig::FontconfigSource as SystemSource;
+pub use crate::sources::fontconfig::FontconfigSource as SystemSource;
 #[cfg(all(target_os = "android", not(feature = "source-fontconfig-default")))]
-pub use sources::fs::FsSource as SystemSource;
+pub use crate::sources::fs::FsSource as SystemSource;
 
 // FIXME(pcwalton): These could expand to multiple fonts, and they could be language-specific.
 #[cfg(any(target_family = "windows", target_os = "macos"))]
