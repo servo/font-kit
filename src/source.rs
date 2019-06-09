@@ -16,7 +16,7 @@ use crate::family_handle::FamilyHandle;
 use crate::family_name::FamilyName;
 use crate::font::Font;
 use crate::handle::Handle;
-use crate::matching::{self, Description};
+use crate::matching;
 use crate::properties::Properties;
 
 #[cfg(all(target_os = "macos", not(feature = "source-fontconfig-default")))]
@@ -136,15 +136,11 @@ pub trait Source {
     fn select_descriptions_in_family(
         &self,
         family: &FamilyHandle,
-    ) -> Result<Vec<Description>, SelectionError> {
+    ) -> Result<Vec<Properties>, SelectionError> {
         let mut fields = vec![];
         for font_handle in family.fonts() {
             let font = Font::from_handle(font_handle).unwrap();
-            let (family_name, properties) = (font.family_name(), font.properties());
-            fields.push(Description {
-                family_name,
-                properties,
-            })
+            fields.push(font.properties())
         }
         Ok(fields)
     }
