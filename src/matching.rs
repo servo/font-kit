@@ -15,17 +15,11 @@ use float_ord::FloatOrd;
 use crate::error::SelectionError;
 use crate::properties::{Properties, Stretch, Style, Weight};
 
-#[derive(Debug)]
-pub struct Description {
-    pub family_name: String,
-    pub properties: Properties,
-}
-
 /// This follows CSS Fonts Level 3 § 5.2 [1].
 ///
 /// https://drafts.csswg.org/css-fonts-3/#font-style-matching
 pub fn find_best_match(
-    candidates: &[Description],
+    candidates: &[Properties],
     query: &Properties,
 ) -> Result<usize, SelectionError> {
     // Step 4.
@@ -37,7 +31,7 @@ pub fn find_best_match(
     // Step 4a (`font-stretch`).
     let matching_stretch = if matching_set
         .iter()
-        .any(|&index| candidates[index].properties.stretch == query.stretch)
+        .any(|&index| candidates[index].stretch == query.stretch)
     {
         // Exact match.
         query.stretch
@@ -45,42 +39,36 @@ pub fn find_best_match(
         // Closest width, first checking narrower values and then wider values.
         match matching_set
             .iter()
-            .filter(|&&index| candidates[index].properties.stretch < query.stretch)
-            .min_by_key(|&&index| {
-                FloatOrd(query.stretch.0 - candidates[index].properties.stretch.0)
-            }) {
-            Some(&matching_index) => candidates[matching_index].properties.stretch,
+            .filter(|&&index| candidates[index].stretch < query.stretch)
+            .min_by_key(|&&index| FloatOrd(query.stretch.0 - candidates[index].stretch.0))
+        {
+            Some(&matching_index) => candidates[matching_index].stretch,
             None => {
                 let matching_index = *matching_set
                     .iter()
-                    .min_by_key(|&&index| {
-                        FloatOrd(candidates[index].properties.stretch.0 - query.stretch.0)
-                    })
+                    .min_by_key(|&&index| FloatOrd(candidates[index].stretch.0 - query.stretch.0))
                     .unwrap();
-                candidates[matching_index].properties.stretch
+                candidates[matching_index].stretch
             }
         }
     } else {
         // Closest width, first checking wider values and then narrower values.
         match matching_set
             .iter()
-            .filter(|&&index| candidates[index].properties.stretch > query.stretch)
-            .min_by_key(|&&index| {
-                FloatOrd(candidates[index].properties.stretch.0 - query.stretch.0)
-            }) {
-            Some(&matching_index) => candidates[matching_index].properties.stretch,
+            .filter(|&&index| candidates[index].stretch > query.stretch)
+            .min_by_key(|&&index| FloatOrd(candidates[index].stretch.0 - query.stretch.0))
+        {
+            Some(&matching_index) => candidates[matching_index].stretch,
             None => {
                 let matching_index = *matching_set
                     .iter()
-                    .min_by_key(|&&index| {
-                        FloatOrd(query.stretch.0 - candidates[index].properties.stretch.0)
-                    })
+                    .min_by_key(|&&index| FloatOrd(query.stretch.0 - candidates[index].stretch.0))
                     .unwrap();
-                candidates[matching_index].properties.stretch
+                candidates[matching_index].stretch
             }
         }
     };
-    matching_set.retain(|&index| candidates[index].properties.stretch == matching_stretch);
+    matching_set.retain(|&index| candidates[index].stretch == matching_stretch);
 
     // Step 4b (`font-style`).
     let style_preference = match query.style {
@@ -93,11 +81,11 @@ pub fn find_best_match(
         .filter(|&query_style| {
             matching_set
                 .iter()
-                .any(|&index| candidates[index].properties.style == *query_style)
+                .any(|&index| candidates[index].style == *query_style)
         })
         .next()
         .unwrap();
-    matching_set.retain(|&index| candidates[index].properties.style == matching_style);
+    matching_set.retain(|&index| candidates[index].style == matching_style);
 
     // Step 4c (`font-weight`).
     //
@@ -107,7 +95,7 @@ pub fn find_best_match(
         && query.weight < Weight(450.0)
         && matching_set
             .iter()
-            .any(|&index| candidates[index].properties.weight == Weight(500.0))
+            .any(|&index| candidates[index].weight == Weight(500.0))
     {
         // Check 500 first.
         Weight(500.0)
@@ -115,7 +103,7 @@ pub fn find_best_match(
         && query.weight <= Weight(500.0)
         && matching_set
             .iter()
-            .any(|&index| candidates[index].properties.weight == Weight(400.0))
+            .any(|&index| candidates[index].weight == Weight(400.0))
     {
         // Check 400 first.
         Weight(400.0)
@@ -123,40 +111,36 @@ pub fn find_best_match(
         // Closest weight, first checking thinner values and then fatter ones.
         match matching_set
             .iter()
-            .filter(|&&index| candidates[index].properties.weight <= query.weight)
-            .min_by_key(|&&index| FloatOrd(query.weight.0 - candidates[index].properties.weight.0))
+            .filter(|&&index| candidates[index].weight <= query.weight)
+            .min_by_key(|&&index| FloatOrd(query.weight.0 - candidates[index].weight.0))
         {
-            Some(&matching_index) => candidates[matching_index].properties.weight,
+            Some(&matching_index) => candidates[matching_index].weight,
             None => {
                 let matching_index = *matching_set
                     .iter()
-                    .min_by_key(|&&index| {
-                        FloatOrd(candidates[index].properties.weight.0 - query.weight.0)
-                    })
+                    .min_by_key(|&&index| FloatOrd(candidates[index].weight.0 - query.weight.0))
                     .unwrap();
-                candidates[matching_index].properties.weight
+                candidates[matching_index].weight
             }
         }
     } else {
         // Closest weight, first checking fatter values and then thinner ones.
         match matching_set
             .iter()
-            .filter(|&&index| candidates[index].properties.weight >= query.weight)
-            .min_by_key(|&&index| FloatOrd(candidates[index].properties.weight.0 - query.weight.0))
+            .filter(|&&index| candidates[index].weight >= query.weight)
+            .min_by_key(|&&index| FloatOrd(candidates[index].weight.0 - query.weight.0))
         {
-            Some(&matching_index) => candidates[matching_index].properties.weight,
+            Some(&matching_index) => candidates[matching_index].weight,
             None => {
                 let matching_index = *matching_set
                     .iter()
-                    .min_by_key(|&&index| {
-                        FloatOrd(query.weight.0 - candidates[index].properties.weight.0)
-                    })
+                    .min_by_key(|&&index| FloatOrd(query.weight.0 - candidates[index].weight.0))
                     .unwrap();
-                candidates[matching_index].properties.weight
+                candidates[matching_index].weight
             }
         }
     };
-    matching_set.retain(|&index| candidates[index].properties.weight == matching_weight);
+    matching_set.retain(|&index| candidates[index].weight == matching_weight);
 
     // Step 4d concerns `font-size`, but fonts in `font-kit` are unsized, so we ignore that.
 
