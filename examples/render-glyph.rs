@@ -18,6 +18,7 @@ use colored::Colorize;
 use euclid::Point2D;
 use font_kit::canvas::{Canvas, Format, RasterizationOptions};
 use font_kit::hinting::HintingOptions;
+use font_kit::loader::FontTransform;
 use font_kit::source::SystemSource;
 use std::fmt::Write;
 
@@ -59,6 +60,10 @@ fn get_args() -> ArgMatches<'static> {
         .possible_value("vertical")
         .possible_value("full")
         .value_names(&["TYPE"]);
+    let transform_arg = Arg::with_name("transform")
+        .help("Transform to apply to glyph when rendering")
+        .long("transform")
+        .number_of_values(4);
     let rasterization_mode_group =
         ArgGroup::with_name("rasterization-mode").args(&["grayscale", "bilevel", "subpixel"]);
     App::new("render-glyph")
@@ -73,6 +78,7 @@ fn get_args() -> ArgMatches<'static> {
         .arg(subpixel_arg)
         .group(rasterization_mode_group)
         .arg(hinting_arg)
+        .arg(transform_arg)
         .get_matches()
 }
 
@@ -91,6 +97,13 @@ fn main() {
         (Format::A8, RasterizationOptions::GrayscaleAa)
     };
 
+    let mut transform = FontTransform::identity();
+    if let Some(values) = matches.values_of("transform") {
+        if let [Ok(a), Ok(b), Ok(c), Ok(d)] = values.map(|x| x.parse()).collect::<Vec<_>>()[..] {
+            transform = FontTransform::new(a, b, c, d)
+        }
+    }
+
     let hinting_options = match matches.value_of("hinting") {
         Some(value) if value == "vertical" => HintingOptions::Vertical(size),
         Some(value) if value == "full" => HintingOptions::Full(size),
@@ -108,6 +121,7 @@ fn main() {
         .raster_bounds(
             glyph_id,
             size,
+            &transform,
             &Point2D::zero(),
             hinting_options,
             rasterization_options,
@@ -121,10 +135,12 @@ fn main() {
         raster_rect.size.height + raster_rect.origin.y,
     )
     .to_f32();
+
     font.rasterize_glyph(
         &mut canvas,
         glyph_id,
         size,
+        &transform,
         &origin,
         hinting_options,
         rasterization_options,

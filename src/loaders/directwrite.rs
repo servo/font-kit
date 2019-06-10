@@ -48,7 +48,7 @@ use crate::error::{FontLoadingError, GlyphLoadingError};
 use crate::file_type::FileType;
 use crate::handle::Handle;
 use crate::hinting::HintingOptions;
-use crate::loader::{FallbackFont, FallbackResult, Loader};
+use crate::loader::{FallbackFont, FallbackResult, FontTransform, Loader};
 use crate::metrics::Metrics;
 use crate::properties::{Properties, Stretch, Style, Weight};
 
@@ -385,6 +385,7 @@ impl Font {
         &self,
         glyph_id: u32,
         point_size: f32,
+        transform: &FontTransform,
         origin: &Point2D<f32>,
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
@@ -392,6 +393,7 @@ impl Font {
         let dwrite_analysis = self.build_glyph_analysis(
             glyph_id,
             point_size,
+            transform,
             origin,
             hinting_options,
             rasterization_options,
@@ -428,6 +430,7 @@ impl Font {
         canvas: &mut Canvas,
         glyph_id: u32,
         point_size: f32,
+        transform: &FontTransform,
         origin: &Point2D<f32>,
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
@@ -438,6 +441,7 @@ impl Font {
         let dwrite_analysis = self.build_glyph_analysis(
             glyph_id,
             point_size,
+            transform,
             origin,
             hinting_options,
             rasterization_options,
@@ -502,6 +506,7 @@ impl Font {
         &self,
         glyph_id: u32,
         point_size: f32,
+        transform: &FontTransform,
         origin: &Point2D<f32>,
         _hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
@@ -535,10 +540,10 @@ impl Font {
                 &glyph_run,
                 1.0,
                 Some(dwrote::DWRITE_MATRIX {
-                    m11: 1.,
-                    m12: 0.,
-                    m21: 0.,
-                    m22: 1.,
+                    m11: transform.scale_x,
+                    m12: transform.skew_y,
+                    m21: transform.skew_x,
+                    m22: transform.scale_y,
                     dx: origin.x,
                     dy: origin.y,
                 }),
@@ -764,6 +769,7 @@ impl Loader for Font {
         canvas: &mut Canvas,
         glyph_id: u32,
         point_size: f32,
+        transform: &FontTransform,
         origin: &Point2D<f32>,
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
@@ -772,6 +778,7 @@ impl Loader for Font {
             canvas,
             glyph_id,
             point_size,
+            transform,
             origin,
             hinting_options,
             rasterization_options,

@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use euclid::{Point2D, Rect, Size2D, Vector2D};
+use euclid::{point2, Point2D, Rect, Size2D, Vector2D};
 use lyon_path::builder::FlatPathBuilder;
 use lyon_path::default::Path;
 use lyon_path::PathEvent;
@@ -21,6 +21,7 @@ use crate::family_name::FamilyName;
 use crate::file_type::FileType;
 use crate::font::Font;
 use crate::hinting::HintingOptions;
+use crate::loader::FontTransform;
 use crate::properties::{Properties, Stretch, Weight};
 use crate::source::SystemSource;
 use crate::utils;
@@ -573,6 +574,7 @@ pub fn rasterize_glyph_with_grayscale_aa() {
         .raster_bounds(
             glyph_id,
             size,
+            &FontTransform::identity(),
             &Point2D::zero(),
             HintingOptions::None,
             RasterizationOptions::GrayscaleAa,
@@ -588,6 +590,7 @@ pub fn rasterize_glyph_with_grayscale_aa() {
         &mut canvas,
         glyph_id,
         size,
+        &FontTransform::identity(),
         &origin,
         HintingOptions::None,
         RasterizationOptions::GrayscaleAa,
@@ -609,6 +612,7 @@ pub fn rasterize_glyph_bilevel() {
         .raster_bounds(
             glyph_id,
             size,
+            &FontTransform::identity(),
             &Point2D::zero(),
             HintingOptions::None,
             RasterizationOptions::Bilevel,
@@ -624,6 +628,7 @@ pub fn rasterize_glyph_bilevel() {
         &mut canvas,
         glyph_id,
         size,
+        &FontTransform::identity(),
         &origin,
         HintingOptions::None,
         RasterizationOptions::Bilevel,
@@ -653,6 +658,7 @@ pub fn rasterize_glyph_with_full_hinting() {
         .raster_bounds(
             glyph_id,
             size,
+            &FontTransform::identity(),
             &Point2D::zero(),
             HintingOptions::None,
             RasterizationOptions::Bilevel,
@@ -668,6 +674,7 @@ pub fn rasterize_glyph_with_full_hinting() {
         &mut canvas,
         glyph_id,
         size,
+        &FontTransform::identity(),
         &origin,
         HintingOptions::Full(size),
         RasterizationOptions::GrayscaleAa,
@@ -690,6 +697,41 @@ pub fn rasterize_glyph_with_full_hinting() {
         assert!(bottom_row.iter().any(|&value| value == 0xff));
         break;
     }
+}
+
+#[test]
+pub fn font_transform() {
+    let font = SystemSource::new()
+        .select_best_match(&[FamilyName::SansSerif], &Properties::new())
+        .unwrap()
+        .load()
+        .unwrap();
+    let glyph_id = font.glyph_for_char('L').unwrap();
+    let size = 16.0;
+    let raster_rect = font
+        .raster_bounds(
+            glyph_id,
+            size,
+            &FontTransform::identity(),
+            &point2(8., 8.),
+            HintingOptions::None,
+            RasterizationOptions::Bilevel,
+        )
+        .unwrap();
+    let raster_rect2 = font
+        .raster_bounds(
+            glyph_id,
+            size,
+            &FontTransform::new(3., 0., 0., 3.),
+            &point2(8., 8.),
+            HintingOptions::None,
+            RasterizationOptions::Bilevel,
+        )
+        .unwrap();
+    assert!((raster_rect2.size.width - raster_rect.size.width * 3).abs() <= 3);
+    assert!((raster_rect2.size.height - raster_rect.size.height * 3).abs() <= 3);
+    assert!((raster_rect2.origin.x - raster_rect.origin.x).abs() <= 3);
+    assert!((raster_rect2.origin.y - raster_rect.origin.y).abs() <= 3);
 }
 
 #[test]

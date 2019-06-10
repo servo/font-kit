@@ -23,6 +23,7 @@
 //!     use font_kit::hinting::HintingOptions;
 //!     use font_kit::properties::Properties;
 //!     use font_kit::source::SystemSource;
+//!     use font_kit::loader::FontTransform;
 //!
 //!     let font = SystemSource::new().select_best_match(&[FamilyName::SansSerif],
 //!                                                      &Properties::new())
@@ -34,6 +35,7 @@
 //!     font.rasterize_glyph(&mut canvas,
 //!                          glyph_id,
 //!                          32.0,
+//!                          &FontTransform::identity(),
 //!                          &Point2D::zero(),
 //!                          HintingOptions::None,
 //!                          RasterizationOptions::GrayscaleAa)
