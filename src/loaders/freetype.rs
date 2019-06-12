@@ -530,17 +530,22 @@ impl Font {
                         );
 
                         if (tag0 & FT_POINT_TAG_CUBIC_CONTROL) != 0 {
-                            // FIXME(pcwalton): Can we have implied on-curve points for cubic
-                            // control points too?
-                            let (point2, _) = get_point(
-                                &mut current_point_index,
-                                point_positions,
-                                point_tags,
-                                last_point_index_in_contour,
-                                grid_fitting_size,
-                                units_per_em,
-                            );
-                            path_builder.cubic_bezier_to(point0, point1, point2);
+                            if current_point_index <= last_point_index_in_contour {
+                                // FIXME(pcwalton): Can we have implied on-curve points for cubic
+                                // control points too?
+                                let (point2, _) = get_point(
+                                    &mut current_point_index,
+                                    point_positions,
+                                    point_tags,
+                                    last_point_index_in_contour,
+                                    grid_fitting_size,
+                                    units_per_em,
+                                );
+                                path_builder.cubic_bezier_to(point0, point1, point2);
+                            } else {
+                                // last point on the contour. use first_point as point2
+                                path_builder.cubic_bezier_to(point0, point1, first_point);
+                            }
                             break;
                         }
 
