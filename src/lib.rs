@@ -122,6 +122,9 @@
 #![warn(missing_debug_implementations)]
 #![warn(missing_copy_implementations)]
 
+#[macro_use]
+extern crate log;
+
 pub mod canvas;
 pub mod error;
 pub mod family;
