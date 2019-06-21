@@ -1,0 +1,13 @@
+language = "C"
+header = """\
+/* Generated code. Do not edit; instead run `cargo build` in `font-kit-c`. */
+
+extern \"C\" {
+"""
+trailer = "}"
+include_guard = "FK_FONT_KIT_H"
+include_version = true
+
+[parse]
+parse_deps = true
+include = ["font-kit"]
