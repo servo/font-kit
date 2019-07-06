@@ -36,7 +36,7 @@
 //!                          glyph_id,
 //!                          32.0,
 //!                          &FontTransform::identity(),
-//!                          &Point2D::zero(),
+//!                          &Point2D::new(0.0, 32.0),
 //!                          HintingOptions::None,
 //!                          RasterizationOptions::GrayscaleAa)
 //!         .unwrap();
