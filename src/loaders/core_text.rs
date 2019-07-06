@@ -560,7 +560,20 @@ impl Font {
         }
 
         //CoreGraphics origin is in the bottom left. This makes behavior consistent.
-        core_graphics_context.translate(0., canvas.size.height as CGFloat);
+        let raster_bounds = self
+            .raster_bounds(
+                glyph_id,
+                point_size,
+                transform,
+                origin,
+                hinting_options,
+                rasterization_options,
+            )
+            .unwrap();
+        core_graphics_context.translate(
+            0.,
+            (canvas.size.height as i32 - raster_bounds.size.height) as CGFloat,
+        );
         core_graphics_context.set_font(&self.core_text_font.copy_to_CGFont());
         core_graphics_context.set_font_size(point_size as CGFloat);
         core_graphics_context.set_text_drawing_mode(CGTextDrawingMode::CGTextFill);
