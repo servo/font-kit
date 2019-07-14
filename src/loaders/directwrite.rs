@@ -456,6 +456,15 @@ impl Font {
 
         // TODO(pcwalton): Avoid a copy in some cases by writing directly to the canvas.
         let texture_bounds = dwrite_analysis.get_alpha_texture_bounds(texture_type)?;
+        let texture_width = texture_bounds.right - texture_bounds.left;
+        let texture_height = texture_bounds.bottom - texture_bounds.top;
+
+        // 'Returns an empty rectangle if there are no glyphs of the specified texture type.'
+        // https://docs.microsoft.com/en-us/windows/win32/api/dwrite/nf-dwrite-idwriteglyphrunanalysis-getalphatexturebounds
+        if texture_width == 0 || texture_height == 0 {
+            return Ok(());
+        }
+
         let texture_format = if texture_type == DWRITE_TEXTURE_ALIASED_1x1 {
             Format::A8
         } else {
@@ -463,8 +472,6 @@ impl Font {
         };
         let texture_bits_per_pixel = texture_format.bits_per_pixel();
         let texture_bytes_per_pixel = texture_bits_per_pixel as usize / 8;
-        let texture_width = texture_bounds.right - texture_bounds.left;
-        let texture_height = texture_bounds.bottom - texture_bounds.top;
         let texture_size = Size2D::new(texture_width, texture_height).to_u32();
         let texture_stride = texture_width as usize * texture_bytes_per_pixel;
 
