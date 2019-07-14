@@ -23,7 +23,7 @@ font.rasterize_glyph(
     &mut canvas,
     glyph_id,
     32.0,
-    &Point2D::zero(),
+    &Point2D::new(0.0, 32.0),
     HintingOptions::None,
     RasterizationOptions::GrayscaleAa,
 )
