@@ -11,7 +11,7 @@
 //! Provides a common interface to the platform-specific API that loads, parses, and rasterizes
 //! fonts.
 
-use euclid::{Point2D, Rect, Transform2D, Vector2D};
+use euclid::default::{Point2D, Rect, Transform2D, Vector2D};
 use log::warn;
 use lyon_path::builder::PathBuilder;
 use std::sync::Arc;

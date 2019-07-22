@@ -10,7 +10,8 @@
 
 //! An in-memory bitmap surface for glyph rasterization.
 
-use euclid::{point2, Point2D, Rect, Size2D};
+use euclid::default::{Point2D, Rect, Size2D};
+use euclid::point2;
 use lazy_static::lazy_static;
 use std::cmp;
 use std::fmt;

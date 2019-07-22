@@ -14,7 +14,7 @@
 //! loader by default.
 
 use byteorder::{BigEndian, ReadBytesExt};
-use euclid::{point2, Point2D, Rect, Size2D, Vector2D};
+use euclid::default::{Point2D, Rect, Size2D, Vector2D};
 use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_Face, FT_FACE_FLAG_FIXED_WIDTH};
 use freetype::freetype::{FT_Fixed, FT_Matrix, FT_UShort, FT_Vector};
 use freetype::freetype::{
@@ -853,7 +853,7 @@ impl Font {
             let bitmap_buffer = (*bitmap).buffer as *const i8 as *const u8;
             let bitmap_length = bitmap_stride * bitmap_height as usize;
             let buffer = slice::from_raw_parts(bitmap_buffer, bitmap_length);
-            let dst_point = point2(
+            let dst_point = Point2D::new(
                 (*(*self.freetype_face).glyph).bitmap_left,
                 -(*(*self.freetype_face).glyph).bitmap_top,
             );
