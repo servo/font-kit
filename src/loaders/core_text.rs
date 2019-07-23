@@ -23,7 +23,7 @@ use core_text;
 use core_text::font::CTFont;
 use core_text::font_descriptor::kCTFontDefaultOrientation;
 use core_text::font_descriptor::{SymbolicTraitAccessors, TraitAccessors};
-use euclid::{Point2D, Rect, Size2D, Vector2D};
+use euclid::default::{Point2D, Rect, Size2D, Vector2D};
 use log::warn;
 use lyon_path::builder::PathBuilder;
 use memmap::{Mmap, MmapOptions};

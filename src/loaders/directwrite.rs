@@ -23,10 +23,9 @@ use dwrote::InformationalStringId as DWriteInformationalStringId;
 use dwrote::{DWRITE_TEXTURE_ALIASED_1x1, DWRITE_RENDERING_MODE_NATURAL};
 use dwrote::{DWRITE_TEXTURE_CLEARTYPE_3x1, OutlineBuilder};
 use dwrote::{DWRITE_GLYPH_RUN, DWRITE_MEASURING_MODE_NATURAL, DWRITE_RENDERING_MODE_ALIASED};
+use euclid::default::{Point2D, Rect, Size2D, Vector2D};
 use euclid::point2;
-use euclid::{Point2D, Rect, Size2D, Vector2D};
 use lyon_path::builder::PathBuilder;
-use lyon_path::PathEvent;
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::fmt::{self, Debug, Formatter};
@@ -798,25 +797,54 @@ impl Loader for Font {
     }
 }
 
+enum Event {
+    MoveTo(Point2D<f32>),
+    LineTo(Point2D<f32>),
+    QuadraticTo {
+        ctrl: Point2D<f32>,
+        point: Point2D<f32>,
+    },
+    CubicTo {
+        ctrl0: Point2D<f32>,
+        ctrl1: Point2D<f32>,
+        point: Point2D<f32>,
+    },
+    Close,
+}
+
 #[derive(Clone)]
 struct OutlineBuffer {
-    path_events: Arc<Mutex<Vec<PathEvent>>>,
+    path_events: Arc<Mutex<Vec<Event>>>,
 }
 
 impl OutlineBuffer {
-    pub fn new() -> OutlineBuffer {
+    fn new() -> OutlineBuffer {
         OutlineBuffer {
             path_events: Arc::new(Mutex::new(vec![])),
         }
     }
 
-    pub fn flush<B>(&self, path_builder: &mut B)
+    fn flush<B>(&self, builder: &mut B)
     where
         B: PathBuilder,
     {
         let mut path_events = self.path_events.lock().unwrap();
-        for path_event in path_events.drain(..) {
-            path_builder.path_event(path_event)
+        for event in path_events.drain(..) {
+            match event {
+                Event::MoveTo(p) => builder.move_to(p),
+                Event::LineTo(p) => builder.line_to(p),
+                Event::QuadraticTo { ctrl, point } => {
+                    builder.quadratic_bezier_to(ctrl, point);
+                }
+                Event::CubicTo {
+                    ctrl0,
+                    ctrl1,
+                    point,
+                } => {
+                    builder.cubic_bezier_to(ctrl0, ctrl1, point);
+                }
+                Event::Close => builder.close(),
+            }
         }
     }
 }
@@ -826,14 +854,14 @@ impl OutlineBuilder for OutlineBuffer {
         self.path_events
             .lock()
             .unwrap()
-            .push(PathEvent::MoveTo(Point2D::new(x, -y)))
+            .push(Event::MoveTo(Point2D::new(x, -y)))
     }
 
     fn line_to(&mut self, x: f32, y: f32) {
         self.path_events
             .lock()
             .unwrap()
-            .push(PathEvent::LineTo(Point2D::new(x, -y)))
+            .push(Event::LineTo(Point2D::new(x, -y)))
     }
 
     fn curve_to(&mut self, cp0x: f32, cp0y: f32, cp1x: f32, cp1y: f32, x: f32, y: f32) {
@@ -844,30 +872,37 @@ impl OutlineBuilder for OutlineBuffer {
         // See Sederberg § 2.6, "Distance Between Two Bézier Curves".
         let mut path_events = self.path_events.lock().unwrap();
         let from = match *path_events.last().unwrap() {
-            PathEvent::MoveTo(point)
-            | PathEvent::LineTo(point)
-            | PathEvent::QuadraticTo(_, point)
-            | PathEvent::CubicTo(_, _, point) => point,
-            PathEvent::Close | PathEvent::Arc(..) => unreachable!(),
+            Event::MoveTo(point)
+            | Event::LineTo(point)
+            | Event::QuadraticTo { point, .. }
+            | Event::CubicTo { point, .. } => point,
+            Event::Close => unreachable!(),
         };
         let approx_ctrl_0 = (ctrl0 * 3.0 - from) * 0.5;
         let approx_ctrl_1 = (ctrl1 * 3.0 - to) * 0.5;
         let delta_ctrl = (approx_ctrl_1 - approx_ctrl_0) * 2.0;
         let max_error = delta_ctrl.length() / 6.0;
 
-        let path_event = if max_error < ERROR_BOUND {
+        let event = if max_error < ERROR_BOUND {
             // Round to nearest 0.5.
             let mut approx_ctrl = approx_ctrl_0.lerp(approx_ctrl_1, 0.5).to_point();
             approx_ctrl = (approx_ctrl * 2.0).round() * 0.5;
-            PathEvent::QuadraticTo(approx_ctrl, to)
+            Event::QuadraticTo {
+                ctrl: approx_ctrl,
+                point: to,
+            }
         } else {
-            PathEvent::CubicTo(ctrl0, ctrl1, to)
+            Event::CubicTo {
+                ctrl0,
+                ctrl1,
+                point: to,
+            }
         };
-        path_events.push(path_event)
+        path_events.push(event)
     }
 
     fn close(&mut self) {
-        self.path_events.lock().unwrap().push(PathEvent::Close)
+        self.path_events.lock().unwrap().push(Event::Close)
     }
 }
 

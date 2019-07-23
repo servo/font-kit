@@ -8,10 +8,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use euclid::{point2, Point2D, Rect, Size2D, Vector2D};
-use lyon_path::builder::FlatPathBuilder;
-use lyon_path::default::Path;
-use lyon_path::PathEvent;
+use euclid::{
+    default::{Point2D, Rect, Size2D, Vector2D},
+    point2,
+};
+use lyon_path::{Path, PathEvent};
 use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
@@ -95,6 +96,38 @@ pub fn get_glyph_for_char() {
     assert_eq!(glyph, 68);
 }
 
+macro_rules! assert_line_to {
+    ($event:expr, $pt:expr) => {
+        match $event {
+            Some(PathEvent::Line(ref segment)) => {
+                assert_eq!(segment.to, $pt, "Expected a line to {:?}", $pt)
+            }
+            other => panic!("Expected line, got {:?}", other),
+        }
+    };
+}
+
+macro_rules! assert_quadratic_to {
+    ($event:expr, $ctrl:expr, $to:expr) => {
+        match $event {
+            Some(PathEvent::Quadratic(ref segment)) => {
+                assert_eq!(segment.ctrl, $ctrl);
+                assert_eq!(segment.to, $to);
+            }
+            other => panic!("Expected quadratic segment, got {:?}", other),
+        }
+    };
+}
+
+macro_rules! assert_close {
+    ($event:expr) => {
+        match $event {
+            Some(PathEvent::Close(..)) => {}
+            other => panic!("Expected close, got {:?}", other),
+        }
+    };
+}
+
 #[cfg(any(target_family = "windows", target_os = "macos"))]
 #[test]
 pub fn get_glyph_outline() {
@@ -114,36 +147,18 @@ pub fn get_glyph_outline() {
         events.next(),
         Some(PathEvent::MoveTo(Point2D::new(136.0, 1259.0)))
     );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(136.0, 1466.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(316.0, 1466.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(316.0, 1259.0)))
-    );
-    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_line_to!(events.next(), Point2D::new(136.0, 1466.0));
+    assert_line_to!(events.next(), Point2D::new(316.0, 1466.0));
+    assert_line_to!(events.next(), Point2D::new(316.0, 1259.0));
+    assert_close!(events.next());
     assert_eq!(
         events.next(),
         Some(PathEvent::MoveTo(Point2D::new(136.0, 0.0)))
     );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(136.0, 1062.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(316.0, 1062.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(316.0, 0.0)))
-    );
-    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_line_to!(events.next(), Point2D::new(136.0, 1062.0));
+    assert_line_to!(events.next(), Point2D::new(316.0, 1062.0));
+    assert_line_to!(events.next(), Point2D::new(316.0, 0.0));
+    assert_close!(events.next());
 }
 
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
@@ -165,36 +180,18 @@ pub fn get_glyph_outline() {
         events.next(),
         Some(PathEvent::MoveTo(Point2D::new(193.0, 1120.0)))
     );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(377.0, 1120.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(377.0, 0.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(193.0, 0.0)))
-    );
-    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_line_to!(events.next(), Point2D::new(377.0, 1120.0));
+    assert_line_to!(events.next(), Point2D::new(377.0, 0.0));
+    assert_line_to!(events.next(), Point2D::new(193.0, 0.0));
+    assert_close!(events.next());
     assert_eq!(
         events.next(),
         Some(PathEvent::MoveTo(Point2D::new(193.0, 1556.0)))
     );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(377.0, 1556.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(377.0, 1323.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(193.0, 1323.0)))
-    );
-    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_line_to!(events.next(), Point2D::new(377.0, 1556.0));
+    assert_line_to!(events.next(), Point2D::new(377.0, 1323.0));
+    assert_line_to!(events.next(), Point2D::new(193.0, 1323.0));
+    assert_close!(events.next());
 }
 
 // Right now, only FreeType can do hinting.
@@ -216,40 +213,19 @@ pub fn get_vertically_hinted_glyph_outline() {
     let path = path_builder.build();
 
     let mut events = path.into_iter();
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(136.0, 1316.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(136.0, 1536.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(316.0, 1536.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(316.0, 1316.0)))
-    );
-    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_line_to!(events.next(), Point2D::new(136.0, 1316.0));
+    assert_line_to!(events.next(), Point2D::new(136.0, 1536.0));
+    assert_line_to!(events.next(), Point2D::new(316.0, 1536.0));
+    assert_line_to!(events.next(), Point2D::new(316.0, 1316.0));
+    assert_close!(events.next());
     assert_eq!(
         events.next(),
         Some(PathEvent::MoveTo(Point2D::new(136.0, 0.0)))
     );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(136.0, 1152.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(316.0, 1152.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(316.0, 0.0)))
-    );
-    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_line_to!(events.next(), Point2D::new(136.0, 1152.0));
+    assert_line_to!(events.next(), Point2D::new(316.0, 1152.0));
+    assert_line_to!(events.next(), Point2D::new(316.0, 0.0));
+    assert_close!(events.next());
 }
 
 #[cfg(not(any(target_os = "macos", target_family = "windows")))]
@@ -271,36 +247,18 @@ pub fn get_vertically_hinted_glyph_outline() {
         events.next(),
         Some(PathEvent::MoveTo(Point2D::new(194.0, 1152.0)))
     );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(378.0, 1152.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(378.0, 0.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(194.0, 0.0)))
-    );
-    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_line_to!(events.next(), Point2D::new(378.0, 1152.0));
+    assert_line_to!(events.next(), Point2D::new(378.0, 0.0));
+    assert_line_to!(events.next(), Point2D::new(194.0, 0.0));
+    assert_close!(events.next());
     assert_eq!(
         events.next(),
         Some(PathEvent::MoveTo(Point2D::new(194.0, 1536.0)))
     );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(378.0, 1536.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(378.0, 1302.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(194.0, 1302.0)))
-    );
-    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_line_to!(events.next(), Point2D::new(378.0, 1536.0));
+    assert_line_to!(events.next(), Point2D::new(378.0, 1302.0));
+    assert_line_to!(events.next(), Point2D::new(194.0, 1302.0));
+    assert_close!(events.next());
 }
 
 // Right now, only FreeType can do hinting.
@@ -326,36 +284,18 @@ pub fn get_fully_hinted_glyph_outline() {
         events.next(),
         Some(PathEvent::MoveTo(Point2D::new(137.6, 1228.8)))
     );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(137.6, 1433.6)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(316.80002, 1433.6)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(316.80002, 1228.8)))
-    );
-    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_line_to!(events.next(), Point2D::new(137.6, 1433.6));
+    assert_line_to!(events.next(), Point2D::new(316.80002, 1433.6));
+    assert_line_to!(events.next(), Point2D::new(316.80002, 1228.8));
+    assert_close!(events.next());
     assert_eq!(
         events.next(),
         Some(PathEvent::MoveTo(Point2D::new(137.6, 0.0)))
     );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(137.6, 1024.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(316.80002, 1024.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(316.80002, 0.0)))
-    );
-    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_line_to!(events.next(), Point2D::new(137.6, 1024.0));
+    assert_line_to!(events.next(), Point2D::new(316.80002, 1024.0));
+    assert_line_to!(events.next(), Point2D::new(316.80002, 0.0));
+    assert_close!(events.next());
 }
 
 #[cfg(not(any(target_os = "macos", target_family = "windows")))]
@@ -377,36 +317,18 @@ pub fn get_fully_hinted_glyph_outline() {
         events.next(),
         Some(PathEvent::MoveTo(Point2D::new(204.8, 1024.0)))
     );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(409.6, 1024.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(409.6, 0.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(204.8, 0.0)))
-    );
-    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_line_to!(events.next(), Point2D::new(409.6, 1024.0));
+    assert_line_to!(events.next(), Point2D::new(409.6, 0.0));
+    assert_line_to!(events.next(), Point2D::new(204.8, 0.0));
+    assert_close!(events.next());
     assert_eq!(
         events.next(),
         Some(PathEvent::MoveTo(Point2D::new(204.8, 1638.4)))
     );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(409.6, 1638.4)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(409.6, 1433.6)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(204.8, 1433.6)))
-    );
-    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_line_to!(events.next(), Point2D::new(409.6, 1638.4));
+    assert_line_to!(events.next(), Point2D::new(409.6, 1433.6));
+    assert_line_to!(events.next(), Point2D::new(204.8, 1433.6));
+    assert_close!(events.next());
 }
 
 #[test]
@@ -777,131 +699,97 @@ fn get_glyph_outline_eb_garamond_exclam() {
         events.next(),
         Some(PathEvent::MoveTo(Point2D::new(114.0, 598.0)))
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(114.0, 619.0),
-            Point2D::new(127.5, 634.0)
-        ))
+        Point2D::new(114.0, 619.0),
+        Point2D::new(127.5, 634.0)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(141.0, 649.0),
-            Point2D::new(161.0, 649.0)
-        ))
+        Point2D::new(141.0, 649.0),
+        Point2D::new(161.0, 649.0)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(181.0, 649.0),
-            Point2D::new(193.5, 634.0)
-        ))
+        Point2D::new(181.0, 649.0),
+        Point2D::new(193.5, 634.0)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(206.0, 619.0),
-            Point2D::new(206.0, 598.0)
-        ))
+        Point2D::new(206.0, 619.0),
+        Point2D::new(206.0, 598.0)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(206.0, 526.0),
-            Point2D::new(176.0, 244.0)
-        ))
+        Point2D::new(206.0, 526.0),
+        Point2D::new(176.0, 244.0)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(172.0, 205.0),
-            Point2D::new(158.0, 205.0)
-        ))
+        Point2D::new(172.0, 205.0),
+        Point2D::new(158.0, 205.0)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(144.0, 205.0),
-            Point2D::new(140.0, 244.0)
-        ))
+        Point2D::new(144.0, 205.0),
+        Point2D::new(140.0, 244.0)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(114.0, 491.0),
-            Point2D::new(114.0, 598.0)
-        ))
+        Point2D::new(114.0, 491.0),
+        Point2D::new(114.0, 598.0)
     );
-    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_close!(events.next());
     let event = events.next();
     assert!(
         event == Some(PathEvent::MoveTo(Point2D::new(117.0, 88.0)))
             || event == Some(PathEvent::MoveTo(Point2D::new(117.5, 88.5)))
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(135.0, 106.0),
-            Point2D::new(160.0, 106.0)
-        ))
+        Point2D::new(135.0, 106.0),
+        Point2D::new(160.0, 106.0)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(185.0, 106.0),
-            Point2D::new(202.5, 88.5)
-        ))
+        Point2D::new(185.0, 106.0),
+        Point2D::new(202.5, 88.5)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(220.0, 71.0),
-            Point2D::new(220.0, 46.0)
-        ))
+        Point2D::new(220.0, 71.0),
+        Point2D::new(220.0, 46.0)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(220.0, 21.0),
-            Point2D::new(202.5, 3.5)
-        ))
+        Point2D::new(220.0, 21.0),
+        Point2D::new(202.5, 3.5)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(185.0, -14.0),
-            Point2D::new(160.0, -14.0)
-        ))
+        Point2D::new(185.0, -14.0),
+        Point2D::new(160.0, -14.0)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(135.0, -14.0),
-            Point2D::new(117.5, 3.5)
-        ))
+        Point2D::new(135.0, -14.0),
+        Point2D::new(117.5, 3.5)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(100.0, 21.0),
-            Point2D::new(100.0, 46.0)
-        ))
+        Point2D::new(100.0, 21.0),
+        Point2D::new(100.0, 46.0)
     );
-    let event = events.next();
-    assert!(
-        event
-            == Some(PathEvent::QuadraticTo(
-                Point2D::new(100.0, 71.0),
-                Point2D::new(117.0, 88.0)
-            ))
-            || event
-                == Some(PathEvent::QuadraticTo(
-                    Point2D::new(100.0, 71.0),
-                    Point2D::new(117.5, 88.5)
-                ))
-    );
-    assert_eq!(events.next(), Some(PathEvent::Close));
+    match events.next() {
+        Some(PathEvent::Quadratic(ref segment)) => {
+            assert_eq!(segment.ctrl, Point2D::new(100.0, 71.0));
+            assert!(
+                segment.to == Point2D::new(117.0, 88.0) || segment.to == Point2D::new(117.5, 88.5)
+            )
+        }
+        other => panic!("Expected quadratic got {:?}", other),
+    }
+    assert_close!(events.next());
 }
 
 // https://github.com/pcwalton/pathfinder/issues/84
@@ -921,110 +809,62 @@ fn get_glyph_outline_inconsolata_J() {
         events.next(),
         Some(PathEvent::MoveTo(Point2D::new(198.0, -11.0)))
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(106.0, -11.0),
-            Point2D::new(49.0, 58.0)
-        ))
+        Point2D::new(106.0, -11.0),
+        Point2D::new(49.0, 58.0)
     );
-    assert_eq!(
+    assert_line_to!(events.next(), Point2D::new(89.0, 108.0));
+    assert_line_to!(events.next(), Point2D::new(96.0, 116.0));
+    assert_line_to!(events.next(), Point2D::new(101.0, 112.0));
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::LineTo(Point2D::new(89.0, 108.0)))
+        Point2D::new(102.0, 102.0),
+        Point2D::new(106.0, 95.0)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::LineTo(Point2D::new(96.0, 116.0)))
+        Point2D::new(110.0, 88.0),
+        Point2D::new(122.0, 78.0)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::LineTo(Point2D::new(101.0, 112.0)))
+        Point2D::new(157.0, 51.0),
+        Point2D::new(196.0, 51.0)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(102.0, 102.0),
-            Point2D::new(106.0, 95.0)
-        ))
+        Point2D::new(247.0, 51.0),
+        Point2D::new(269.5, 86.5)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(110.0, 88.0),
-            Point2D::new(122.0, 78.0)
-        ))
+        Point2D::new(292.0, 122.0),
+        Point2D::new(292.0, 208.0)
     );
-    assert_eq!(
+    assert_line_to!(events.next(), Point2D::new(292.0, 564.0));
+    assert_line_to!(events.next(), Point2D::new(172.0, 564.0));
+    assert_line_to!(events.next(), Point2D::new(172.0, 623.0));
+    assert_line_to!(events.next(), Point2D::new(457.0, 623.0));
+    assert_line_to!(events.next(), Point2D::new(457.0, 564.0));
+    assert_line_to!(events.next(), Point2D::new(361.0, 564.0));
+    assert_line_to!(events.next(), Point2D::new(361.0, 209.0));
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(157.0, 51.0),
-            Point2D::new(196.0, 51.0)
-        ))
+        Point2D::new(363.0, 133.0),
+        Point2D::new(341.0, 84.0)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(247.0, 51.0),
-            Point2D::new(269.5, 86.5)
-        ))
+        Point2D::new(319.0, 35.0),
+        Point2D::new(281.5, 12.0)
     );
-    assert_eq!(
+    assert_quadratic_to!(
         events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(292.0, 122.0),
-            Point2D::new(292.0, 208.0)
-        ))
+        Point2D::new(244.0, -11.0),
+        Point2D::new(198.0, -11.0)
     );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(292.0, 564.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(172.0, 564.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(172.0, 623.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(457.0, 623.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(457.0, 564.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(361.0, 564.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::LineTo(Point2D::new(361.0, 209.0)))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(363.0, 133.0),
-            Point2D::new(341.0, 84.0)
-        ))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(319.0, 35.0),
-            Point2D::new(281.5, 12.0)
-        ))
-    );
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::QuadraticTo(
-            Point2D::new(244.0, -11.0),
-            Point2D::new(198.0, -11.0)
-        ))
-    );
-    assert_eq!(events.next(), Some(PathEvent::Close));
+    assert_close!(events.next());
 }
 
 // Makes sure that a canvas has an "L" shape in it. This is used to test rasterization.
