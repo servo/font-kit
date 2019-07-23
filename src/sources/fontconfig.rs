@@ -303,6 +303,14 @@ mod fc {
         }
     }
 
+    impl Drop for Config {
+        fn drop(&mut self) {
+            unsafe {
+                ffi::FcConfigDestroy(self.d);
+            }
+        }
+    }
+
     pub struct Pattern {
         d: *mut ffi::FcPattern,
         c_strings: Vec<CString>,
