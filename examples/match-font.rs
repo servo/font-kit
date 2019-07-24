@@ -22,10 +22,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let properties = font_kit::properties::Properties::default();
-    let handle = font_kit::source::SystemSource::new()
-        .select_best_match(&families, &properties)?;
+    let handle = font_kit::source::SystemSource::new().select_best_match(&families, &properties)?;
 
-    if let font_kit::handle::Handle::Path { ref path, font_index } = handle {
+    if let font_kit::handle::Handle::Path {
+        ref path,
+        font_index,
+    } = handle
+    {
         println!("Path: {}", path.display());
         println!("Index: {}", font_index);
     }
@@ -33,7 +36,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let font = handle.load()?;
 
     println!("Family name: {}", font.family_name());
-    println!("PostScript name: {}", font.postscript_name().unwrap_or("?".to_string()));
+    println!(
+        "PostScript name: {}",
+        font.postscript_name().unwrap_or("?".to_string())
+    );
     println!("Style: {:?}", font.properties().style);
     println!("Weight: {:?}", font.properties().weight);
     println!("Stretch: {:?}", font.properties().stretch);
