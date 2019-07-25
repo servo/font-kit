@@ -307,8 +307,8 @@ impl Font {
         let vertical_origin_y = metrics.verticalOriginY as i32;
 
         let y_offset = vertical_origin_y + bottom_side_bearing - advance_height;
-        let width = advance_width - (left_side_bearing + right_side_bearing);
-        let height = advance_height - (top_side_bearing + bottom_side_bearing);
+        let width = advance_width + (left_side_bearing + right_side_bearing);
+        let height = advance_height + (top_side_bearing + bottom_side_bearing);
 
         Ok(Rect::new(
             Point2D::new(left_side_bearing as f32, y_offset as f32),
@@ -389,30 +389,15 @@ impl Font {
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
     ) -> Result<Rect<i32>, GlyphLoadingError> {
-        let dwrite_analysis = self.build_glyph_analysis(
+        <Self as Loader>::raster_bounds(
+            self,
             glyph_id,
             point_size,
             transform,
             origin,
             hinting_options,
             rasterization_options,
-        )?;
-
-        let texture_type = match rasterization_options {
-            RasterizationOptions::Bilevel => DWRITE_TEXTURE_ALIASED_1x1,
-            RasterizationOptions::GrayscaleAa | RasterizationOptions::SubpixelAa => {
-                DWRITE_TEXTURE_CLEARTYPE_3x1
-            }
-        };
-
-        let texture_bounds = dwrite_analysis.get_alpha_texture_bounds(texture_type)?;
-        let texture_width = texture_bounds.right - texture_bounds.left;
-        let texture_height = texture_bounds.bottom - texture_bounds.top;
-
-        Ok(Rect::new(
-            Point2D::new(0, 0),
-            Size2D::new(texture_width, texture_height).to_i32(),
-        ))
+        )
     }
 
     /// Rasterizes a glyph to a canvas with the given size and origin.
