@@ -16,9 +16,7 @@ extern crate prettytable;
 
 use font_kit::source::SystemSource;
 use pbr::ProgressBar;
-use prettytable::cell::Cell;
-use prettytable::row::Row;
-use prettytable::{Attr, Table};
+use prettytable::{Attr, Cell, Row, Table};
 
 fn main() {
     let mut table = Table::new();
