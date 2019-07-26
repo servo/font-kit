@@ -621,6 +621,45 @@ pub fn rasterize_glyph_with_full_hinting() {
     }
 }
 
+#[cfg(any(target_family = "windows"))]
+#[test]
+pub fn rasterize_glyph() {
+    let font = SystemSource::new()
+        .select_best_match(&[FamilyName::SansSerif], &Properties::new())
+        .unwrap()
+        .load()
+        .unwrap();
+    let glyph_id = font.glyph_for_char('{').unwrap();
+    let size = 32.0;
+    let raster_rect = font
+        .raster_bounds(
+            glyph_id,
+            size,
+            &FontTransform::identity(),
+            &Point2D::zero(),
+            HintingOptions::None,
+            RasterizationOptions::GrayscaleAa,
+        )
+        .unwrap();
+    let origin = Point2D::new(
+        -raster_rect.origin.x,
+        raster_rect.size.height + raster_rect.origin.y,
+    )
+    .to_f32();
+    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
+    font.rasterize_glyph(
+        &mut canvas,
+        glyph_id,
+        size,
+        &FontTransform::identity(),
+        &origin,
+        HintingOptions::None,
+        RasterizationOptions::GrayscaleAa,
+    )
+    .unwrap();
+    check_curly_shape(&canvas);
+}
+
 #[test]
 pub fn font_transform() {
     let font = SystemSource::new()
@@ -923,6 +962,52 @@ fn check_L_shape(canvas: &Canvas) {
 
     // Make sure we made it to the end.
     assert_eq!(y, canvas.size.height);
+}
+
+// Makes sure that a canvas has an "{" shape in it. This is used to test rasterization.
+fn check_curly_shape(canvas: &Canvas) {
+    let mut y = 0;
+    let height = canvas.size.height;
+    // check the upper row and the lower rows are symmetrical
+    while y < height / 2 {
+        let (upper_row_start, upper_row_end) =
+            (canvas.stride * y as usize, canvas.stride * (y + 1) as usize);
+        let (lower_row_start, lower_row_end) = (
+            canvas.stride * (height - y - 1) as usize,
+            canvas.stride * (height - y) as usize,
+        );
+        let upper_row = &canvas.pixels[upper_row_start..upper_row_end];
+        let lower_row = &canvas.pixels[lower_row_start..lower_row_end];
+        let top_row_width = stripe_width(upper_row).unwrap();
+        let lower_row_width = stripe_width(lower_row).unwrap();
+        let upper_row_pixel_start = stride_pixel_start(upper_row).unwrap();
+        let lower_row_pixel_start = stride_pixel_start(lower_row).unwrap();
+        if top_row_width == lower_row_width {
+            // check non-zero pixels start at the same index
+            assert_eq!(upper_row_pixel_start, lower_row_pixel_start);
+        } else {
+            //if not, assert that the difference is not greater than 1
+            assert_eq!((lower_row_width as i32 - top_row_width as i32).abs(), 1);
+            // and assert that the non-zero pixel index difference is not greater than 1
+            assert_eq!(
+                (upper_row_pixel_start as i32 - lower_row_pixel_start as i32).abs(),
+                1
+            );
+        }
+        y += 1;
+    }
+}
+
+// return the first non-zero pixel index
+fn stride_pixel_start(pixels: &[u8]) -> Option<u32> {
+    let mut index = 0;
+    for x in pixels {
+        if *x != 0 {
+            return Some(index);
+        }
+        index += 1;
+    }
+    None
 }
 
 fn stripe_width(pixels: &[u8]) -> Option<u32> {
