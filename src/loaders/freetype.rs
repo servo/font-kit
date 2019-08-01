@@ -341,10 +341,13 @@ impl Font {
     /// Returns the name of the font family.
     pub fn family_name(&self) -> String {
         unsafe {
-            CStr::from_ptr((*self.freetype_face).family_name)
-                .to_str()
-                .unwrap()
-                .to_owned()
+            let ptr = (*self.freetype_face).family_name;
+            // FreeType doesn't guarantee a non-null family name (see issue #5).
+            if ptr.is_null() {
+                String::new()
+            } else {
+                CStr::from_ptr(ptr).to_str().unwrap().to_owned()
+            }
         }
     }
 
