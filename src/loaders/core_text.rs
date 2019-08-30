@@ -65,8 +65,10 @@ impl Font {
     ///
     /// If the data represents a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index
     /// of the font to load from it. If the data represents a single font, pass 0 for `font_index`.
-    pub fn from_bytes(mut font_data: Arc<Vec<u8>>, font_index: u32)
-                      -> Result<Font, FontLoadingError> {
+    pub fn from_bytes(
+        mut font_data: Arc<Vec<u8>>,
+        font_index: u32,
+    ) -> Result<Font, FontLoadingError> {
         // Sadly, there's no API to load OpenType collections on macOS, I don't believe…
         if font_is_collection(&**font_data) {
             let mut new_font_data = (*font_data).clone();
@@ -114,12 +116,10 @@ impl Font {
             None => warn!("No URL found for Core Text font!"),
             Some(url) => match url.to_path() {
                 Some(path) => match File::open(path) {
-                    Ok(ref mut file) => {
-                        match utils::slurp_file(file) {
-                            Ok(data) => font_data = FontData::Memory(Arc::new(data)),
-                            Err(_) => warn!("Couldn't read file data for Core Text font!"),
-                        }
-                    }
+                    Ok(ref mut file) => match utils::slurp_file(file) {
+                        Ok(data) => font_data = FontData::Memory(Arc::new(data)),
+                        Err(_) => warn!("Couldn't read file data for Core Text font!"),
+                    },
                     Err(_) => warn!("Could not open file for Core Text font!"),
                 },
                 None => warn!("Could not convert URL from Core Text font to path!"),

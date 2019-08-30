@@ -18,7 +18,9 @@ use euclid::default::{Point2D, Rect, Size2D, Vector2D};
 use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_Face, FT_FACE_FLAG_FIXED_WIDTH};
 use freetype::freetype::{FT_Fixed, FT_Matrix, FT_UShort, FT_Vector};
 use freetype::freetype::{FT_Get_Char_Index, FT_Get_Name_Index, FT_Get_Postscript_Name};
-use freetype::freetype::{FT_Get_Sfnt_Table, FT_Init_FreeType, FT_LOAD_DEFAULT, FT_LOAD_MONOCHROME};
+use freetype::freetype::{
+    FT_Get_Sfnt_Table, FT_Init_FreeType, FT_LOAD_DEFAULT, FT_LOAD_MONOCHROME,
+};
 use freetype::freetype::{FT_Library, FT_Load_Glyph, FT_Long, FT_LOAD_NO_HINTING, FT_LOAD_RENDER};
 use freetype::freetype::{FT_New_Memory_Face, FT_Reference_Face, FT_STYLE_FLAG_ITALIC};
 use freetype::freetype::{FT_Set_Char_Size, FT_Set_Transform, FT_Sfnt_Tag, FT_UInt, FT_ULong};
@@ -141,7 +143,10 @@ impl Font {
 
             setup_freetype_face(freetype_face);
 
-            Ok(Font { freetype_face, font_data })
+            Ok(Font {
+                freetype_face,
+                font_data,
+            })
         })
     }
 
