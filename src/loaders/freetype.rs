@@ -17,10 +17,8 @@ use byteorder::{BigEndian, ReadBytesExt};
 use euclid::default::{Point2D, Rect, Size2D, Vector2D};
 use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_Face, FT_FACE_FLAG_FIXED_WIDTH};
 use freetype::freetype::{FT_Fixed, FT_Matrix, FT_UShort, FT_Vector};
-use freetype::freetype::{
-    FT_Get_Char_Index, FT_Get_Name_Index, FT_Get_Postscript_Name, FT_Get_Sfnt_Table,
-};
-use freetype::freetype::{FT_Init_FreeType, FT_LOAD_DEFAULT, FT_LOAD_MONOCHROME};
+use freetype::freetype::{FT_Get_Char_Index, FT_Get_Name_Index, FT_Get_Postscript_Name};
+use freetype::freetype::{FT_Get_Sfnt_Table, FT_Init_FreeType, FT_LOAD_DEFAULT, FT_LOAD_MONOCHROME};
 use freetype::freetype::{FT_Library, FT_Load_Glyph, FT_Long, FT_LOAD_NO_HINTING, FT_LOAD_RENDER};
 use freetype::freetype::{FT_New_Memory_Face, FT_Reference_Face, FT_STYLE_FLAG_ITALIC};
 use freetype::freetype::{FT_Set_Char_Size, FT_Set_Transform, FT_Sfnt_Tag, FT_UInt, FT_ULong};
@@ -30,9 +28,9 @@ use lyon_path::builder::PathBuilder;
 use std::f32;
 use std::ffi::{CStr, CString};
 use std::fmt::{self, Debug, Formatter};
+use std::io::{Seek, SeekFrom};
 use std::iter;
 use std::mem;
-use std::ops::Deref;
 use std::os::raw::{c_char, c_void};
 use std::ptr;
 use std::slice;
@@ -46,9 +44,8 @@ use crate::hinting::HintingOptions;
 use crate::loader::{FallbackResult, FontTransform, Loader};
 use crate::metrics::Metrics;
 use crate::properties::{Properties, Stretch, Style, Weight};
+use crate::utils;
 
-#[cfg(not(target_arch = "wasm32"))]
-use memmap::Mmap;
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
 #[cfg(not(target_arch = "wasm32"))]
@@ -120,7 +117,7 @@ struct BDF_PropertyRec {
 /// loader by default.
 pub struct Font {
     freetype_face: FT_Face,
-    font_data: FontData,
+    font_data: Arc<Vec<u8>>,
 }
 
 impl Font {
@@ -144,10 +141,7 @@ impl Font {
 
             setup_freetype_face(freetype_face);
 
-            Ok(Font {
-                freetype_face,
-                font_data: FontData::Memory(font_data),
-            })
+            Ok(Font { freetype_face, font_data })
         })
     }
 
@@ -157,29 +151,9 @@ impl Font {
     /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
-        unsafe {
-            let mmap = Mmap::map(&file)?;
-            FREETYPE_LIBRARY.with(|freetype_library| {
-                let mut freetype_face = ptr::null_mut();
-                if FT_New_Memory_Face(
-                    *freetype_library,
-                    (*mmap).as_ptr(),
-                    mmap.len() as FT_Long,
-                    font_index as FT_Long,
-                    &mut freetype_face,
-                ) != 0
-                {
-                    return Err(FontLoadingError::Parse);
-                }
-
-                setup_freetype_face(freetype_face);
-
-                Ok(Font {
-                    freetype_face,
-                    font_data: FontData::File(Arc::new(mmap)),
-                })
-            })
-        }
+        file.seek(SeekFrom::Start(0))?;
+        let font_data = Arc::new(utils::slurp_file(file).map_err(FontLoadingError::Io)?);
+        Font::from_bytes(font_data, font_index)
     }
 
     /// Loads a font from the path to a `.ttf`/`.otf`/etc. file.
@@ -254,12 +228,14 @@ impl Font {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         FREETYPE_LIBRARY.with(|freetype_library| unsafe {
-            let mmap = Mmap::map(&file)?;
+            file.seek(SeekFrom::Start(0))?;
+            let font_data = Arc::new(utils::slurp_file(file).map_err(FontLoadingError::Io)?);
+
             let mut freetype_face = ptr::null_mut();
             if FT_New_Memory_Face(
                 *freetype_library,
-                (*mmap).as_ptr(),
-                mmap.len() as FT_Long,
+                (*font_data).as_ptr(),
+                font_data.len() as FT_Long,
                 0,
                 &mut freetype_face,
             ) != 0
@@ -921,11 +897,7 @@ impl Font {
     /// If this font is a member of a collection, this function returns the data for the entire
     /// collection.
     pub fn copy_font_data(&self) -> Option<Arc<Vec<u8>>> {
-        match self.font_data {
-            #[cfg(not(target_arch = "wasm32"))]
-            FontData::File(ref file) => Some(Arc::new((*file).to_vec())),
-            FontData::Memory(ref memory) => Some((*memory).clone()),
-        }
+        Some(self.font_data.clone())
     }
 
     /// Get font fallback results for the given text and locale.
@@ -1116,24 +1088,6 @@ impl Loader for Font {
     #[inline]
     fn get_fallbacks(&self, text: &str, locale: &str) -> FallbackResult<Self> {
         self.get_fallbacks(text, locale)
-    }
-}
-
-#[derive(Clone)]
-enum FontData {
-    Memory(Arc<Vec<u8>>),
-    #[cfg(not(target_arch = "wasm32"))]
-    File(Arc<Mmap>),
-}
-
-impl Deref for FontData {
-    type Target = [u8];
-    fn deref(&self) -> &[u8] {
-        match *self {
-            #[cfg(not(target_arch = "wasm32"))]
-            FontData::File(ref mmap) => &***mmap,
-            FontData::Memory(ref data) => &***data,
-        }
     }
 }
 

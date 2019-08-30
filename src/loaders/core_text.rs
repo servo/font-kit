@@ -14,7 +14,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use core_graphics::base::{kCGImageAlphaPremultipliedLast, CGFloat};
 use core_graphics::color_space::CGColorSpace;
 use core_graphics::context::{CGContext, CGTextDrawingMode};
-use core_graphics::data_provider::{CGDataProvider, CustomData};
+use core_graphics::data_provider::CGDataProvider;
 use core_graphics::font::{CGFont, CGGlyph};
 use core_graphics::geometry::{CGAffineTransform, CGRect, CGSize};
 use core_graphics::geometry::{CGPoint, CG_AFFINE_TRANSFORM_IDENTITY, CG_ZERO_POINT, CG_ZERO_SIZE};
@@ -26,7 +26,6 @@ use core_text::font_descriptor::{SymbolicTraitAccessors, TraitAccessors};
 use euclid::default::{Point2D, Rect, Size2D, Vector2D};
 use log::warn;
 use lyon_path::builder::PathBuilder;
-use memmap::{Mmap, MmapOptions};
 use std::f32;
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
@@ -66,10 +65,8 @@ impl Font {
     ///
     /// If the data represents a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index
     /// of the font to load from it. If the data represents a single font, pass 0 for `font_index`.
-    pub fn from_bytes(
-        mut font_data: Arc<Vec<u8>>,
-        font_index: u32,
-    ) -> Result<Font, FontLoadingError> {
+    pub fn from_bytes(mut font_data: Arc<Vec<u8>>, font_index: u32)
+                      -> Result<Font, FontLoadingError> {
         // Sadly, there's no API to load OpenType collections on macOS, I don't believe…
         if font_is_collection(&**font_data) {
             let mut new_font_data = (*font_data).clone();
@@ -93,28 +90,8 @@ impl Font {
     /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
         file.seek(SeekFrom::Start(0))?;
-        unsafe {
-            let mut mmap = MmapOptions::new()
-                .map_copy(file)
-                .map_err(FontLoadingError::Io)?;
-
-            // Sadly, there's no API to load OpenType collections on macOS, I don't believe…
-            if font_is_collection(&*mmap) {
-                unpack_otc_font(&mut *mmap, font_index)?;
-            }
-
-            let mmap = Arc::new(mmap.make_read_only().map_err(FontLoadingError::Io)?);
-            let mmap_data = Box::new(Box::new(MmapData::new(mmap.clone())) as Box<CustomData>);
-            let provider = CGDataProvider::from_custom_data(mmap_data);
-            let core_graphics_font =
-                CGFont::from_data_provider(provider).map_err(|_| FontLoadingError::Parse)?;
-            let core_text_font = core_text::font::new_from_CGFont(&core_graphics_font, 16.0);
-
-            Ok(Font {
-                core_text_font,
-                font_data: FontData::File(mmap),
-            })
-        }
+        let font_data = Arc::new(utils::slurp_file(file).map_err(FontLoadingError::Io)?);
+        Font::from_bytes(font_data, font_index)
     }
 
     /// Loads a font from the path to a `.ttf`/`.otf`/etc. file.
@@ -137,10 +114,12 @@ impl Font {
             None => warn!("No URL found for Core Text font!"),
             Some(url) => match url.to_path() {
                 Some(path) => match File::open(path) {
-                    Ok(ref file) => match Mmap::map(file) {
-                        Ok(mmap) => font_data = FontData::File(Arc::new(mmap)),
-                        Err(_) => warn!("Could not map file for Core Text font!"),
-                    },
+                    Ok(ref mut file) => {
+                        match utils::slurp_file(file) {
+                            Ok(data) => font_data = FontData::Memory(Arc::new(data)),
+                            Err(_) => warn!("Couldn't read file data for Core Text font!"),
+                        }
+                    }
                     Err(_) => warn!("Could not open file for Core Text font!"),
                 },
                 None => warn!("Could not convert URL from Core Text font to path!"),
@@ -183,21 +162,16 @@ impl Font {
     /// Determines whether a file represents a supported font, and if so, what type of font it is.
     pub fn analyze_file(file: &mut File) -> Result<FileType, FontLoadingError> {
         file.seek(SeekFrom::Start(0))?;
-        unsafe {
-            let mmap = MmapOptions::new()
-                .map_copy(file)
-                .map_err(FontLoadingError::Io)?;
-            let mmap = Arc::new(mmap.make_read_only().map_err(FontLoadingError::Io)?);
-            if let Ok(font_count) = read_number_of_fonts_from_otc_header(&*mmap) {
-                return Ok(FileType::Collection(font_count));
-            }
 
-            let mmap_data = Box::new(Box::new(MmapData::new(mmap.clone())) as Box<CustomData>);
-            let provider = CGDataProvider::from_custom_data(mmap_data);
-            match CGFont::from_data_provider(provider) {
-                Ok(_) => Ok(FileType::Single),
-                Err(_) => Err(FontLoadingError::Parse),
-            }
+        let font_data = Arc::new(utils::slurp_file(file).map_err(FontLoadingError::Io)?);
+        if let Ok(font_count) = read_number_of_fonts_from_otc_header(&font_data) {
+            return Ok(FileType::Collection(font_count));
+        }
+
+        let data_provider = CGDataProvider::from_buffer(font_data.clone());
+        match CGFont::from_data_provider(data_provider) {
+            Ok(_) => Ok(FileType::Single),
+            Err(_) => Err(FontLoadingError::Parse),
         }
     }
 
@@ -444,7 +418,6 @@ impl Font {
     pub fn copy_font_data(&self) -> Option<Arc<Vec<u8>>> {
         match self.font_data {
             FontData::Unavailable => None,
-            FontData::File(ref file) => Some(Arc::new((*file).to_vec())),
             FontData::Memory(ref memory) => Some((*memory).clone()),
         }
     }
@@ -770,7 +743,6 @@ impl Debug for Font {
 enum FontData {
     Unavailable,
     Memory(Arc<Vec<u8>>),
-    File(Arc<Mmap>),
 }
 
 impl Deref for FontData {
@@ -778,7 +750,6 @@ impl Deref for FontData {
     fn deref(&self) -> &[u8] {
         match *self {
             FontData::Unavailable => panic!("Font data unavailable!"),
-            FontData::File(ref mmap) => &***mmap,
             FontData::Memory(ref data) => &***data,
         }
     }
@@ -792,26 +763,6 @@ impl CGPointExt for CGPoint {
     #[inline]
     fn to_euclid_point(&self) -> Point2D<f32> {
         Point2D::new(self.x as f32, self.y as f32)
-    }
-}
-
-struct MmapData {
-    mmap: Arc<Mmap>,
-}
-
-impl MmapData {
-    fn new(mmap: Arc<Mmap>) -> MmapData {
-        MmapData { mmap }
-    }
-}
-
-impl CustomData for MmapData {
-    unsafe fn ptr(&self) -> *const u8 {
-        self.mmap.as_ptr()
-    }
-
-    unsafe fn len(&self) -> usize {
-        self.mmap.len()
     }
 }
 

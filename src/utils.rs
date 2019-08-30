@@ -12,6 +12,9 @@
 
 #![allow(dead_code)]
 
+use std::fs::File;
+use std::io::{Error as IOError, Read};
+
 pub(crate) static SFNT_VERSIONS: [[u8; 4]; 4] = [
     [0x00, 0x01, 0x00, 0x00],
     [b'O', b'T', b'T', b'O'],
@@ -37,4 +40,13 @@ pub(crate) fn lerp(a: f32, b: f32, t: f32) -> f32 {
 #[inline]
 pub(crate) fn div_round_up(a: usize, b: usize) -> usize {
     (a + b - 1) / b
+}
+
+pub(crate) fn slurp_file(file: &mut File) -> Result<Vec<u8>, IOError> {
+    let mut data = match file.metadata() {
+        Ok(metadata) => Vec::with_capacity(metadata.len() as usize),
+        Err(_) => vec![],
+    };
+    file.read_to_end(&mut data)?;
+    Ok(data)
 }
