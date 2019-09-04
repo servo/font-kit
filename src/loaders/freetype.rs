@@ -21,6 +21,7 @@ use freetype::freetype::{FT_Get_Char_Index, FT_Get_Name_Index, FT_Get_Postscript
 use freetype::freetype::{
     FT_Get_Sfnt_Table, FT_Init_FreeType, FT_LOAD_DEFAULT, FT_LOAD_MONOCHROME,
 };
+use freetype::freetype::{FT_LcdFilter, FT_Library_SetLcdFilter};
 use freetype::freetype::{FT_Library, FT_Load_Glyph, FT_Long, FT_LOAD_NO_HINTING, FT_LOAD_RENDER};
 use freetype::freetype::{FT_New_Memory_Face, FT_Reference_Face, FT_STYLE_FLAG_ITALIC};
 use freetype::freetype::{FT_Set_Char_Size, FT_Set_Transform, FT_Sfnt_Tag, FT_UInt, FT_ULong};
@@ -93,6 +94,7 @@ thread_local! {
         unsafe {
             let mut library = ptr::null_mut();
             assert_eq!(FT_Init_FreeType(&mut library), 0);
+            FT_Library_SetLcdFilter(library, FT_LcdFilter::FT_LCD_FILTER_DEFAULT);
             library
         }
     };
