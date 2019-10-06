@@ -19,7 +19,7 @@ use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_Face, FT_FACE_FLAG_
 use freetype::freetype::{FT_Fixed, FT_Matrix, FT_UShort, FT_Vector};
 use freetype::freetype::{FT_Get_Char_Index, FT_Get_Name_Index, FT_Get_Postscript_Name};
 use freetype::freetype::{
-    FT_Get_Sfnt_Table, FT_Load_Sfnt_Table, FT_Init_FreeType, FT_LOAD_DEFAULT, FT_LOAD_MONOCHROME,
+    FT_Get_Sfnt_Table, FT_Init_FreeType, FT_Load_Sfnt_Table, FT_LOAD_DEFAULT, FT_LOAD_MONOCHROME,
 };
 use freetype::freetype::{FT_LcdFilter, FT_Library_SetLcdFilter};
 use freetype::freetype::{FT_Library, FT_Load_Glyph, FT_Long, FT_LOAD_NO_HINTING, FT_LOAD_RENDER};
@@ -924,12 +924,24 @@ impl Font {
         unsafe {
             let mut len = 0;
 
-            if 0 != FT_Load_Sfnt_Table(self.freetype_face, table_tag as FT_ULong, 0, ptr::null_mut(), &mut len) {
+            if 0 != FT_Load_Sfnt_Table(
+                self.freetype_face,
+                table_tag as FT_ULong,
+                0,
+                ptr::null_mut(),
+                &mut len,
+            ) {
                 return None;
             }
 
             let mut buf = Box::<[u8]>::from(vec![0; len as usize]);
-            if 0 != FT_Load_Sfnt_Table(self.freetype_face, table_tag as FT_ULong, 0, buf.as_mut_ptr() as *mut FT_Byte, &mut len) {
+            if 0 != FT_Load_Sfnt_Table(
+                self.freetype_face,
+                table_tag as FT_ULong,
+                0,
+                buf.as_mut_ptr() as *mut FT_Byte,
+                &mut len,
+            ) {
                 return None;
             }
 

@@ -620,7 +620,9 @@ impl Font {
     }
 
     pub fn load_font_table(&self, table_tag: u32) -> Option<Box<[u8]>> {
-        self.dwrite_font_face.get_font_table(table_tag).map(|v| v.into())
+        self.dwrite_font_face
+            .get_font_table(table_tag)
+            .map(|v| v.into())
     }
 }
 
