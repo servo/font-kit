@@ -583,6 +583,11 @@ impl Font {
     fn units_per_point(&self) -> f64 {
         (self.core_text_font.units_per_em() as f64) / self.core_text_font.pt_size()
     }
+
+    #[inline]
+    pub fn load_font_table(&self, table_tag: u32) -> Option<Box<[u8]>> {
+        self.core_text_font.get_font_table(table_tag).map(|data| data.bytes().into())
+    }
 }
 
 impl Loader for Font {
@@ -730,6 +735,11 @@ impl Loader for Font {
     #[inline]
     fn get_fallbacks(&self, text: &str, locale: &str) -> FallbackResult<Self> {
         self.get_fallbacks(text, locale)
+    }
+
+    #[inline]
+    fn load_font_table(&self, table_tag: u32) -> Option<Box<[u8]>> {
+        self.load_font_table(table_tag)
     }
 }
 

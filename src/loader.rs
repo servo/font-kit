@@ -274,6 +274,9 @@ pub trait Loader: Clone + Sized {
     ///
     /// The `locale` argument is a language tag such as `"en-US"` or `"zh-Hans-CN"`.
     fn get_fallbacks(&self, text: &str, locale: &str) -> FallbackResult<Self>;
+
+    /// Returns the OpenType font table with the given tag, if the table exists.
+    fn load_font_table(&self, table_tag: u32) -> Option<Box<[u8]>>;
 }
 
 /// The result of a fallback query.

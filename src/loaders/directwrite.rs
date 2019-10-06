@@ -618,6 +618,10 @@ impl Font {
         };
         FallbackResult { fonts, valid_len }
     }
+
+    pub fn load_font_table(&self, table_tag: u32) -> Option<Box<[u8]>> {
+        self.dwrite_font_face.get_font_table(table_tag).map(|v| v.into())
+    }
 }
 
 // There might well be a more efficient impl that doesn't fully decode the text,
@@ -794,6 +798,11 @@ impl Loader for Font {
     #[inline]
     fn get_fallbacks(&self, text: &str, locale: &str) -> FallbackResult<Self> {
         self.get_fallbacks(text, locale)
+    }
+
+    #[inline]
+    fn load_font_table(&self, table_tag: u32) -> Option<Box<[u8]>> {
+        self.load_font_table(table_tag)
     }
 }
 
