@@ -44,7 +44,7 @@ dwrote = { version = "0.9", default-features = false }
 
 [target.'cfg(target_family = "windows")'.dependencies.winapi]
 version = "0.3"
-features = ["minwindef", "winbase", "sysinfoapi"]
+features = ["dwrite", "minwindef", "sysinfoapi", "winbase", "winnt"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.6"
