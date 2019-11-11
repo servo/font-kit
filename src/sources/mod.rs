@@ -14,14 +14,19 @@
 //! installed on the system. The remaining databases (`fs`, `mem`, and `multi`) allow `font-kit` to
 //! query fonts not installed on the system.
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub mod core_text;
 
 #[cfg(target_family = "windows")]
 pub mod directwrite;
 
 #[cfg(any(
-    not(any(target_os = "macos", target_family = "windows", target_arch = "wasm32")),
+    not(any(
+        target_os = "macos",
+        target_os = "ios",
+        target_family = "windows",
+        target_arch = "wasm32"
+    )),
     feature = "source-fontconfig"
 ))]
 pub mod fontconfig;

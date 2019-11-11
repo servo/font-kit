@@ -19,7 +19,10 @@ use crate::handle::Handle;
 use crate::matching;
 use crate::properties::Properties;
 
-#[cfg(all(target_os = "macos", not(feature = "source-fontconfig-default")))]
+#[cfg(all(
+    any(target_os = "macos", target_os = "ios"),
+    not(feature = "loader-freetype-default")
+))]
 pub use crate::sources::core_text::CoreTextSource as SystemSource;
 #[cfg(all(target_family = "windows", not(feature = "source-fontconfig-default")))]
 pub use crate::sources::directwrite::DirectWriteSource as SystemSource;
@@ -27,6 +30,7 @@ pub use crate::sources::directwrite::DirectWriteSource as SystemSource;
     not(any(
         target_os = "android",
         target_os = "macos",
+        target_os = "ios",
         target_family = "windows",
         target_arch = "wasm32"
     )),
@@ -37,28 +41,28 @@ pub use crate::sources::fontconfig::FontconfigSource as SystemSource;
 pub use crate::sources::fs::FsSource as SystemSource;
 
 // FIXME(pcwalton): These could expand to multiple fonts, and they could be language-specific.
-#[cfg(any(target_family = "windows", target_os = "macos"))]
+#[cfg(any(target_family = "windows", target_os = "macos", target_os = "ios"))]
 const DEFAULT_FONT_FAMILY_SERIF: &'static str = "Times New Roman";
-#[cfg(any(target_family = "windows", target_os = "macos"))]
+#[cfg(any(target_family = "windows", target_os = "macos", target_os = "ios"))]
 const DEFAULT_FONT_FAMILY_SANS_SERIF: &'static str = "Arial";
-#[cfg(any(target_family = "windows", target_os = "macos"))]
+#[cfg(any(target_family = "windows", target_os = "macos", target_os = "ios"))]
 const DEFAULT_FONT_FAMILY_MONOSPACE: &'static str = "Courier New";
-#[cfg(any(target_family = "windows", target_os = "macos"))]
+#[cfg(any(target_family = "windows", target_os = "macos", target_os = "ios"))]
 const DEFAULT_FONT_FAMILY_CURSIVE: &'static str = "Comic Sans MS";
 #[cfg(target_family = "windows")]
 const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "Impact";
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "Papyrus";
 
-#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+#[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
 const DEFAULT_FONT_FAMILY_SERIF: &'static str = "serif";
-#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+#[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
 const DEFAULT_FONT_FAMILY_SANS_SERIF: &'static str = "sans-serif";
-#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+#[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
 const DEFAULT_FONT_FAMILY_MONOSPACE: &'static str = "monospace";
-#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+#[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
 const DEFAULT_FONT_FAMILY_CURSIVE: &'static str = "cursive";
-#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+#[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
 const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "fantasy";
 
 /// A database of installed fonts that can be queried.

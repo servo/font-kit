@@ -161,7 +161,7 @@ pub fn get_glyph_outline() {
     assert_close!(events.next());
 }
 
-#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+#[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
 #[test]
 pub fn get_glyph_outline() {
     let mut path_builder = Path::builder();
@@ -196,7 +196,7 @@ pub fn get_glyph_outline() {
 
 // Right now, only FreeType can do hinting.
 #[cfg(all(
-    not(any(target_os = "macos", target_family = "windows")),
+    not(any(target_os = "macos", target_os = "ios", target_family = "windows")),
     feature = "loader-freetype-default"
 ))]
 #[test]
@@ -228,7 +228,7 @@ pub fn get_vertically_hinted_glyph_outline() {
     assert_close!(events.next());
 }
 
-#[cfg(not(any(target_os = "macos", target_family = "windows")))]
+#[cfg(not(any(target_os = "macos", target_os = "ios", target_family = "windows")))]
 #[test]
 pub fn get_vertically_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
@@ -263,7 +263,7 @@ pub fn get_vertically_hinted_glyph_outline() {
 
 // Right now, only FreeType can do hinting.
 #[cfg(all(
-    not(any(target_os = "macos", target_family = "windows")),
+    not(any(target_os = "macos", target_os = "ios", target_family = "windows")),
     feature = "loader-freetype-default"
 ))]
 #[test]
@@ -298,7 +298,7 @@ pub fn get_fully_hinted_glyph_outline() {
     assert_close!(events.next());
 }
 
-#[cfg(not(any(target_os = "macos", target_family = "windows")))]
+#[cfg(not(any(target_os = "macos", target_os = "ios", target_family = "windows")))]
 #[test]
 pub fn get_fully_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
@@ -345,7 +345,7 @@ pub fn get_empty_glyph_outline() {
     assert_eq!(events.next(), None);
 }
 
-#[cfg(any(target_family = "windows", target_os = "macos"))]
+#[cfg(any(target_family = "windows", target_os = "macos", target_os = "ios"))]
 #[test]
 pub fn get_glyph_typographic_bounds() {
     let font = SystemSource::new()
@@ -363,7 +363,7 @@ pub fn get_glyph_typographic_bounds() {
     );
 }
 
-#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+#[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
 #[test]
 pub fn get_glyph_typographic_bounds() {
     let font = SystemSource::new()
@@ -407,7 +407,7 @@ pub fn get_glyph_advance_and_origin() {
     assert_eq!(font.origin(glyph), Ok(Point2D::zero()));
 }
 
-#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+#[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
 #[test]
 pub fn get_glyph_advance_and_origin() {
     let font = SystemSource::new()
@@ -439,7 +439,7 @@ pub fn get_font_metrics() {
     assert_eq!(metrics.x_height, 1062.0);
 }
 
-#[cfg(not(any(target_family = "windows", target_os = "macos")))]
+#[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
 #[test]
 pub fn get_font_metrics() {
     let font = SystemSource::new()
@@ -564,7 +564,7 @@ pub fn rasterize_glyph_bilevel() {
 }
 
 #[cfg(any(
-    not(any(target_os = "macos", target_family = "windows")),
+    not(any(target_os = "macos", target_os = "ios", target_family = "windows")),
     feature = "loader-freetype-default"
 ))]
 #[test]
