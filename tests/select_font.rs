@@ -72,7 +72,7 @@ mod test {
     }
 
     // TODO: no such font in a Travis CI instance.
-    // https://github.com/pcwalton/font-kit/issues/62
+    // https://github.com/servo/font-kit/issues/62
     // #[test]
     // fn select_best_match_fantasy() {
     //     let handle = SystemSource::new()
