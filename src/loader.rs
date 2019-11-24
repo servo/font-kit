@@ -180,7 +180,8 @@ pub trait Loader: Clone + Sized {
     where
         B: PathBuilder;
 
-    /// Returns the boundaries of a glyph in font units.
+    /// Returns the boundaries of a glyph in font units. The origin of the coordinate
+    /// space is at the bottom left.
     fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError>;
 
     /// Returns the distance from the origin of the glyph with the given ID to the next, in font
@@ -222,7 +223,7 @@ pub trait Loader: Clone + Sized {
 
     /// Returns the pixel boundaries that the glyph will take up when rendered using this loader's
     /// rasterizer at the given `point_size`, `transform` and `origin`. `origin` is not transformed
-    /// by `transform`.
+    /// by `transform`. The origin of the coordinate space is at the top left.
     fn raster_bounds(
         &self,
         glyph_id: u32,
@@ -233,8 +234,10 @@ pub trait Loader: Clone + Sized {
         _: RasterizationOptions,
     ) -> Result<Rect<i32>, GlyphLoadingError> {
         let typographic_bounds = self.typographic_bounds(glyph_id)?;
-        let typographic_raster_bounds =
+        let mut typographic_raster_bounds =
             typographic_bounds * point_size / self.metrics().units_per_em as f32;
+        typographic_raster_bounds.origin.y =
+            -typographic_raster_bounds.origin.y - typographic_raster_bounds.size.height;
         let transform: Transform2D<f32> = Transform2D::column_major(
             transform.scale_x,
             transform.skew_x,
