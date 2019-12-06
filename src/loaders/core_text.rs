@@ -584,6 +584,11 @@ impl Font {
         (self.core_text_font.units_per_em() as f64) / self.core_text_font.pt_size()
     }
 
+    /// Returns the raw contents of the OpenType table with the given tag.
+    /// 
+    /// Tags are four-character codes. A list of tags can be found in the [OpenType specification].
+    /// 
+    /// [OpenType specification]: https://docs.microsoft.com/en-us/typography/opentype/spec/
     #[inline]
     pub fn load_font_table(&self, table_tag: u32) -> Option<Box<[u8]>> {
         self.core_text_font

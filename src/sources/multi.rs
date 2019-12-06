@@ -26,12 +26,12 @@ use crate::source::Source;
 /// fonts plus some other application-supplied fonts.
 #[allow(missing_debug_implementations)]
 pub struct MultiSource {
-    subsources: Vec<Box<Source>>,
+    subsources: Vec<Box<dyn Source>>,
 }
 
 impl MultiSource {
     /// Creates a new source that contains all the fonts in the supplied sources.
-    pub fn from_sources(subsources: Vec<Box<Source>>) -> MultiSource {
+    pub fn from_sources(subsources: Vec<Box<dyn Source>>) -> MultiSource {
         MultiSource { subsources }
     }
 

@@ -648,7 +648,7 @@ pub fn rasterize_glyph_with_full_hinting() {
     }
 }
 
-#[cfg(any(target_family = "windows"))]
+#[cfg(target_family = "windows")]
 #[test]
 pub fn rasterize_glyph() {
     let font = SystemSource::new()
@@ -988,6 +988,7 @@ fn check_L_shape(canvas: &Canvas) {
 }
 
 // Makes sure that a canvas has an "{" shape in it. This is used to test rasterization.
+#[cfg(target_family = "windows")]
 fn check_curly_shape(canvas: &Canvas) {
     let mut y = 0;
     let height = canvas.size.height;
@@ -1022,6 +1023,7 @@ fn check_curly_shape(canvas: &Canvas) {
 }
 
 // return the first non-zero pixel index
+#[cfg(target_family = "windows")]
 fn stride_pixel_start(pixels: &[u8]) -> Option<u32> {
     let mut index = 0;
     for x in pixels {
