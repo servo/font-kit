@@ -502,11 +502,7 @@ pub fn rasterize_glyph_with_grayscale_aa() {
             RasterizationOptions::GrayscaleAa,
         )
         .unwrap();
-    let origin = Point2D::new(
-        -raster_rect.origin.x,
-        raster_rect.size.height + raster_rect.origin.y,
-    )
-    .to_f32();
+    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
     let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
@@ -540,11 +536,7 @@ pub fn rasterize_glyph_bilevel() {
             RasterizationOptions::Bilevel,
         )
         .unwrap();
-    let origin = Point2D::new(
-        -raster_rect.origin.x,
-        raster_rect.size.height + raster_rect.origin.y,
-    )
-    .to_f32();
+    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
     let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
@@ -556,6 +548,45 @@ pub fn rasterize_glyph_bilevel() {
         RasterizationOptions::Bilevel,
     )
     .unwrap();
+    assert!(canvas
+        .pixels
+        .iter()
+        .all(|&value| value == 0 || value == 0xff));
+    check_L_shape(&canvas);
+}
+
+#[test]
+pub fn rasterize_glyph_bilevel_offset() {
+    let font = SystemSource::new()
+        .select_best_match(&[FamilyName::SansSerif], &Properties::new())
+        .unwrap()
+        .load()
+        .unwrap();
+    let glyph_id = font.glyph_for_char('L').unwrap();
+    let size = 32.0;
+    let raster_rect = font
+        .raster_bounds(
+            glyph_id,
+            size,
+            &FontTransform::identity(),
+            &point2(30., 100.),
+            HintingOptions::None,
+            RasterizationOptions::Bilevel,
+        )
+        .unwrap();
+    let origin = Point2D::new(-raster_rect.origin.x + 30, -raster_rect.origin.y + 100).to_f32();
+    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
+    font.rasterize_glyph(
+        &mut canvas,
+        glyph_id,
+        size,
+        &FontTransform::identity(),
+        &origin,
+        HintingOptions::None,
+        RasterizationOptions::Bilevel,
+    )
+    .unwrap();
+
     assert!(canvas
         .pixels
         .iter()
@@ -586,11 +617,7 @@ pub fn rasterize_glyph_with_full_hinting() {
             RasterizationOptions::Bilevel,
         )
         .unwrap();
-    let origin = Point2D::new(
-        -raster_rect.origin.x,
-        raster_rect.size.height + raster_rect.origin.y,
-    )
-    .to_f32();
+    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
     let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
@@ -641,11 +668,7 @@ pub fn rasterize_glyph() {
             RasterizationOptions::GrayscaleAa,
         )
         .unwrap();
-    let origin = Point2D::new(
-        -raster_rect.origin.x,
-        raster_rect.size.height + raster_rect.origin.y,
-    )
-    .to_f32();
+    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
     let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
@@ -691,8 +714,8 @@ pub fn font_transform() {
         .unwrap();
     assert!((raster_rect2.size.width - raster_rect.size.width * 3).abs() <= 3);
     assert!((raster_rect2.size.height - raster_rect.size.height * 3).abs() <= 3);
-    assert!((raster_rect2.origin.x - raster_rect.origin.x).abs() <= 3);
-    assert!((raster_rect2.origin.y - raster_rect.origin.y).abs() <= 3);
+    assert!((raster_rect2.origin.x - ((raster_rect.origin.x - 8) * 3 + 8)).abs() <= 3);
+    assert!((raster_rect2.origin.y - ((raster_rect.origin.y - 8) * 3 + 8)).abs() <= 3);
 }
 
 #[test]

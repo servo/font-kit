@@ -410,7 +410,7 @@ impl Font {
         let texture_height = texture_bounds.bottom - texture_bounds.top;
 
         Ok(Rect::new(
-            Point2D::new(texture_bounds.left, -texture_height - texture_bounds.top),
+            Point2D::new(texture_bounds.left, texture_bounds.top),
             Size2D::new(texture_width, texture_height).to_i32(),
         ))
     }
