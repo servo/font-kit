@@ -1,6 +1,6 @@
-// font-kit/src/test.rs
+// font-kit/tests/select-font.rs
 //
-// Copyright © 2018 The Pathfinder Project Developers.
+// Copyright © 2019 The Pathfinder Project Developers.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -15,6 +15,7 @@ use font_kit::family_name::FamilyName;
 use font_kit::handle::Handle;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
+use std::ffi::OsStr;
 
 macro_rules! match_handle {
     ($handle:expr, $path:expr, $index:expr) => {
@@ -33,6 +34,17 @@ macro_rules! match_handle {
             _ => unreachable!(),
         }
     };
+}
+
+#[inline(always)]
+fn check_filename(handle: &Handle, filename: &str) {
+    match *handle {
+        Handle::Path { ref path, font_index } => {
+            assert_eq!(path.file_name(), Some(OsStr::new(filename)));
+            assert_eq!(font_index, 0);
+        }
+        _ => panic!("Expected path handle!"),
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -145,7 +157,6 @@ mod test {
     }
 }
 
-// Technically Ubuntu 16.04
 #[cfg(target_os = "linux")]
 mod test {
     use super::*;
@@ -155,11 +166,7 @@ mod test {
         let handle = SystemSource::new()
             .select_best_match(&[FamilyName::Serif], &Properties::default())
             .unwrap();
-        match_handle!(
-            handle,
-            "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
-            0
-        );
+        check_filename(&handle, "DejaVuSerif.ttf");
     }
 
     #[test]
@@ -167,7 +174,7 @@ mod test {
         let handle = SystemSource::new()
             .select_best_match(&[FamilyName::SansSerif], &Properties::default())
             .unwrap();
-        match_handle!(handle, "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 0);
+        check_filename(&handle, "DejaVuSans.ttf");
     }
 
     #[test]
@@ -175,31 +182,7 @@ mod test {
         let handle = SystemSource::new()
             .select_best_match(&[FamilyName::Monospace], &Properties::default())
             .unwrap();
-        match_handle!(
-            handle,
-            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-            0
-        );
-    }
-
-    #[test]
-    fn select_best_match_cursive() {
-        let handle = SystemSource::new()
-            .select_best_match(&[FamilyName::Cursive], &Properties::default())
-            .unwrap();
-        match_handle!(
-            handle,
-            "/usr/share/fonts/truetype/msttcorefonts/Comic_Sans_MS.ttf",
-            0
-        );
-    }
-
-    #[test]
-    fn select_best_match_fantasy() {
-        let handle = SystemSource::new()
-            .select_best_match(&[FamilyName::Fantasy], &Properties::default())
-            .unwrap();
-        match_handle!(handle, "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 0);
+        check_filename(&handle, "DejaVuSansMono.ttf");
     }
 
     #[test]
@@ -214,11 +197,7 @@ mod test {
                 },
             )
             .unwrap();
-        match_handle!(
-            handle,
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            0
-        );
+        check_filename(&handle, "DejaVuSans-Bold.ttf");
     }
 
     #[test]
@@ -227,66 +206,52 @@ mod test {
             .select_best_match(
                 &[
                     FamilyName::Title("Invalid".to_string()),
-                    FamilyName::Title("Times New Roman".to_string()),
+                    FamilyName::Title("DejaVu Sans".to_string()),
                 ],
                 &Properties::default(),
             )
             .unwrap();
-        match_handle!(handle, "/usr/share/fonts/corefonts/times.ttf", 0);
+        check_filename(&handle, "DejaVuSans.ttf");
     }
 
     #[test]
-    fn select_family_by_name_arial() {
-        let family = SystemSource::new().select_family_by_name("Arial").unwrap();
-        assert_eq!(family.fonts().len(), 7);
-        match_handle!(
-            family.fonts()[0],
-            "/usr/share/fonts/truetype/msttcorefonts/Arial_Bold.ttf",
-            0
-        );
-        match_handle!(
-            family.fonts()[1],
-            "/usr/share/fonts/truetype/msttcorefonts/Arial.ttf",
-            0
-        );
-        match_handle!(
-            family.fonts()[2],
-            "/usr/share/fonts/truetype/msttcorefonts/ariali.ttf",
-            0
-        );
-        match_handle!(
-            family.fonts()[3],
-            "/usr/share/fonts/truetype/msttcorefonts/arialbi.ttf",
-            0
-        );
-
-        match_handle!(
-            family.fonts()[4],
-            "/usr/share/fonts/truetype/msttcorefonts/arialbd.ttf",
-            0
-        );
-        match_handle!(
-            family.fonts()[5],
-            "/usr/share/fonts/truetype/msttcorefonts/Arial_Italic.ttf",
-            0
-        );
-        match_handle!(
-            family.fonts()[6],
-            "/usr/share/fonts/truetype/msttcorefonts/Arial_Bold_Italic.ttf",
-            0
-        );
+    fn select_family_by_name_dejavu() {
+        let family = SystemSource::new().select_family_by_name("DejaVu Sans").unwrap();
+        let mut filenames: Vec<String> = family.fonts().iter().map(|handle| {
+            match *handle {
+                Handle::Path { ref path, font_index } => {
+                    assert_eq!(font_index, 0);
+                    path.file_name()
+                        .expect("Where's the filename?")
+                        .to_string_lossy()
+                        .into_owned()
+                }
+                _ => panic!("Expected path handle!"),
+            }
+        }).collect();
+        filenames.sort();
+        assert_eq!(filenames.len(), 9);
+        assert_eq!(&filenames[0], "DejaVuSans-Bold.ttf");
+        assert_eq!(&filenames[1], "DejaVuSans-BoldOblique.ttf");
+        assert_eq!(&filenames[2], "DejaVuSans-ExtraLight.ttf");
+        assert_eq!(&filenames[3], "DejaVuSans-Oblique.ttf");
+        assert_eq!(&filenames[4], "DejaVuSans.ttf");
+        assert_eq!(&filenames[5], "DejaVuSansCondensed-Bold.ttf");
+        assert_eq!(&filenames[6], "DejaVuSansCondensed-BoldOblique.ttf");
+        assert_eq!(&filenames[7], "DejaVuSansCondensed-Oblique.ttf");
+        assert_eq!(&filenames[8], "DejaVuSansCondensed.ttf");
     }
 
     #[allow(non_snake_case)]
     #[test]
     fn select_by_postscript_name_ArialMT() {
         let font = SystemSource::new()
-            .select_by_postscript_name("ArialMT")
+            .select_by_postscript_name("DejaVuSans")
             .unwrap()
             .load()
             .unwrap();
 
-        assert_eq!(font.postscript_name().unwrap(), "ArialMT");
+        assert_eq!(font.postscript_name().unwrap(), "DejaVuSans");
     }
 
     #[test]

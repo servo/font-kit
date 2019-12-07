@@ -1,6 +1,6 @@
 // font-kit/src/test.rs
 //
-// Copyright © 2018 The Pathfinder Project Developers.
+// Copyright © 2019 The Pathfinder Project Developers.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -8,10 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use euclid::{
-    default::{Point2D, Rect, Size2D, Vector2D},
-    point2,
-};
+use euclid::default::{Point2D, Rect, Size2D, Vector2D};
+use euclid::point2;
 use lyon_path::{Path, PathEvent};
 use std::fs::File;
 use std::io::Read;
@@ -39,17 +37,22 @@ static FILE_PATH_EB_GARAMOND_TTF: &'static str =
 static FILE_PATH_INCONSOLATA_TTF: &'static str =
     "resources/tests/inconsolata/Inconsolata-Regular.ttf";
 
+#[cfg(not(target_os = "linux"))]
+static KNOWN_SYSTEM_FONT_NAME: &'static str = "Arial";
+#[cfg(target_os = "linux")]
+static KNOWN_SYSTEM_FONT_NAME: &'static str = "DejaVu Sans";
+
 #[test]
 pub fn get_font_full_name() {
     let font = SystemSource::new()
         .select_best_match(
-            &[FamilyName::Title("Arial".to_string())],
+            &[FamilyName::Title(KNOWN_SYSTEM_FONT_NAME.to_string())],
             &Properties::new(),
         )
         .unwrap()
         .load()
         .unwrap();
-    assert_eq!(font.full_name(), "Arial");
+    assert_eq!(font.full_name(), KNOWN_SYSTEM_FONT_NAME);
 }
 
 #[test]
@@ -303,7 +306,8 @@ pub fn get_fully_hinted_glyph_outline() {
 pub fn get_fully_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
     let font = SystemSource::new()
-        .select_best_match(&[FamilyName::SansSerif], &Properties::new())
+        .select_best_match(&[FamilyName::Title(KNOWN_SYSTEM_FONT_NAME.to_string())],
+                           &Properties::new())
         .unwrap()
         .load()
         .unwrap();
@@ -315,19 +319,19 @@ pub fn get_fully_hinted_glyph_outline() {
     let mut events = path.into_iter();
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(204.8, 1024.0)))
+        Some(PathEvent::MoveTo(Point2D::new(192.0, 1024.0)))
     );
-    assert_line_to!(events.next(), Point2D::new(409.6, 1024.0));
-    assert_line_to!(events.next(), Point2D::new(409.6, 0.0));
-    assert_line_to!(events.next(), Point2D::new(204.8, 0.0));
+    assert_line_to!(events.next(), Point2D::new(377.6, 1024.0));
+    assert_line_to!(events.next(), Point2D::new(377.6, 0.0));
+    assert_line_to!(events.next(), Point2D::new(192.0, 0.0));
     assert_close!(events.next());
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(204.8, 1638.4)))
+        Some(PathEvent::MoveTo(Point2D::new(192.0, 1638.4)))
     );
-    assert_line_to!(events.next(), Point2D::new(409.6, 1638.4));
-    assert_line_to!(events.next(), Point2D::new(409.6, 1433.6));
-    assert_line_to!(events.next(), Point2D::new(204.8, 1433.6));
+    assert_line_to!(events.next(), Point2D::new(377.6, 1638.4));
+    assert_line_to!(events.next(), Point2D::new(377.6, 1433.6));
+    assert_line_to!(events.next(), Point2D::new(192.0, 1433.6));
     assert_close!(events.next());
 }
 
