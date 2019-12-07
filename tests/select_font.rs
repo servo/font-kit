@@ -39,7 +39,10 @@ macro_rules! match_handle {
 #[inline(always)]
 fn check_filename(handle: &Handle, filename: &str) {
     match *handle {
-        Handle::Path { ref path, font_index } => {
+        Handle::Path {
+            ref path,
+            font_index,
+        } => {
             assert_eq!(path.file_name(), Some(OsStr::new(filename)));
             assert_eq!(font_index, 0);
         }
@@ -216,10 +219,17 @@ mod test {
 
     #[test]
     fn select_family_by_name_dejavu() {
-        let family = SystemSource::new().select_family_by_name("DejaVu Sans").unwrap();
-        let mut filenames: Vec<String> = family.fonts().iter().map(|handle| {
-            match *handle {
-                Handle::Path { ref path, font_index } => {
+        let family = SystemSource::new()
+            .select_family_by_name("DejaVu Sans")
+            .unwrap();
+        let mut filenames: Vec<String> = family
+            .fonts()
+            .iter()
+            .map(|handle| match *handle {
+                Handle::Path {
+                    ref path,
+                    font_index,
+                } => {
                     assert_eq!(font_index, 0);
                     path.file_name()
                         .expect("Where's the filename?")
@@ -227,8 +237,8 @@ mod test {
                         .into_owned()
                 }
                 _ => panic!("Expected path handle!"),
-            }
-        }).collect();
+            })
+            .collect();
         filenames.sort();
         assert_eq!(filenames.len(), 9);
         assert_eq!(&filenames[0], "DejaVuSans-Bold.ttf");

@@ -306,8 +306,10 @@ pub fn get_fully_hinted_glyph_outline() {
 pub fn get_fully_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
     let font = SystemSource::new()
-        .select_best_match(&[FamilyName::Title(KNOWN_SYSTEM_FONT_NAME.to_string())],
-                           &Properties::new())
+        .select_best_match(
+            &[FamilyName::Title(KNOWN_SYSTEM_FONT_NAME.to_string())],
+            &Properties::new(),
+        )
         .unwrap()
         .load()
         .unwrap();
