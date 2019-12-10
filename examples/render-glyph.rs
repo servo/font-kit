@@ -130,11 +130,7 @@ fn main() {
 
     let mut canvas = Canvas::new(&raster_rect.size.to_u32(), canvas_format);
 
-    let origin = Point2D::new(
-        -raster_rect.origin.x,
-        raster_rect.size.height + raster_rect.origin.y,
-    )
-    .to_f32();
+    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
 
     font.rasterize_glyph(
         &mut canvas,
