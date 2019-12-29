@@ -102,9 +102,7 @@ pub fn get_glyph_for_char() {
 macro_rules! assert_line_to {
     ($event:expr, $pt:expr) => {
         match $event {
-            Some(PathEvent::Line(ref segment)) => {
-                assert_eq!(segment.to, $pt, "Expected a line to {:?}", $pt)
-            }
+            Some(PathEvent::Line { to, .. }) => assert_eq!(to, $pt, "Expected a line to {:?}", $pt),
             other => panic!("Expected line, got {:?}", other),
         }
     };
@@ -113,9 +111,9 @@ macro_rules! assert_line_to {
 macro_rules! assert_quadratic_to {
     ($event:expr, $ctrl:expr, $to:expr) => {
         match $event {
-            Some(PathEvent::Quadratic(ref segment)) => {
-                assert_eq!(segment.ctrl, $ctrl);
-                assert_eq!(segment.to, $to);
+            Some(PathEvent::Quadratic { ctrl, to, .. }) => {
+                assert_eq!(ctrl, $ctrl);
+                assert_eq!(to, $to);
             }
             other => panic!("Expected quadratic segment, got {:?}", other),
         }
@@ -125,7 +123,7 @@ macro_rules! assert_quadratic_to {
 macro_rules! assert_close {
     ($event:expr) => {
         match $event {
-            Some(PathEvent::Close(..)) => {}
+            Some(PathEvent::End { close: true, .. }) => {}
             other => panic!("Expected close, got {:?}", other),
         }
     };
@@ -148,7 +146,9 @@ pub fn get_glyph_outline() {
     let mut events = path.into_iter();
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(136.0, 1259.0)))
+        Some(PathEvent::Begin {
+            at: Point2D::new(136.0, 1259.0)
+        })
     );
     assert_line_to!(events.next(), Point2D::new(136.0, 1466.0));
     assert_line_to!(events.next(), Point2D::new(316.0, 1466.0));
@@ -156,7 +156,9 @@ pub fn get_glyph_outline() {
     assert_close!(events.next());
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(136.0, 0.0)))
+        Some(PathEvent::Begin {
+            at: Point2D::new(136.0, 0.0)
+        })
     );
     assert_line_to!(events.next(), Point2D::new(136.0, 1062.0));
     assert_line_to!(events.next(), Point2D::new(316.0, 1062.0));
@@ -181,7 +183,9 @@ pub fn get_glyph_outline() {
     let mut events = path.into_iter();
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(193.0, 1120.0)))
+        Some(PathEvent::Begin {
+            at: Point2D::new(193.0, 1120.0)
+        })
     );
     assert_line_to!(events.next(), Point2D::new(377.0, 1120.0));
     assert_line_to!(events.next(), Point2D::new(377.0, 0.0));
@@ -189,7 +193,9 @@ pub fn get_glyph_outline() {
     assert_close!(events.next());
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(193.0, 1556.0)))
+        Some(PathEvent::Begin {
+            at: Point2D::new(193.0, 1556.0)
+        })
     );
     assert_line_to!(events.next(), Point2D::new(377.0, 1556.0));
     assert_line_to!(events.next(), Point2D::new(377.0, 1323.0));
@@ -223,7 +229,9 @@ pub fn get_vertically_hinted_glyph_outline() {
     assert_close!(events.next());
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(136.0, 0.0)))
+        Some(PathEvent::Begin {
+            at: Point2D::new(136.0, 0.0)
+        })
     );
     assert_line_to!(events.next(), Point2D::new(136.0, 1152.0));
     assert_line_to!(events.next(), Point2D::new(316.0, 1152.0));
@@ -248,7 +256,9 @@ pub fn get_vertically_hinted_glyph_outline() {
     let mut events = path.into_iter();
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(194.0, 1152.0)))
+        Some(PathEvent::Begin {
+            at: Point2D::new(194.0, 1152.0)
+        })
     );
     assert_line_to!(events.next(), Point2D::new(378.0, 1152.0));
     assert_line_to!(events.next(), Point2D::new(378.0, 0.0));
@@ -256,7 +266,9 @@ pub fn get_vertically_hinted_glyph_outline() {
     assert_close!(events.next());
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(194.0, 1536.0)))
+        Some(PathEvent::Begin {
+            at: Point2D::new(194.0, 1536.0)
+        })
     );
     assert_line_to!(events.next(), Point2D::new(378.0, 1536.0));
     assert_line_to!(events.next(), Point2D::new(378.0, 1302.0));
@@ -285,7 +297,9 @@ pub fn get_fully_hinted_glyph_outline() {
     let mut events = path.into_iter();
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(137.6, 1228.8)))
+        Some(PathEvent::Begin {
+            at: Point2D::new(137.6, 1228.8)
+        })
     );
     assert_line_to!(events.next(), Point2D::new(137.6, 1433.6));
     assert_line_to!(events.next(), Point2D::new(316.80002, 1433.6));
@@ -293,7 +307,9 @@ pub fn get_fully_hinted_glyph_outline() {
     assert_close!(events.next());
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(137.6, 0.0)))
+        Some(PathEvent::Begin {
+            at: Point2D::new(137.6, 0.0)
+        })
     );
     assert_line_to!(events.next(), Point2D::new(137.6, 1024.0));
     assert_line_to!(events.next(), Point2D::new(316.80002, 1024.0));
@@ -321,7 +337,9 @@ pub fn get_fully_hinted_glyph_outline() {
     let mut events = path.into_iter();
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(204.8, 1024.0)))
+        Some(PathEvent::Begin {
+            at: Point2D::new(204.8, 1024.0)
+        })
     );
     assert_line_to!(events.next(), Point2D::new(409.6, 1024.0));
     assert_line_to!(events.next(), Point2D::new(409.6, 0.0));
@@ -329,7 +347,9 @@ pub fn get_fully_hinted_glyph_outline() {
     assert_close!(events.next());
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(204.8, 1638.4)))
+        Some(PathEvent::Begin {
+            at: Point2D::new(204.8, 1638.4)
+        })
     );
     assert_line_to!(events.next(), Point2D::new(409.6, 1638.4));
     assert_line_to!(events.next(), Point2D::new(409.6, 1433.6));
@@ -765,7 +785,9 @@ fn get_glyph_outline_eb_garamond_exclam() {
     let mut events = path.into_iter();
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(114.0, 598.0)))
+        Some(PathEvent::Begin {
+            at: Point2D::new(114.0, 598.0)
+        })
     );
     assert_quadratic_to!(
         events.next(),
@@ -810,8 +832,14 @@ fn get_glyph_outline_eb_garamond_exclam() {
     assert_close!(events.next());
     let event = events.next();
     assert!(
-        event == Some(PathEvent::MoveTo(Point2D::new(117.0, 88.0)))
-            || event == Some(PathEvent::MoveTo(Point2D::new(117.5, 88.5)))
+        event
+            == Some(PathEvent::Begin {
+                at: Point2D::new(117.0, 88.0)
+            })
+            || event
+                == Some(PathEvent::Begin {
+                    at: Point2D::new(117.5, 88.5)
+                })
     );
     assert_quadratic_to!(
         events.next(),
@@ -849,11 +877,9 @@ fn get_glyph_outline_eb_garamond_exclam() {
         Point2D::new(100.0, 46.0)
     );
     match events.next() {
-        Some(PathEvent::Quadratic(ref segment)) => {
-            assert_eq!(segment.ctrl, Point2D::new(100.0, 71.0));
-            assert!(
-                segment.to == Point2D::new(117.0, 88.0) || segment.to == Point2D::new(117.5, 88.5)
-            )
+        Some(PathEvent::Quadratic { to, ctrl, .. }) => {
+            assert_eq!(ctrl, Point2D::new(100.0, 71.0));
+            assert!(to == Point2D::new(117.0, 88.0) || to == Point2D::new(117.5, 88.5))
         }
         other => panic!("Expected quadratic got {:?}", other),
     }
@@ -875,7 +901,9 @@ fn get_glyph_outline_inconsolata_J() {
     let mut events = path.into_iter();
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(198.0, -11.0)))
+        Some(PathEvent::Begin {
+            at: Point2D::new(198.0, -11.0)
+        })
     );
     assert_quadratic_to!(
         events.next(),
