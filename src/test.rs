@@ -321,19 +321,19 @@ pub fn get_fully_hinted_glyph_outline() {
     let mut events = path.into_iter();
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(192.0, 1024.0)))
+        Some(PathEvent::MoveTo(Point2D::new(204.8, 1024.0)))
     );
-    assert_line_to!(events.next(), Point2D::new(377.6, 1024.0));
-    assert_line_to!(events.next(), Point2D::new(377.6, 0.0));
-    assert_line_to!(events.next(), Point2D::new(192.0, 0.0));
+    assert_line_to!(events.next(), Point2D::new(409.6, 1024.0));
+    assert_line_to!(events.next(), Point2D::new(409.6, 0.0));
+    assert_line_to!(events.next(), Point2D::new(204.8, 0.0));
     assert_close!(events.next());
     assert_eq!(
         events.next(),
-        Some(PathEvent::MoveTo(Point2D::new(192.0, 1638.4)))
+        Some(PathEvent::MoveTo(Point2D::new(204.8, 1638.4)))
     );
-    assert_line_to!(events.next(), Point2D::new(377.6, 1638.4));
-    assert_line_to!(events.next(), Point2D::new(377.6, 1433.6));
-    assert_line_to!(events.next(), Point2D::new(192.0, 1433.6));
+    assert_line_to!(events.next(), Point2D::new(409.6, 1638.4));
+    assert_line_to!(events.next(), Point2D::new(409.6, 1433.6));
+    assert_line_to!(events.next(), Point2D::new(204.8, 1433.6));
     assert_close!(events.next());
 }
 

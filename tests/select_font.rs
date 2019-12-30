@@ -240,16 +240,7 @@ mod test {
             })
             .collect();
         filenames.sort();
-        assert_eq!(filenames.len(), 9);
-        assert_eq!(&filenames[0], "DejaVuSans-Bold.ttf");
-        assert_eq!(&filenames[1], "DejaVuSans-BoldOblique.ttf");
-        assert_eq!(&filenames[2], "DejaVuSans-ExtraLight.ttf");
-        assert_eq!(&filenames[3], "DejaVuSans-Oblique.ttf");
-        assert_eq!(&filenames[4], "DejaVuSans.ttf");
-        assert_eq!(&filenames[5], "DejaVuSansCondensed-Bold.ttf");
-        assert_eq!(&filenames[6], "DejaVuSansCondensed-BoldOblique.ttf");
-        assert_eq!(&filenames[7], "DejaVuSansCondensed-Oblique.ttf");
-        assert_eq!(&filenames[8], "DejaVuSansCondensed.ttf");
+        assert_eq!(filenames, &["DejaVuSans-Bold.ttf", "DejaVuSans.ttf"]);
     }
 
     #[allow(non_snake_case)]
