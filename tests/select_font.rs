@@ -239,8 +239,16 @@ mod test {
                 _ => panic!("Expected path handle!"),
             })
             .collect();
-        filenames.sort();
-        assert_eq!(filenames, &["DejaVuSans-Bold.ttf", "DejaVuSans.ttf"]);
+        assert!(filenames
+            .iter()
+            .filter(|name| &**name == "DejaVuSans-Bold.ttf")
+            .next()
+            .is_some());
+        assert!(filenames
+            .iter()
+            .filter(|name| &**name == "DejaVuSans.ttf")
+            .next()
+            .is_some());
     }
 
     #[allow(non_snake_case)]

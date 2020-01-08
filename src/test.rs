@@ -320,16 +320,18 @@ pub fn get_fully_hinted_glyph_outline() {
 #[cfg(not(any(target_os = "macos", target_os = "ios", target_family = "windows")))]
 #[test]
 pub fn get_fully_hinted_glyph_outline() {
-    let mut path_builder = Path::builder();
-    let font = SystemSource::new()
-        .select_best_match(
-            &[FamilyName::Title(KNOWN_SYSTEM_FONT_NAME.to_string())],
-            &Properties::new(),
-        )
-        .unwrap()
-        .load()
-        .unwrap();
+    let mut file = File::open(FILE_PATH_INCONSOLATA_TTF).unwrap();
+    let font = Font::from_file(&mut file, 0).unwrap();
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
+
+    let mut path_builder = Path::builder();
+    font.outline(glyph, HintingOptions::Full(10.0), &mut path_builder)
+        .unwrap();
+    let path = path_builder.build();
+    println!("{:?}", font.postscript_name());
+    println!("{:?}", path.into_iter().collect::<Vec<_>>());
+
+    let mut path_builder = Path::builder();
     font.outline(glyph, HintingOptions::Full(10.0), &mut path_builder)
         .unwrap();
     let path = path_builder.build();
@@ -338,22 +340,18 @@ pub fn get_fully_hinted_glyph_outline() {
     assert_eq!(
         events.next(),
         Some(PathEvent::Begin {
-            at: Point2D::new(204.8, 1024.0)
+            at: Point2D::new(100.0, 75.0)
         })
     );
-    assert_line_to!(events.next(), Point2D::new(409.6, 1024.0));
-    assert_line_to!(events.next(), Point2D::new(409.6, 0.0));
-    assert_line_to!(events.next(), Point2D::new(204.8, 0.0));
-    assert_close!(events.next());
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::Begin {
-            at: Point2D::new(204.8, 1638.4)
-        })
-    );
-    assert_line_to!(events.next(), Point2D::new(409.6, 1638.4));
-    assert_line_to!(events.next(), Point2D::new(409.6, 1433.6));
-    assert_line_to!(events.next(), Point2D::new(204.8, 1433.6));
+    assert_line_to!(events.next(), Point2D::new(217.1875, 75.0));
+    assert_line_to!(events.next(), Point2D::new(217.1875, 425.0));
+    assert_line_to!(events.next(), Point2D::new(106.25, 425.0));
+    assert_line_to!(events.next(), Point2D::new(106.25, 500.0));
+    assert_line_to!(events.next(), Point2D::new(289.0625, 500.0));
+    assert_line_to!(events.next(), Point2D::new(289.0625, 75.0));
+    assert_line_to!(events.next(), Point2D::new(395.3125, 75.0));
+    assert_line_to!(events.next(), Point2D::new(395.3125, 0.0));
+    assert_line_to!(events.next(), Point2D::new(100.0, 0.0));
     assert_close!(events.next());
 }
 
