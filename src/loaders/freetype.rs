@@ -16,15 +16,13 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use euclid::default::{Point2D, Rect, Size2D, Vector2D};
 use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_Face, FT_FACE_FLAG_FIXED_WIDTH};
-use freetype::freetype::{FT_Fixed, FT_Matrix, FT_UShort, FT_Vector};
-use freetype::freetype::{FT_Get_Char_Index, FT_Get_Name_Index, FT_Get_Postscript_Name};
-use freetype::freetype::{
-    FT_Get_Sfnt_Table, FT_Init_FreeType, FT_Load_Sfnt_Table, FT_LOAD_DEFAULT, FT_LOAD_MONOCHROME,
-};
-use freetype::freetype::{FT_LcdFilter, FT_Library_SetLcdFilter};
-use freetype::freetype::{FT_Library, FT_Load_Glyph, FT_Long, FT_LOAD_NO_HINTING, FT_LOAD_RENDER};
-use freetype::freetype::{FT_New_Memory_Face, FT_Reference_Face, FT_STYLE_FLAG_ITALIC};
-use freetype::freetype::{FT_Set_Char_Size, FT_Set_Transform, FT_Sfnt_Tag, FT_UInt, FT_ULong};
+use freetype::freetype::{FT_Fixed, FT_Get_Char_Index, FT_Get_Name_Index, FT_Get_Postscript_Name};
+use freetype::freetype::{FT_Get_Sfnt_Table, FT_Init_FreeType, FT_LcdFilter, FT_Library};
+use freetype::freetype::{FT_Library_SetLcdFilter, FT_Load_Glyph, FT_LOAD_DEFAULT};
+use freetype::freetype::{FT_Load_Sfnt_Table, FT_Long, FT_Matrix, FT_New_Memory_Face};
+use freetype::freetype::{FT_Reference_Face, FT_Set_Char_Size, FT_Set_Transform, FT_Sfnt_Tag};
+use freetype::freetype::{FT_UInt, FT_ULong, FT_UShort, FT_Vector, FT_STYLE_FLAG_ITALIC};
+use freetype::freetype::{FT_LOAD_MONOCHROME, FT_LOAD_NO_HINTING, FT_LOAD_RENDER};
 use freetype::tt_os2::TT_OS2;
 use log::warn;
 use lyon_path::builder::PathBuilder;
