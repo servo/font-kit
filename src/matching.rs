@@ -91,7 +91,12 @@ pub fn find_best_match(
     //
     // The spec doesn't say what to do if the weight is between 400 and 500 exclusive, so we
     // just use 450 as the cutoff.
-    let matching_weight = if query.weight >= Weight(400.0)
+    let matching_weight = if matching_set
+        .iter()
+        .any(|&index| candidates[index].weight == query.weight)
+    {
+        query.weight
+    } else if query.weight >= Weight(400.0)
         && query.weight < Weight(450.0)
         && matching_set
             .iter()
