@@ -707,6 +707,58 @@ pub fn rasterize_glyph() {
     check_curly_shape(&canvas);
 }
 
+// Tests that an empty glyph can be successfully rasterized to a 0x0 canvas (issue #7).
+#[test]
+pub fn rasterize_empty_glyph() {
+    let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
+    let font = Font::from_file(&mut file, 0).unwrap();
+    let glyph = font.glyph_for_char(' ').expect("No glyph for char!");
+    let raster_rect = Rect::new(Point2D::new(0.0, 0.0), Size2D::new(16.0, 16.0));
+    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
+    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
+    font.rasterize_glyph(
+        &mut canvas,
+        glyph,
+        16.0,
+        &FontTransform::identity(),
+        &origin,
+        HintingOptions::None,
+        RasterizationOptions::GrayscaleAa,
+    )
+    .unwrap();
+}
+
+// Tests that an empty glyph can be successfully rasterized to a 0x0 canvas (issue #7).
+#[test]
+pub fn rasterize_empty_glyph_on_empty_canvas() {
+    let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
+    let font = Font::from_file(&mut file, 0).unwrap();
+    let glyph = font.glyph_for_char(' ').expect("No glyph for char!");
+    let size = 32.0;
+    let raster_rect = font
+        .raster_bounds(
+            glyph,
+            size,
+            &FontTransform::identity(),
+            &Point2D::zero(),
+            HintingOptions::None,
+            RasterizationOptions::GrayscaleAa,
+        )
+        .unwrap();
+    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
+    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
+    font.rasterize_glyph(
+        &mut canvas,
+        glyph,
+        size,
+        &FontTransform::identity(),
+        &origin,
+        HintingOptions::None,
+        RasterizationOptions::GrayscaleAa,
+    )
+    .unwrap();
+}
+
 #[test]
 pub fn font_transform() {
     let font = SystemSource::new()

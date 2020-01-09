@@ -467,6 +467,10 @@ impl Font {
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
     ) -> Result<(), GlyphLoadingError> {
+        if canvas.size.width == 0 || canvas.size.height == 0 {
+            return Ok(());
+        }
+
         let (cg_color_space, cg_image_format) =
             match format_to_cg_color_space_and_image_format(canvas.format) {
                 None => {
@@ -532,7 +536,7 @@ impl Font {
             Format::A8 => core_graphics_context.set_gray_fill_color(1.0, 1.0),
         }
 
-        //CoreGraphics origin is in the bottom left. This makes behavior consistent.
+        // CoreGraphics origin is in the bottom left. This makes behavior consistent.
         core_graphics_context.translate(0., canvas.size.height as CGFloat);
         core_graphics_context.set_font(&self.core_text_font.copy_to_CGFont());
         core_graphics_context.set_font_size(point_size as CGFloat);
