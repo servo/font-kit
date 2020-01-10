@@ -390,6 +390,17 @@ impl Font {
     pub fn metrics(&self) -> Metrics {
         let units_per_em = self.core_text_font.units_per_em();
         let units_per_point = (units_per_em as f64) / self.core_text_font.pt_size();
+
+        let bounding_box = self.core_text_font.bounding_box();
+        let bounding_box_origin = Point2D::new(
+            (bounding_box.origin.x * units_per_point) as f32,
+            (bounding_box.origin.y * units_per_point) as f32,
+        );
+        let bounding_box_size = Size2D::new(
+            (bounding_box.size.width * units_per_point) as f32,
+            (bounding_box.size.height * units_per_point) as f32,
+        );
+
         Metrics {
             units_per_em,
             ascent: (self.core_text_font.ascent() * units_per_point) as f32,
@@ -400,6 +411,7 @@ impl Font {
                 as f32,
             cap_height: (self.core_text_font.cap_height() * units_per_point) as f32,
             x_height: (self.core_text_font.x_height() * units_per_point) as f32,
+            bounding_box: Rect::new(bounding_box_origin, bounding_box_size),
         }
     }
 

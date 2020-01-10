@@ -643,6 +643,7 @@ impl Font {
             let descender = (*self.freetype_face).descender;
             let underline_position = (*self.freetype_face).underline_position;
             let underline_thickness = (*self.freetype_face).underline_thickness;
+            let bbox = (*self.freetype_face).bbox;
             Metrics {
                 units_per_em: (*self.freetype_face).units_per_EM as u32,
                 ascent: ascender as f32,
@@ -656,6 +657,13 @@ impl Font {
                 x_height: os2_table
                     .map(|table| (*table).sxHeight as f32)
                     .unwrap_or(0.0),
+                bounding_box: Rect::new(
+                    Point2D::new(bbox.xMin as f32, bbox.yMin as f32),
+                    Size2D::new(
+                        bbox.xMax as f32 - bbox.xMin as f32,
+                        bbox.yMax as f32 - bbox.yMin as f32,
+                    ),
+                ),
             }
         }
     }

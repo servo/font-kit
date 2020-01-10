@@ -10,12 +10,14 @@
 
 //! A loader that uses the Windows DirectWrite API to load and rasterize fonts.
 
+use byteorder::{BigEndian, ReadBytesExt};
 use dwrote::CustomFontCollectionLoaderImpl;
 use dwrote::Font as DWriteFont;
 use dwrote::FontCollection as DWriteFontCollection;
 use dwrote::FontFace as DWriteFontFace;
 use dwrote::FontFallback as DWriteFontFallback;
 use dwrote::FontFile as DWriteFontFile;
+use dwrote::FontMetrics as DWriteFontMetrics;
 use dwrote::FontStyle as DWriteFontStyle;
 use dwrote::GlyphOffset as DWriteGlyphOffset;
 use dwrote::GlyphRunAnalysis as DWriteGlyphRunAnalysis;
@@ -36,10 +38,9 @@ use std::os::windows::io::AsRawHandle;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use winapi::shared::minwindef::{FALSE, MAX_PATH};
-use winapi::um::dwrite::{
-    DWRITE_NUMBER_SUBSTITUTION_METHOD_NONE, DWRITE_READING_DIRECTION,
-    DWRITE_READING_DIRECTION_LEFT_TO_RIGHT,
-};
+use winapi::um::dwrite::DWRITE_NUMBER_SUBSTITUTION_METHOD_NONE;
+use winapi::um::dwrite::DWRITE_READING_DIRECTION;
+use winapi::um::dwrite::DWRITE_READING_DIRECTION_LEFT_TO_RIGHT;
 use winapi::um::fileapi;
 
 use crate::canvas::{Canvas, Format, RasterizationOptions};
@@ -52,6 +53,8 @@ use crate::metrics::Metrics;
 use crate::properties::{Properties, Stretch, Style, Weight};
 
 const ERROR_BOUND: f32 = 0.0001;
+
+const OPENTYPE_TABLE_TAG_HEAD: u32 = 0x68656164;
 
 /// DirectWrite's representation of a font.
 pub struct NativeFont {
@@ -340,16 +343,58 @@ impl Font {
     /// Retrieves various metrics that apply to the entire font.
     pub fn metrics(&self) -> Metrics {
         let dwrite_font = &self.dwrite_font;
-        let dwrite_metrics = dwrite_font.metrics();
-        Metrics {
-            units_per_em: dwrite_metrics.designUnitsPerEm as u32,
-            ascent: dwrite_metrics.ascent as f32,
-            descent: -(dwrite_metrics.descent as f32),
-            line_gap: dwrite_metrics.lineGap as f32,
-            cap_height: dwrite_metrics.capHeight as f32,
-            x_height: dwrite_metrics.xHeight as f32,
-            underline_position: dwrite_metrics.underlinePosition as f32,
-            underline_thickness: dwrite_metrics.underlineThickness as f32,
+
+        // Unfortunately, the bounding box info is Windows 8 only, so we need a fallback. First,
+        // try to grab it from the font. If that fails, we try the `head` table. If there's no
+        // `head` table, we give up.
+        match dwrite_font.metrics() {
+            DWriteFontMetrics::Metrics1(metrics) => Metrics {
+                units_per_em: metrics.designUnitsPerEm as u32,
+                ascent: metrics.ascent as f32,
+                descent: -(metrics.descent as f32),
+                line_gap: metrics.lineGap as f32,
+                cap_height: metrics.capHeight as f32,
+                x_height: metrics.xHeight as f32,
+                underline_position: metrics.underlinePosition as f32,
+                underline_thickness: metrics.underlineThickness as f32,
+                bounding_box: Rect::new(
+                    Point2D::new(metrics.glyphBoxLeft as f32, metrics.glyphBoxBottom as f32),
+                    Size2D::new(
+                        (metrics.glyphBoxRight - metrics.glyphBoxLeft) as f32,
+                        (metrics.glyphBoxTop - metrics.glyphBoxBottom) as f32,
+                    ),
+                ),
+            },
+            DWriteFontMetrics::Metrics0(metrics) => {
+                let bounding_box = match self
+                    .dwrite_font_face
+                    .get_font_table(OPENTYPE_TABLE_TAG_HEAD.swap_bytes())
+                {
+                    Some(head) => {
+                        let mut reader = &head[36..];
+                        let x_min = reader.read_i16::<BigEndian>().unwrap();
+                        let y_min = reader.read_i16::<BigEndian>().unwrap();
+                        let x_max = reader.read_i16::<BigEndian>().unwrap();
+                        let y_max = reader.read_i16::<BigEndian>().unwrap();
+                        Rect::new(
+                            Point2D::new(x_min as f32, y_min as f32),
+                            Size2D::new((x_max - x_min) as f32, (y_max - y_min) as f32),
+                        )
+                    }
+                    None => Rect::zero(),
+                };
+                Metrics {
+                    units_per_em: metrics.designUnitsPerEm as u32,
+                    ascent: metrics.ascent as f32,
+                    descent: -(metrics.descent as f32),
+                    line_gap: metrics.lineGap as f32,
+                    cap_height: metrics.capHeight as f32,
+                    x_height: metrics.xHeight as f32,
+                    underline_position: metrics.underlinePosition as f32,
+                    underline_thickness: metrics.underlineThickness as f32,
+                    bounding_box,
+                }
+            }
         }
     }
 
@@ -600,7 +645,6 @@ impl Font {
             self.dwrite_font.stretch(),
         );
         let valid_len = convert_len_utf16_to_utf8(text, fallback_result.mapped_length);
-        //let face = fallback_result.mapped_font.
         let fonts = if let Some(dwrite_font) = fallback_result.mapped_font {
             let dwrite_font_face = dwrite_font.create_font_face();
             let font = Font {
@@ -626,7 +670,7 @@ impl Font {
     /// [OpenType specification]: https://docs.microsoft.com/en-us/typography/opentype/spec/
     pub fn load_font_table(&self, table_tag: u32) -> Option<Box<[u8]>> {
         self.dwrite_font_face
-            .get_font_table(table_tag)
+            .get_font_table(table_tag.swap_bytes())
             .map(|v| v.into())
     }
 }
