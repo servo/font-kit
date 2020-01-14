@@ -141,8 +141,5 @@ pub mod properties;
 pub mod source;
 pub mod sources;
 
-#[cfg(test)]
-pub mod test;
-
 mod matching;
 mod utils;

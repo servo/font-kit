@@ -1,4 +1,4 @@
-// font-kit/src/test.rs
+// font-kit/tests/tests.rs
 //
 // Copyright © 2019 The Pathfinder Project Developers.
 //
@@ -8,22 +8,22 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+// General tests.
+
 use euclid::default::{Point2D, Rect, Size2D, Vector2D};
 use euclid::point2;
+use font_kit::canvas::{Canvas, Format, RasterizationOptions};
+use font_kit::family_name::FamilyName;
+use font_kit::file_type::FileType;
+use font_kit::font::Font;
+use font_kit::hinting::HintingOptions;
+use font_kit::loader::FontTransform;
+use font_kit::properties::{Properties, Stretch, Weight};
+use font_kit::source::SystemSource;
 use lyon_path::{Path, PathEvent};
 use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
-
-use crate::canvas::{Canvas, Format, RasterizationOptions};
-use crate::family_name::FamilyName;
-use crate::file_type::FileType;
-use crate::font::Font;
-use crate::hinting::HintingOptions;
-use crate::loader::FontTransform;
-use crate::properties::{Properties, Stretch, Weight};
-use crate::source::SystemSource;
-use crate::utils;
 
 static TEST_FONT_FILE_PATH: &'static str = "resources/tests/eb-garamond/EBGaramond12-Regular.otf";
 static TEST_FONT_POSTSCRIPT_NAME: &'static str = "EBGaramond12-Regular";
@@ -41,6 +41,13 @@ static FILE_PATH_INCONSOLATA_TTF: &'static str =
 static KNOWN_SYSTEM_FONT_NAME: &'static str = "Arial";
 #[cfg(target_os = "linux")]
 static KNOWN_SYSTEM_FONT_NAME: &'static str = "DejaVu Sans";
+
+static SFNT_VERSIONS: [[u8; 4]; 4] = [
+    [0x00, 0x01, 0x00, 0x00],
+    [b'O', b'T', b'T', b'O'],
+    [b't', b'r', b'u', b'e'],
+    [b't', b'y', b'p', b'1'],
+];
 
 const OPENTYPE_TABLE_TAG_HEAD: u32 = 0x68656164;
 
@@ -513,9 +520,7 @@ pub fn get_font_data() {
         .load()
         .unwrap();
     let data = font.copy_font_data().unwrap();
-    debug_assert!(utils::SFNT_VERSIONS
-        .iter()
-        .any(|version| data[0..4] == *version));
+    debug_assert!(SFNT_VERSIONS.iter().any(|version| data[0..4] == *version));
 }
 
 #[test]
