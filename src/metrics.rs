@@ -12,6 +12,8 @@
 //!
 //! For OpenType fonts, these mostly come from the `OS/2` table.
 
+use euclid::default::Rect;
+
 /// Various metrics that apply to the entire font.
 ///
 /// For OpenType fonts, these mostly come from the `OS/2` table.
@@ -48,4 +50,9 @@ pub struct Metrics {
     /// The approximate amount that non-ascending lowercase letters rise above the baseline, in
     /// font units.
     pub x_height: f32,
+
+    /// A rectangle that surrounds all bounding boxes of all glyphs, in font units.
+    ///
+    /// This corresponds to the `xMin`/`xMax`/`yMin`/`yMax` values in the OpenType `head` table.
+    pub bounding_box: Rect<f32>,
 }

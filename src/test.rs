@@ -42,6 +42,8 @@ static KNOWN_SYSTEM_FONT_NAME: &'static str = "Arial";
 #[cfg(target_os = "linux")]
 static KNOWN_SYSTEM_FONT_NAME: &'static str = "DejaVu Sans";
 
+const OPENTYPE_TABLE_TAG_HEAD: u32 = 0x68656164;
+
 #[test]
 pub fn get_font_full_name() {
     let font = SystemSource::new()
@@ -461,6 +463,11 @@ pub fn get_font_metrics() {
     assert_eq!(metrics.underline_thickness, 150.0);
     assert_eq!(metrics.cap_height, 1467.0);
     assert_eq!(metrics.x_height, 1062.0);
+
+    // Different versions of the font can have different max heights, so ignore that.
+    let bounding_box = metrics.bounding_box;
+    assert_eq!(bounding_box.origin, Point2D::new(-1361.0, -665.0));
+    assert_eq!(bounding_box.size.width, 5457.0);
 }
 
 #[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
@@ -480,6 +487,10 @@ pub fn get_font_metrics() {
     assert_eq!(metrics.underline_thickness, 90.0);
     assert_eq!(metrics.cap_height, 0.0); // FIXME(pcwalton): Huh?!
     assert_eq!(metrics.x_height, 0.0); // FIXME(pcwalton): Huh?!
+    assert_eq!(
+        metrics.bounding_box,
+        Rect::new(Point2D::new(-2090.0, -948.0), Size2D::new(5763.0, 3472.0))
+    );
 }
 
 #[test]
@@ -505,6 +516,19 @@ pub fn get_font_data() {
     debug_assert!(utils::SFNT_VERSIONS
         .iter()
         .any(|version| data[0..4] == *version));
+}
+
+#[test]
+pub fn load_font_table() {
+    let font = SystemSource::new()
+        .select_best_match(&[FamilyName::SansSerif], &Properties::new())
+        .unwrap()
+        .load()
+        .unwrap();
+    let head_table = font
+        .load_font_table(OPENTYPE_TABLE_TAG_HEAD)
+        .expect("Where's the `head` table?");
+    assert_eq!(&head_table[12..16], &[0x5f, 0x0f, 0x3c, 0xf5]);
 }
 
 #[test]
