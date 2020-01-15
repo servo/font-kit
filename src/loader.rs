@@ -11,9 +11,10 @@
 //! Provides a common interface to the platform-specific API that loads, parses, and rasterizes
 //! fonts.
 
-use euclid::default::{Point2D, Rect, Transform2D, Vector2D};
 use log::warn;
-use lyon_path::builder::PathBuilder;
+use pathfinder_geometry::rect::{RectF, RectI};
+use pathfinder_geometry::transform2d::Transform2F;
+use pathfinder_geometry::vector::Vector2F;
 use std::sync::Arc;
 
 use crate::canvas::{Canvas, RasterizationOptions};
@@ -22,42 +23,13 @@ use crate::file_type::FileType;
 use crate::handle::Handle;
 use crate::hinting::HintingOptions;
 use crate::metrics::Metrics;
+use crate::outline::OutlineSink;
 use crate::properties::Properties;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
-
-/// The transform that glyphs will be transformed by.
-#[derive(Debug, Clone, Copy)]
-pub struct FontTransform {
-    /// Scale in the x direction
-    pub scale_x: f32,
-    /// Skew in the x direction
-    pub skew_x: f32,
-    /// Skew in the y direction
-    pub skew_y: f32,
-    /// Scale in the y direction
-    pub scale_y: f32,
-}
-
-impl FontTransform {
-    /// Initializes a FontTransform to the provided values
-    pub fn new(scale_x: f32, skew_x: f32, skew_y: f32, scale_y: f32) -> Self {
-        FontTransform {
-            scale_x,
-            skew_x,
-            skew_y,
-            scale_y,
-        }
-    }
-
-    /// Initializes a FontTransform to the identity transform
-    pub fn identity() -> Self {
-        FontTransform::new(1.0, 0.0, 0.0, 1.0)
-    }
-}
 
 /// Provides a common interface to the platform-specific API that loads, parses, and rasterizes
 /// fonts.
@@ -165,31 +137,31 @@ pub trait Loader: Clone + Sized {
         None
     }
 
-    /// Sends the vector path for a glyph to a path builder.
+    /// Sends the vector path for a glyph to a sink.
     ///
     /// If `hinting_mode` is not None, this function performs grid-fitting as requested before
     /// sending the hinding outlines to the builder.
     ///
     /// TODO(pcwalton): What should we do for bitmap glyphs?
-    fn outline<B>(
+    fn outline<S>(
         &self,
         glyph_id: u32,
         hinting_mode: HintingOptions,
-        path_builder: &mut B,
+        sink: &mut S,
     ) -> Result<(), GlyphLoadingError>
     where
-        B: PathBuilder;
+        S: OutlineSink;
 
     /// Returns the boundaries of a glyph in font units. The origin of the coordinate
     /// space is at the bottom left.
-    fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError>;
+    fn typographic_bounds(&self, glyph_id: u32) -> Result<RectF, GlyphLoadingError>;
 
     /// Returns the distance from the origin of the glyph with the given ID to the next, in font
     /// units.
-    fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError>;
+    fn advance(&self, glyph_id: u32) -> Result<Vector2F, GlyphLoadingError>;
 
     /// Returns the amount that the given glyph should be displaced from the origin.
-    fn origin(&self, glyph_id: u32) -> Result<Point2D<f32>, GlyphLoadingError>;
+    fn origin(&self, glyph_id: u32) -> Result<Vector2F, GlyphLoadingError>;
 
     /// Retrieves various metrics that apply to the entire font.
     fn metrics(&self) -> Metrics;
@@ -222,37 +194,26 @@ pub trait Loader: Clone + Sized {
     ) -> bool;
 
     /// Returns the pixel boundaries that the glyph will take up when rendered using this loader's
-    /// rasterizer at the given `point_size`, `transform` and `origin`. `origin` is not transformed
-    /// by `transform`. The origin of the coordinate space is at the top left.
+    /// rasterizer at the given `point_size` and `transform`. The origin of the coordinate space is
+    /// at the top left.
     fn raster_bounds(
         &self,
         glyph_id: u32,
         point_size: f32,
-        transform: &FontTransform,
-        origin: &Point2D<f32>,
+        transform: Transform2F,
         _: HintingOptions,
         _: RasterizationOptions,
-    ) -> Result<Rect<i32>, GlyphLoadingError> {
+    ) -> Result<RectI, GlyphLoadingError> {
         let typographic_bounds = self.typographic_bounds(glyph_id)?;
         let mut typographic_raster_bounds =
-            typographic_bounds * point_size / self.metrics().units_per_em as f32;
-        typographic_raster_bounds.origin.y =
-            -typographic_raster_bounds.origin.y - typographic_raster_bounds.size.height;
-        let transform: Transform2D<f32> = Transform2D::column_major(
-            transform.scale_x,
-            transform.skew_x,
-            origin.x,
-            transform.skew_y,
-            transform.scale_y,
-            origin.y,
+            typographic_bounds.scale(point_size / self.metrics().units_per_em as f32);
+        typographic_raster_bounds.set_origin_y(
+            -typographic_raster_bounds.origin_y() - typographic_raster_bounds.height(),
         );
-        Ok(transform
-            .transform_rect(&typographic_raster_bounds)
-            .round_out()
-            .to_i32())
+        Ok((transform * typographic_raster_bounds).round_out().to_i32())
     }
 
-    /// Rasterizes a glyph to a canvas with the given size and origin.
+    /// Rasterizes a glyph to a canvas with the given size and transform.
     ///
     /// Format conversion will be performed if the canvas format does not match the rasterization
     /// options. For example, if bilevel (black and white) rendering is requested to an RGBA
@@ -261,14 +222,12 @@ pub trait Loader: Clone + Sized {
     /// loader.
     ///
     /// If `hinting_options` is not None, the requested grid fitting is performed.
-    /// `origin` is not transformed by `transform`.
     fn rasterize_glyph(
         &self,
         canvas: &mut Canvas,
         glyph_id: u32,
         point_size: f32,
-        transform: &FontTransform,
-        origin: &Point2D<f32>,
+        transform: Transform2F,
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
     ) -> Result<(), GlyphLoadingError>;

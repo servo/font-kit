@@ -10,17 +10,17 @@
 
 // General tests.
 
-use euclid::default::{Point2D, Rect, Size2D, Vector2D};
-use euclid::point2;
 use font_kit::canvas::{Canvas, Format, RasterizationOptions};
 use font_kit::family_name::FamilyName;
 use font_kit::file_type::FileType;
 use font_kit::font::Font;
 use font_kit::hinting::HintingOptions;
-use font_kit::loader::FontTransform;
+use font_kit::outline::{Contour, Outline, OutlineBuilder, PointFlags};
 use font_kit::properties::{Properties, Stretch, Weight};
 use font_kit::source::SystemSource;
-use lyon_path::{Path, PathEvent};
+use pathfinder_geometry::rect::RectF;
+use pathfinder_geometry::transform2d::Transform2F;
+use pathfinder_geometry::vector::{Vector2F, Vector2I};
 use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
@@ -108,108 +108,79 @@ pub fn get_glyph_for_char() {
     assert_eq!(glyph, 68);
 }
 
-macro_rules! assert_line_to {
-    ($event:expr, $pt:expr) => {
-        match $event {
-            Some(PathEvent::Line { to, .. }) => assert_eq!(to, $pt, "Expected a line to {:?}", $pt),
-            other => panic!("Expected line, got {:?}", other),
-        }
-    };
-}
-
-macro_rules! assert_quadratic_to {
-    ($event:expr, $ctrl:expr, $to:expr) => {
-        match $event {
-            Some(PathEvent::Quadratic { ctrl, to, .. }) => {
-                assert_eq!(ctrl, $ctrl);
-                assert_eq!(to, $to);
-            }
-            other => panic!("Expected quadratic segment, got {:?}", other),
-        }
-    };
-}
-
-macro_rules! assert_close {
-    ($event:expr) => {
-        match $event {
-            Some(PathEvent::End { close: true, .. }) => {}
-            other => panic!("Expected close, got {:?}", other),
-        }
-    };
-}
-
 #[cfg(any(target_family = "windows", target_os = "macos"))]
 #[test]
 pub fn get_glyph_outline() {
-    let mut path_builder = Path::builder();
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
         .load()
         .unwrap();
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
-    font.outline(glyph, HintingOptions::None, &mut path_builder)
-        .unwrap();
-    let path = path_builder.build();
+    let mut outline_builder = OutlineBuilder::new();
+    font.outline(glyph, HintingOptions::None, &mut outline_builder).unwrap();
 
-    let mut events = path.into_iter();
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::Begin {
-            at: Point2D::new(136.0, 1259.0)
-        })
-    );
-    assert_line_to!(events.next(), Point2D::new(136.0, 1466.0));
-    assert_line_to!(events.next(), Point2D::new(316.0, 1466.0));
-    assert_line_to!(events.next(), Point2D::new(316.0, 1259.0));
-    assert_close!(events.next());
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::Begin {
-            at: Point2D::new(136.0, 0.0)
-        })
-    );
-    assert_line_to!(events.next(), Point2D::new(136.0, 1062.0));
-    assert_line_to!(events.next(), Point2D::new(316.0, 1062.0));
-    assert_line_to!(events.next(), Point2D::new(316.0, 0.0));
-    assert_close!(events.next());
+    let outline = outline_builder.into_outline();
+    assert_eq!(outline, Outline {
+        contours: vec![
+            Contour {
+                positions: vec![
+                    Vector2F::new(136.0, 1259.0),
+                    Vector2F::new(136.0, 1466.0),
+                    Vector2F::new(316.0, 1466.0),
+                    Vector2F::new(316.0, 1259.0),
+                ],
+                flags: vec![PointFlags::empty(); 4],
+            },
+            Contour {
+                positions: vec![
+                    Vector2F::new(136.0, 0.0),
+                    Vector2F::new(136.0, 1062.0),
+                    Vector2F::new(316.0, 1062.0),
+                    Vector2F::new(316.0, 0.0),
+                ],
+                flags: vec![PointFlags::empty(); 4],
+            },
+        ],
+    });
 }
 
 #[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
 #[test]
 pub fn get_glyph_outline() {
-    let mut path_builder = Path::builder();
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
         .load()
         .unwrap();
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
+    let mut outline_builder = OutlineBuilder::new();
     font.outline(glyph, HintingOptions::None, &mut path_builder)
         .unwrap();
-    let path = path_builder.build();
 
-    let mut events = path.into_iter();
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::Begin {
-            at: Point2D::new(193.0, 1120.0)
-        })
-    );
-    assert_line_to!(events.next(), Point2D::new(377.0, 1120.0));
-    assert_line_to!(events.next(), Point2D::new(377.0, 0.0));
-    assert_line_to!(events.next(), Point2D::new(193.0, 0.0));
-    assert_close!(events.next());
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::Begin {
-            at: Point2D::new(193.0, 1556.0)
-        })
-    );
-    assert_line_to!(events.next(), Point2D::new(377.0, 1556.0));
-    assert_line_to!(events.next(), Point2D::new(377.0, 1323.0));
-    assert_line_to!(events.next(), Point2D::new(193.0, 1323.0));
-    assert_close!(events.next());
+    let outline = outline_builder.into_outline();
+    assert_eq!(outline, Outline {
+        contours: vec![
+            Contour {
+                positions: vec![
+                    Vector2F::new(193.0, 1120.0),
+                    Vector2F::new(377.0, 1120.0),
+                    Vector2F::new(377.0, 0.0),
+                    Vector2F::new(193.0, 0.0),
+                ],
+                flags: vec![PointFlags::empty(); 4],
+            },
+            Contour {
+                positions: vec![
+                    Vector2F::new(193.0, 1556.0),
+                    Vector2F::new(377.0, 1556.0),
+                    Vector2F::new(377.0, 1323.0),
+                    Vector2F::new(193.0, 1323.0),
+                ],
+                flags: vec![PointFlags::empty(); 4],
+            },
+        ],
+    });
 }
 
 // Right now, only FreeType can do hinting.
@@ -366,16 +337,14 @@ pub fn get_fully_hinted_glyph_outline() {
 
 #[test]
 pub fn get_empty_glyph_outline() {
-    let mut path_builder = Path::builder();
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
     let font = Font::from_file(&mut file, 0).unwrap();
     let glyph = font.glyph_for_char(' ').expect("No glyph for char!");
-    font.outline(glyph, HintingOptions::None, &mut path_builder)
-        .unwrap();
-    let path = path_builder.build();
+    let mut outline_builder = OutlineBuilder::new();
+    font.outline(glyph, HintingOptions::None, &mut outline_builder).unwrap();
 
-    let mut events = path.into_iter();
-    assert_eq!(events.next(), None);
+    let outline = outline_builder.into_outline();
+    assert_eq!(outline, Outline::new());
 }
 
 #[cfg(any(target_family = "windows", target_os = "macos", target_os = "ios"))]
@@ -389,9 +358,9 @@ pub fn get_glyph_typographic_bounds() {
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
     assert_eq!(
         font.typographic_bounds(glyph),
-        Ok(Rect::new(
-            Point2D::new(74.0, -24.0),
-            Size2D::new(978.0, 1110.0)
+        Ok(RectF::new(
+            Vector2F::new(74.0, -24.0),
+            Vector2F::new(978.0, 1110.0)
         ))
     );
 }
@@ -423,8 +392,8 @@ pub fn get_glyph_advance_and_origin() {
         .load()
         .unwrap();
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
-    assert_eq!(font.advance(glyph), Ok(Vector2D::new(1139.0, 0.0)));
-    assert_eq!(font.origin(glyph), Ok(Point2D::new(74.0, 1898.0)));
+    assert_eq!(font.advance(glyph), Ok(Vector2F::new(1139.0, 0.0)));
+    assert_eq!(font.origin(glyph), Ok(Vector2F::new(74.0, 1898.0)));
 }
 
 #[cfg(target_os = "macos")]
@@ -436,8 +405,8 @@ pub fn get_glyph_advance_and_origin() {
         .load()
         .unwrap();
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
-    assert_eq!(font.advance(glyph), Ok(Vector2D::new(1139.0, 0.0)));
-    assert_eq!(font.origin(glyph), Ok(Point2D::zero()));
+    assert_eq!(font.advance(glyph), Ok(Vector2F::new(1139.0, 0.0)));
+    assert_eq!(font.origin(glyph), Ok(Vector2F::default()));
 }
 
 #[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
@@ -473,8 +442,8 @@ pub fn get_font_metrics() {
 
     // Different versions of the font can have different max heights, so ignore that.
     let bounding_box = metrics.bounding_box;
-    assert_eq!(bounding_box.origin, Point2D::new(-1361.0, -665.0));
-    assert_eq!(bounding_box.size.width, 5457.0);
+    assert_eq!(bounding_box.origin(), Vector2F::new(-1361.0, -665.0));
+    assert_eq!(bounding_box.width(), 5457.0);
 }
 
 #[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
@@ -496,7 +465,10 @@ pub fn get_font_metrics() {
     assert_eq!(metrics.x_height, 0.0); // FIXME(pcwalton): Huh?!
     assert_eq!(
         metrics.bounding_box,
-        Rect::new(Point2D::new(-2090.0, -948.0), Size2D::new(5763.0, 3472.0))
+        RectF::new(
+            Vector2F::new(-2090.0, -948.0),
+            Vector2F::new(5763.0, 3472.0)
+        )
     );
 }
 
@@ -549,20 +521,17 @@ pub fn rasterize_glyph_with_grayscale_aa() {
         .raster_bounds(
             glyph_id,
             size,
-            &FontTransform::identity(),
-            &Point2D::zero(),
+            Transform2F::default(),
             HintingOptions::None,
             RasterizationOptions::GrayscaleAa,
         )
         .unwrap();
-    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
-    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
+    let mut canvas = Canvas::new(raster_rect.size(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
         glyph_id,
         size,
-        &FontTransform::identity(),
-        &origin,
+        Transform2F::from_translation(-raster_rect.origin().to_f32()),
         HintingOptions::None,
         RasterizationOptions::GrayscaleAa,
     )
@@ -583,20 +552,17 @@ pub fn rasterize_glyph_bilevel() {
         .raster_bounds(
             glyph_id,
             size,
-            &FontTransform::identity(),
-            &Point2D::zero(),
+            Transform2F::default(),
             HintingOptions::None,
             RasterizationOptions::Bilevel,
         )
         .unwrap();
-    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
-    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
+    let mut canvas = Canvas::new(raster_rect.size(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
         glyph_id,
         size,
-        &FontTransform::identity(),
-        &origin,
+        Transform2F::from_translation(-raster_rect.origin().to_f32()),
         HintingOptions::None,
         RasterizationOptions::Bilevel,
     )
@@ -621,20 +587,17 @@ pub fn rasterize_glyph_bilevel_offset() {
         .raster_bounds(
             glyph_id,
             size,
-            &FontTransform::identity(),
-            &point2(30., 100.),
+            Transform2F::from_translation(Vector2F::new(30.0, 100.0)),
             HintingOptions::None,
             RasterizationOptions::Bilevel,
         )
         .unwrap();
-    let origin = Point2D::new(-raster_rect.origin.x + 30, -raster_rect.origin.y + 100).to_f32();
-    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
+    let mut canvas = Canvas::new(raster_rect.size(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
         glyph_id,
         size,
-        &FontTransform::identity(),
-        &origin,
+        Transform2F::from_translation(-raster_rect.origin().to_f32() + Vector2F::new(30.0, 100.0)),
         HintingOptions::None,
         RasterizationOptions::Bilevel,
     )
@@ -664,8 +627,7 @@ pub fn rasterize_glyph_with_full_hinting() {
         .raster_bounds(
             glyph_id,
             size,
-            &FontTransform::identity(),
-            &Point2D::zero(),
+            Transform2F::default(),
             HintingOptions::None,
             RasterizationOptions::Bilevel,
         )
@@ -676,8 +638,7 @@ pub fn rasterize_glyph_with_full_hinting() {
         &mut canvas,
         glyph_id,
         size,
-        &FontTransform::identity(),
-        &origin,
+        Transform2F::from_translation(-raster_rect.origin().to_f32()),
         HintingOptions::Full(size),
         RasterizationOptions::GrayscaleAa,
     )
@@ -715,20 +676,17 @@ pub fn rasterize_glyph() {
         .raster_bounds(
             glyph_id,
             size,
-            &FontTransform::identity(),
-            &Point2D::zero(),
+            Transform2F::default(),
             HintingOptions::None,
             RasterizationOptions::GrayscaleAa,
         )
         .unwrap();
-    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
-    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
+    let mut canvas = Canvas::new(raster_rect.size(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
         glyph_id,
         size,
-        &FontTransform::identity(),
-        &origin,
+        Transform2F::from_translation(-raster_rect.origin().to_f32()),
         HintingOptions::None,
         RasterizationOptions::GrayscaleAa,
     )
@@ -742,15 +700,12 @@ pub fn rasterize_empty_glyph() {
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
     let font = Font::from_file(&mut file, 0).unwrap();
     let glyph = font.glyph_for_char(' ').expect("No glyph for char!");
-    let raster_rect = Rect::new(Point2D::new(0.0, 0.0), Size2D::new(16.0, 16.0));
-    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
-    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
+    let mut canvas = Canvas::new(Vector2I::splat(16), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
         glyph,
         16.0,
-        &FontTransform::identity(),
-        &origin,
+        Transform2F::default(),
         HintingOptions::None,
         RasterizationOptions::GrayscaleAa,
     )
@@ -768,20 +723,17 @@ pub fn rasterize_empty_glyph_on_empty_canvas() {
         .raster_bounds(
             glyph,
             size,
-            &FontTransform::identity(),
-            &Point2D::zero(),
+            Transform2F::default(),
             HintingOptions::None,
             RasterizationOptions::GrayscaleAa,
         )
         .unwrap();
-    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
-    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
+    let mut canvas = Canvas::new(raster_rect.size(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
         glyph,
         size,
-        &FontTransform::identity(),
-        &origin,
+        Transform2F::from_translation(-raster_rect.origin().to_f32()),
         HintingOptions::None,
         RasterizationOptions::GrayscaleAa,
     )
@@ -801,8 +753,7 @@ pub fn font_transform() {
         .raster_bounds(
             glyph_id,
             size,
-            &FontTransform::identity(),
-            &point2(8., 8.),
+            Transform2F::from_translation(Vector2F::splat(8.0)),
             HintingOptions::None,
             RasterizationOptions::Bilevel,
         )
@@ -811,16 +762,15 @@ pub fn font_transform() {
         .raster_bounds(
             glyph_id,
             size,
-            &FontTransform::new(3., 0., 0., 3.),
-            &point2(8., 8.),
+            Transform2F::row_major(3.0, 0.0, 0.0, 3.0, 8.0, 8.0),
             HintingOptions::None,
             RasterizationOptions::Bilevel,
         )
         .unwrap();
-    assert!((raster_rect2.size.width - raster_rect.size.width * 3).abs() <= 3);
-    assert!((raster_rect2.size.height - raster_rect.size.height * 3).abs() <= 3);
-    assert!((raster_rect2.origin.x - ((raster_rect.origin.x - 8) * 3 + 8)).abs() <= 3);
-    assert!((raster_rect2.origin.y - ((raster_rect.origin.y - 8) * 3 + 8)).abs() <= 3);
+    assert!((raster_rect2.width() - raster_rect.width() * 3).abs() <= 3);
+    assert!((raster_rect2.height() - raster_rect.height() * 3).abs() <= 3);
+    assert!((raster_rect2.origin_x() - ((raster_rect.origin_x() - 8) * 3 + 8)).abs() <= 3);
+    assert!((raster_rect2.origin_y() - ((raster_rect.origin_y() - 8) * 3 + 8)).abs() <= 3);
 }
 
 #[test]
@@ -849,197 +799,137 @@ fn get_glyph_count() {
 // The initial off-curve point used to cause an assertion in the FreeType backend.
 #[test]
 fn get_glyph_outline_eb_garamond_exclam() {
-    let mut path_builder = Path::builder();
     let mut file = File::open(FILE_PATH_EB_GARAMOND_TTF).unwrap();
     let font = Font::from_file(&mut file, 0).unwrap();
     let glyph = font.glyph_for_char('!').expect("No glyph for char!");
-    font.outline(glyph, HintingOptions::None, &mut path_builder)
-        .unwrap();
-    let path = path_builder.build();
+    let mut outline_builder = OutlineBuilder::new();
+    font.outline(glyph, HintingOptions::None, &mut outline_builder).unwrap();
 
     // The TrueType spec doesn't specify the rounding method for midpoints, as far as I can tell.
     // So we are lenient and accept either values rounded down (what Core Text provides if the
     // first point is off-curve, it seems) or precise floating-point values (what our FreeType
     // loader provides).
-    let mut events = path.into_iter();
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::Begin {
-            at: Point2D::new(114.0, 598.0)
-        })
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(114.0, 619.0),
-        Point2D::new(127.5, 634.0)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(141.0, 649.0),
-        Point2D::new(161.0, 649.0)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(181.0, 649.0),
-        Point2D::new(193.5, 634.0)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(206.0, 619.0),
-        Point2D::new(206.0, 598.0)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(206.0, 526.0),
-        Point2D::new(176.0, 244.0)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(172.0, 205.0),
-        Point2D::new(158.0, 205.0)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(144.0, 205.0),
-        Point2D::new(140.0, 244.0)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(114.0, 491.0),
-        Point2D::new(114.0, 598.0)
-    );
-    assert_close!(events.next());
-    let event = events.next();
-    assert!(
-        event
-            == Some(PathEvent::Begin {
-                at: Point2D::new(117.0, 88.0)
-            })
-            || event
-                == Some(PathEvent::Begin {
-                    at: Point2D::new(117.5, 88.5)
-                })
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(135.0, 106.0),
-        Point2D::new(160.0, 106.0)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(185.0, 106.0),
-        Point2D::new(202.5, 88.5)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(220.0, 71.0),
-        Point2D::new(220.0, 46.0)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(220.0, 21.0),
-        Point2D::new(202.5, 3.5)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(185.0, -14.0),
-        Point2D::new(160.0, -14.0)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(135.0, -14.0),
-        Point2D::new(117.5, 3.5)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(100.0, 21.0),
-        Point2D::new(100.0, 46.0)
-    );
-    match events.next() {
-        Some(PathEvent::Quadratic { to, ctrl, .. }) => {
-            assert_eq!(ctrl, Point2D::new(100.0, 71.0));
-            assert!(to == Point2D::new(117.0, 88.0) || to == Point2D::new(117.5, 88.5))
+    let mut outline = outline_builder.into_outline();
+    for contour in &mut outline.contours {
+        for position in &mut contour.positions {
+            *position = position.floor();
         }
-        other => panic!("Expected quadratic got {:?}", other),
     }
-    assert_close!(events.next());
+
+    println!("{:#?}", outline);
+    assert_eq!(outline, Outline {
+        contours: vec![
+            Contour {
+                positions: vec![
+                    Vector2F::new(114.0, 598.0),
+                    Vector2F::new(114.0, 619.0), Vector2F::new(127.0, 634.0),
+                    Vector2F::new(141.0, 649.0), Vector2F::new(161.0, 649.0),
+                    Vector2F::new(181.0, 649.0), Vector2F::new(193.0, 634.0),
+                    Vector2F::new(206.0, 619.0), Vector2F::new(206.0, 598.0),
+                    Vector2F::new(206.0, 526.0), Vector2F::new(176.0, 244.0),
+                    Vector2F::new(172.0, 205.0), Vector2F::new(158.0, 205.0),
+                    Vector2F::new(144.0, 205.0), Vector2F::new(140.0, 244.0),
+                    Vector2F::new(114.0, 491.0), Vector2F::new(114.0, 598.0),
+                ],
+                flags: vec![
+                    PointFlags::empty(),
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(),
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
+                ],
+            },
+            Contour {
+                positions: vec![
+                    Vector2F::new(117.0, 88.0),
+                    Vector2F::new(135.0, 106.0), Vector2F::new(160.0, 106.0),
+                    Vector2F::new(185.0, 106.0), Vector2F::new(202.0, 88.0),
+                    Vector2F::new(220.0, 71.0),  Vector2F::new(220.0, 46.0),
+                    Vector2F::new(220.0, 21.0),  Vector2F::new(202.0, 3.0),
+                    Vector2F::new(185.0, -14.0), Vector2F::new(160.0, -14.0),
+                    Vector2F::new(135.0, -14.0), Vector2F::new(117.0, 3.0),
+                    Vector2F::new(100.0, 21.0),  Vector2F::new(100.0, 46.0),
+                    Vector2F::new(100.0, 71.0),  Vector2F::new(117.0, 88.0),
+                ],
+                flags: vec![
+                    PointFlags::empty(),
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(),
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
+                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
+                ],
+            },
+        ],
+    });
 }
 
 // https://github.com/pcwalton/pathfinder/issues/84
 #[allow(non_snake_case)]
 #[test]
 fn get_glyph_outline_inconsolata_J() {
-    let mut path_builder = Path::builder();
     let mut file = File::open(FILE_PATH_INCONSOLATA_TTF).unwrap();
     let font = Font::from_file(&mut file, 0).unwrap();
     let glyph = font.glyph_for_char('J').expect("No glyph for char!");
-    font.outline(glyph, HintingOptions::None, &mut path_builder)
-        .unwrap();
-    let path = path_builder.build();
+    let mut outline_builder = OutlineBuilder::new();
+    font.outline(glyph, HintingOptions::None, &mut outline_builder).unwrap();
 
-    let mut events = path.into_iter();
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::Begin {
-            at: Point2D::new(198.0, -11.0)
-        })
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(106.0, -11.0),
-        Point2D::new(49.0, 58.0)
-    );
-    assert_line_to!(events.next(), Point2D::new(89.0, 108.0));
-    assert_line_to!(events.next(), Point2D::new(96.0, 116.0));
-    assert_line_to!(events.next(), Point2D::new(101.0, 112.0));
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(102.0, 102.0),
-        Point2D::new(106.0, 95.0)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(110.0, 88.0),
-        Point2D::new(122.0, 78.0)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(157.0, 51.0),
-        Point2D::new(196.0, 51.0)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(247.0, 51.0),
-        Point2D::new(269.5, 86.5)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(292.0, 122.0),
-        Point2D::new(292.0, 208.0)
-    );
-    assert_line_to!(events.next(), Point2D::new(292.0, 564.0));
-    assert_line_to!(events.next(), Point2D::new(172.0, 564.0));
-    assert_line_to!(events.next(), Point2D::new(172.0, 623.0));
-    assert_line_to!(events.next(), Point2D::new(457.0, 623.0));
-    assert_line_to!(events.next(), Point2D::new(457.0, 564.0));
-    assert_line_to!(events.next(), Point2D::new(361.0, 564.0));
-    assert_line_to!(events.next(), Point2D::new(361.0, 209.0));
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(363.0, 133.0),
-        Point2D::new(341.0, 84.0)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(319.0, 35.0),
-        Point2D::new(281.5, 12.0)
-    );
-    assert_quadratic_to!(
-        events.next(),
-        Point2D::new(244.0, -11.0),
-        Point2D::new(198.0, -11.0)
-    );
-    assert_close!(events.next());
+    let outline = outline_builder.into_outline();
+    assert_eq!(outline, Outline {
+        contours: vec![Contour {
+            positions: vec![
+                Vector2F::new(198.0, -11.0),
+                Vector2F::new(106.0, -11.0), Vector2F::new(49.0,  58.0),
+                Vector2F::new(89.0,  108.0),
+                Vector2F::new(96.0,  116.0),
+                Vector2F::new(101.0, 112.0),
+                Vector2F::new(102.0, 102.0), Vector2F::new(106.0, 95.0),
+                Vector2F::new(110.0, 88.0),  Vector2F::new(122.0, 78.0),
+                Vector2F::new(157.0, 51.0),  Vector2F::new(196.0, 51.0),
+                Vector2F::new(247.0, 51.0),  Vector2F::new(269.5, 86.5),
+                Vector2F::new(292.0, 122.0), Vector2F::new(292.0, 208.0),
+                Vector2F::new(292.0, 564.0),
+                Vector2F::new(172.0, 564.0),
+                Vector2F::new(172.0, 623.0),
+                Vector2F::new(457.0, 623.0),
+                Vector2F::new(457.0, 564.0),
+                Vector2F::new(361.0, 564.0),
+                Vector2F::new(361.0, 209.0),
+                Vector2F::new(363.0, 133.0), Vector2F::new(341.0, 84.0),
+                Vector2F::new(319.0, 35.0),  Vector2F::new(281.5, 12.0),
+                Vector2F::new(244.0, -11.0), Vector2F::new(198.0, -11.0),
+            ],
+            flags: vec![
+                PointFlags::empty(),
+                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
+                PointFlags::empty(),
+                PointFlags::empty(),
+                PointFlags::empty(),
+                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
+                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
+                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
+                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
+                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
+                PointFlags::empty(),
+                PointFlags::empty(),
+                PointFlags::empty(),
+                PointFlags::empty(),
+                PointFlags::empty(),
+                PointFlags::empty(),
+                PointFlags::empty(),
+                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
+                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
+                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
+            ],
+        }],
+    });
 }
 
 // Makes sure that a canvas has an "L" shape in it. This is used to test rasterization.
@@ -1047,18 +937,18 @@ fn get_glyph_outline_inconsolata_J() {
 fn check_L_shape(canvas: &Canvas) {
     // Find any empty rows at the start.
     let mut y = 0;
-    while y < canvas.size.height {
+    while y < canvas.size.y() {
         let (row_start, row_end) = (canvas.stride * y as usize, canvas.stride * (y + 1) as usize);
         if canvas.pixels[row_start..row_end].iter().any(|&p| p != 0) {
             break;
         }
         y += 1;
     }
-    assert!(y < canvas.size.height);
+    assert!(y < canvas.size.y());
 
     // Find the top part of the L.
     let mut top_stripe_width = None;
-    while y < canvas.size.height {
+    while y < canvas.size.y() {
         let (row_start, row_end) = (canvas.stride * y as usize, canvas.stride * (y + 1) as usize);
         if let Some(stripe_width) = stripe_width(&canvas.pixels[row_start..row_end]) {
             if let Some(top_stripe_width) = top_stripe_width {
@@ -1071,11 +961,11 @@ fn check_L_shape(canvas: &Canvas) {
         }
         y += 1;
     }
-    assert!(y < canvas.size.height);
+    assert!(y < canvas.size.y());
 
     // Find the bottom part of the L.
     let mut bottom_stripe_width = None;
-    while y < canvas.size.height {
+    while y < canvas.size.y() {
         let (row_start, row_end) = (canvas.stride * y as usize, canvas.stride * (y + 1) as usize);
         y += 1;
         if let Some(stripe_width) = stripe_width(&canvas.pixels[row_start..row_end]) {
@@ -1088,7 +978,7 @@ fn check_L_shape(canvas: &Canvas) {
     }
 
     // Find any empty rows at the end.
-    while y < canvas.size.height {
+    while y < canvas.size.y() {
         let (row_start, row_end) = (canvas.stride * y as usize, canvas.stride * (y + 1) as usize);
         y += 1;
         if canvas.pixels[row_start..row_end].iter().any(|&p| p != 0) {
@@ -1097,14 +987,14 @@ fn check_L_shape(canvas: &Canvas) {
     }
 
     // Make sure we made it to the end.
-    assert_eq!(y, canvas.size.height);
+    assert_eq!(y, canvas.size.y());
 }
 
 // Makes sure that a canvas has an "{" shape in it. This is used to test rasterization.
 #[cfg(target_family = "windows")]
 fn check_curly_shape(canvas: &Canvas) {
     let mut y = 0;
-    let height = canvas.size.height;
+    let height = canvas.size.y();
     // check the upper row and the lower rows are symmetrical
     while y < height / 2 {
         let (upper_row_start, upper_row_end) =

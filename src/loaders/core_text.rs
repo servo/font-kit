@@ -16,16 +16,19 @@ use core_graphics::color_space::CGColorSpace;
 use core_graphics::context::{CGContext, CGTextDrawingMode};
 use core_graphics::data_provider::CGDataProvider;
 use core_graphics::font::{CGFont, CGGlyph};
-use core_graphics::geometry::{CGAffineTransform, CGRect, CGSize};
-use core_graphics::geometry::{CGPoint, CG_AFFINE_TRANSFORM_IDENTITY, CG_ZERO_POINT, CG_ZERO_SIZE};
+use core_graphics::geometry::{CGAffineTransform, CGPoint, CGRect, CGSize};
+use core_graphics::geometry::{CG_AFFINE_TRANSFORM_IDENTITY, CG_ZERO_POINT, CG_ZERO_SIZE};
 use core_graphics::path::CGPathElementType;
 use core_text;
 use core_text::font::CTFont;
 use core_text::font_descriptor::kCTFontDefaultOrientation;
 use core_text::font_descriptor::{SymbolicTraitAccessors, TraitAccessors};
-use euclid::default::{Point2D, Rect, Size2D, Vector2D};
 use log::warn;
-use lyon_path::builder::PathBuilder;
+use pathfinder_geometry::line_segment::LineSegment2F;
+use pathfinder_geometry::rect::{RectF, RectI};
+use pathfinder_geometry::transform2d::Transform2F;
+use pathfinder_geometry::vector::Vector2F;
+use pathfinder_simd::default::F32x4;
 use std::f32;
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
@@ -39,8 +42,9 @@ use crate::error::{FontLoadingError, GlyphLoadingError};
 use crate::file_type::FileType;
 use crate::handle::Handle;
 use crate::hinting::HintingOptions;
-use crate::loader::{FallbackResult, FontTransform, Loader};
+use crate::loader::{FallbackResult, Loader};
 use crate::metrics::Metrics;
+use crate::outline::OutlineSink;
 use crate::properties::{Properties, Stretch, Style, Weight};
 use crate::sources;
 use crate::utils;
@@ -284,14 +288,14 @@ impl Font {
     /// sending the hinding outlines to the builder.
     ///
     /// TODO(pcwalton): What should we do for bitmap glyphs?
-    pub fn outline<B>(
+    pub fn outline<S>(
         &self,
         glyph_id: u32,
         _: HintingOptions,
-        path_builder: &mut B,
+        sink: &mut S,
     ) -> Result<(), GlyphLoadingError>
     where
-        B: PathBuilder,
+        S: OutlineSink,
     {
         let path = match self
             .core_text_font
@@ -311,47 +315,41 @@ impl Font {
             let points = element.points();
             match element.element_type {
                 CGPathElementType::MoveToPoint => {
-                    path_builder.move_to(points[0].to_euclid_point() * units_per_point)
+                    sink.move_to(points[0].to_vector().scale(units_per_point))
                 }
                 CGPathElementType::AddLineToPoint => {
-                    path_builder.line_to(points[0].to_euclid_point() * units_per_point)
+                    sink.line_to(points[0].to_vector().scale(units_per_point))
                 }
-                CGPathElementType::AddQuadCurveToPoint => path_builder.quadratic_bezier_to(
-                    points[0].to_euclid_point() * units_per_point,
-                    points[1].to_euclid_point() * units_per_point,
-                ),
-                CGPathElementType::AddCurveToPoint => path_builder.cubic_bezier_to(
-                    points[0].to_euclid_point() * units_per_point,
-                    points[1].to_euclid_point() * units_per_point,
-                    points[2].to_euclid_point() * units_per_point,
-                ),
-                CGPathElementType::CloseSubpath => path_builder.close(),
+                CGPathElementType::AddQuadCurveToPoint => {
+                    sink.quadratic_curve_to(points[0].to_vector().scale(units_per_point),
+                                            points[1].to_vector().scale(units_per_point))
+                }
+                CGPathElementType::AddCurveToPoint => {
+                    let ctrl = LineSegment2F::new(points[0].to_vector(),
+                                                  points[1].to_vector()).scale(units_per_point);
+                    sink.cubic_curve_to(ctrl, points[2].to_vector().scale(units_per_point))
+                }
+                CGPathElementType::CloseSubpath => sink.close(),
             }
         });
         Ok(())
     }
 
     /// Returns the boundaries of a glyph in font units.
-    pub fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError> {
+    pub fn typographic_bounds(&self, glyph_id: u32) -> Result<RectF, GlyphLoadingError> {
         let rect = self
             .core_text_font
             .get_bounding_rects_for_glyphs(kCTFontDefaultOrientation, &[glyph_id as u16]);
-        let units_per_point = self.units_per_point();
-        Ok(Rect::new(
-            Point2D::new(
-                (rect.origin.x * units_per_point) as f32,
-                (rect.origin.y * units_per_point) as f32,
-            ),
-            Size2D::new(
-                (rect.size.width * units_per_point) as f32,
-                (rect.size.height * units_per_point) as f32,
-            ),
-        ))
+        let rect = RectF::new(
+            Vector2F::new(rect.origin.x as f32, rect.origin.y as f32),
+            Vector2F::new(rect.size.width as f32, rect.size.height as f32),
+        );
+        Ok(rect.scale(self.units_per_point() as f32))
     }
 
     /// Returns the distance from the origin of the glyph with the given ID to the next, in font
     /// units.
-    pub fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError> {
+    pub fn advance(&self, glyph_id: u32) -> Result<Vector2F, GlyphLoadingError> {
         // FIXME(pcwalton): Apple's docs don't say what happens when the glyph is out of range!
         unsafe {
             let (glyph_id, mut advance) = (glyph_id as u16, CG_ZERO_SIZE);
@@ -361,15 +359,13 @@ impl Font {
                 &mut advance,
                 1,
             );
-            Ok(Vector2D::new(
-                (advance.width * self.units_per_point()) as f32,
-                (advance.height * self.units_per_point()) as f32,
-            ))
+            let advance = Vector2F::new(advance.width as f32, advance.height as f32);
+            Ok(advance.scale(self.units_per_point() as f32))
         }
     }
 
     /// Returns the amount that the given glyph should be displaced from the origin.
-    pub fn origin(&self, glyph_id: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
+    pub fn origin(&self, glyph_id: u32) -> Result<Vector2F, GlyphLoadingError> {
         unsafe {
             // FIXME(pcwalton): Apple's docs don't say what happens when the glyph is out of range!
             let (glyph_id, mut translation) = (glyph_id as u16, CG_ZERO_SIZE);
@@ -379,10 +375,8 @@ impl Font {
                 &mut translation,
                 1,
             );
-            Ok(Point2D::new(
-                (translation.width * self.units_per_point()) as f32,
-                (translation.height * self.units_per_point()) as f32,
-            ))
+            let translation = Vector2F::new(translation.width as f32, translation.height as f32);
+            Ok(translation.scale(self.units_per_point() as f32))
         }
     }
 
@@ -392,14 +386,14 @@ impl Font {
         let units_per_point = (units_per_em as f64) / self.core_text_font.pt_size();
 
         let bounding_box = self.core_text_font.bounding_box();
-        let bounding_box_origin = Point2D::new(
-            (bounding_box.origin.x * units_per_point) as f32,
-            (bounding_box.origin.y * units_per_point) as f32,
+        let bounding_box = RectF::new(
+            Vector2F::new(bounding_box.origin.x as f32, bounding_box.origin.y as f32),
+            Vector2F::new(
+                bounding_box.size.width as f32,
+                bounding_box.size.height as f32,
+            ),
         );
-        let bounding_box_size = Size2D::new(
-            (bounding_box.size.width * units_per_point) as f32,
-            (bounding_box.size.height * units_per_point) as f32,
-        );
+        let bounding_box = bounding_box.scale(units_per_point as f32);
 
         Metrics {
             units_per_em,
@@ -411,7 +405,7 @@ impl Font {
                 as f32,
             cap_height: (self.core_text_font.cap_height() * units_per_point) as f32,
             x_height: (self.core_text_font.x_height() * units_per_point) as f32,
-            bounding_box: Rect::new(bounding_box_origin, bounding_box_size),
+            bounding_box,
         }
     }
 
@@ -435,23 +429,21 @@ impl Font {
     }
 
     /// Returns the pixel boundaries that the glyph will take up when rendered using this loader's
-    /// rasterizer at the given size and origin.
+    /// rasterizer at the given size and transform.
     #[inline]
     pub fn raster_bounds(
         &self,
         glyph_id: u32,
         point_size: f32,
-        transform: &FontTransform,
-        origin: &Point2D<f32>,
+        transform: Transform2F,
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
-    ) -> Result<Rect<i32>, GlyphLoadingError> {
+    ) -> Result<RectI, GlyphLoadingError> {
         <Self as Loader>::raster_bounds(
             self,
             glyph_id,
             point_size,
             transform,
-            origin,
             hinting_options,
             rasterization_options,
         )
@@ -474,12 +466,11 @@ impl Font {
         canvas: &mut Canvas,
         glyph_id: u32,
         point_size: f32,
-        transform: &FontTransform,
-        origin: &Point2D<f32>,
+        transform: Transform2F,
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
     ) -> Result<(), GlyphLoadingError> {
-        if canvas.size.width == 0 || canvas.size.height == 0 {
+        if canvas.size.x() == 0 || canvas.size.y() == 0 {
             return Ok(());
         }
 
@@ -491,13 +482,12 @@ impl Font {
                     //
                     // FIXME(pcwalton): Could improve this by only allocating a canvas with a tight
                     // bounding rect and blitting only that part.
-                    let mut temp_canvas = Canvas::new(&canvas.size, Format::Rgba32);
+                    let mut temp_canvas = Canvas::new(canvas.size, Format::Rgba32);
                     self.rasterize_glyph(
                         &mut temp_canvas,
                         glyph_id,
                         point_size,
                         transform,
-                        origin,
                         hinting_options,
                         rasterization_options,
                     )?;
@@ -509,8 +499,8 @@ impl Font {
 
         let core_graphics_context = CGContext::create_bitmap_context(
             Some(canvas.pixels.as_mut_ptr() as *mut _),
-            canvas.size.width as usize,
-            canvas.size.height as usize,
+            canvas.size.x() as usize,
+            canvas.size.y() as usize,
             canvas.format.bits_per_component() as usize,
             canvas.stride,
             &cg_color_space,
@@ -524,7 +514,7 @@ impl Font {
             Format::A8 => core_graphics_context.set_gray_fill_color(0.0, 0.0),
         }
 
-        let core_graphics_size = CGSize::new(canvas.size.width as f64, canvas.size.height as f64);
+        let core_graphics_size = CGSize::new(canvas.size.x() as f64, canvas.size.y() as f64);
         core_graphics_context.fill_rect(CGRect::new(&CG_ZERO_POINT, &core_graphics_size));
 
         match rasterization_options {
@@ -549,19 +539,20 @@ impl Font {
         }
 
         // CoreGraphics origin is in the bottom left. This makes behavior consistent.
-        core_graphics_context.translate(0., canvas.size.height as CGFloat);
+        core_graphics_context.translate(0.0, canvas.size.y() as CGFloat);
         core_graphics_context.set_font(&self.core_text_font.copy_to_CGFont());
         core_graphics_context.set_font_size(point_size as CGFloat);
         core_graphics_context.set_text_drawing_mode(CGTextDrawingMode::CGTextFill);
+        let matrix = transform.matrix.0 * F32x4::new(1.0, -1.0, -1.0, 1.0);
         core_graphics_context.set_text_matrix(&CGAffineTransform {
-            a: transform.scale_x as CGFloat,
-            b: -transform.skew_y as CGFloat,
-            c: -transform.skew_x as CGFloat,
-            d: transform.scale_y as CGFloat,
-            tx: origin.x as CGFloat,
-            ty: -origin.y as CGFloat,
+            a: matrix.x() as CGFloat,
+            b: matrix.y() as CGFloat,
+            c: matrix.z() as CGFloat,
+            d: matrix.w() as CGFloat,
+            tx: transform.vector.x() as CGFloat,
+            ty: -transform.vector.y() as CGFloat,
         });
-        let origin = CGPoint::new(0. as CGFloat, 0. as CGFloat);
+        let origin = CGPoint::new(0.0, 0.0);
         core_graphics_context.show_glyphs_at_positions(&[glyph_id as CGGlyph], &[origin]);
 
         Ok(())
@@ -687,30 +678,30 @@ impl Loader for Font {
     }
 
     #[inline]
-    fn outline<B>(
+    fn outline<S>(
         &self,
         glyph_id: u32,
         hinting_mode: HintingOptions,
-        path_builder: &mut B,
+        sink: &mut S,
     ) -> Result<(), GlyphLoadingError>
     where
-        B: PathBuilder,
+        S: OutlineSink,
     {
-        self.outline(glyph_id, hinting_mode, path_builder)
+        self.outline(glyph_id, hinting_mode, sink)
     }
 
     #[inline]
-    fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError> {
+    fn typographic_bounds(&self, glyph_id: u32) -> Result<RectF, GlyphLoadingError> {
         self.typographic_bounds(glyph_id)
     }
 
     #[inline]
-    fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError> {
+    fn advance(&self, glyph_id: u32) -> Result<Vector2F, GlyphLoadingError> {
         self.advance(glyph_id)
     }
 
     #[inline]
-    fn origin(&self, glyph_id: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
+    fn origin(&self, glyph_id: u32) -> Result<Vector2F, GlyphLoadingError> {
         self.origin(glyph_id)
     }
 
@@ -739,8 +730,7 @@ impl Loader for Font {
         canvas: &mut Canvas,
         glyph_id: u32,
         point_size: f32,
-        transform: &FontTransform,
-        origin: &Point2D<f32>,
+        transform: Transform2F,
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
     ) -> Result<(), GlyphLoadingError> {
@@ -749,7 +739,6 @@ impl Loader for Font {
             glyph_id,
             point_size,
             transform,
-            origin,
             hinting_options,
             rasterization_options,
         )
@@ -789,13 +778,13 @@ impl Deref for FontData {
 }
 
 trait CGPointExt {
-    fn to_euclid_point(&self) -> Point2D<f32>;
+    fn to_vector(&self) -> Vector2F;
 }
 
 impl CGPointExt for CGPoint {
     #[inline]
-    fn to_euclid_point(&self) -> Point2D<f32> {
-        Point2D::new(self.x as f32, self.y as f32)
+    fn to_vector(&self) -> Vector2F {
+        Vector2F::new(self.x as f32, self.y as f32)
     }
 }
 

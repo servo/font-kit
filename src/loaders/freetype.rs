@@ -14,7 +14,6 @@
 //! loader by default.
 
 use byteorder::{BigEndian, ReadBytesExt};
-use euclid::default::{Point2D, Rect, Size2D, Vector2D};
 use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_Face, FT_FACE_FLAG_FIXED_WIDTH};
 use freetype::freetype::{FT_Fixed, FT_Get_Char_Index, FT_Get_Name_Index, FT_Get_Postscript_Name};
 use freetype::freetype::{FT_Get_Sfnt_Table, FT_Init_FreeType, FT_LcdFilter, FT_Library};
@@ -25,7 +24,11 @@ use freetype::freetype::{FT_UInt, FT_ULong, FT_UShort, FT_Vector, FT_STYLE_FLAG_
 use freetype::freetype::{FT_LOAD_MONOCHROME, FT_LOAD_NO_HINTING, FT_LOAD_RENDER};
 use freetype::tt_os2::TT_OS2;
 use log::warn;
-use lyon_path::builder::PathBuilder;
+use pathfinder_geometry::line_segment::LineSegment2F;
+use pathfinder_geometry::rect::{RectF, RectI};
+use pathfinder_geometry::transform2d::Transform2F;
+use pathfinder_geometry::vector::{Vector2F, Vector2I};
+use pathfinder_simd::default::F32x4;
 use std::f32;
 use std::ffi::{CStr, CString};
 use std::fmt::{self, Debug, Formatter};
@@ -42,8 +45,9 @@ use crate::error::{FontLoadingError, GlyphLoadingError};
 use crate::file_type::FileType;
 use crate::handle::Handle;
 use crate::hinting::HintingOptions;
-use crate::loader::{FallbackResult, FontTransform, Loader};
+use crate::loader::{FallbackResult, Loader};
 use crate::metrics::Metrics;
+use crate::outline::OutlineSink;
 use crate::properties::{Properties, Stretch, Style, Weight};
 use crate::utils;
 
@@ -414,14 +418,14 @@ impl Font {
     /// sending the hinding outlines to the builder.
     ///
     /// TODO(pcwalton): What should we do for bitmap glyphs?
-    pub fn outline<B>(
+    pub fn outline<S>(
         &self,
         glyph_id: u32,
         hinting: HintingOptions,
-        path_builder: &mut B,
+        sink: &mut S,
     ) -> Result<(), GlyphLoadingError>
     where
-        B: PathBuilder,
+        S: OutlineSink,
     {
         unsafe {
             let rasterization_options = RasterizationOptions::GrayscaleAa;
@@ -432,7 +436,7 @@ impl Font {
             let grid_fitting_size = hinting.grid_fitting_size();
             if let Some(size) = grid_fitting_size {
                 assert_eq!(
-                    FT_Set_Char_Size(self.freetype_face, f32_to_ft_fixed_26_6(size), 0, 0, 0),
+                    FT_Set_Char_Size(self.freetype_face, size.f32_to_ft_fixed_26_6(), 0, 0, 0),
                     0
                 );
             }
@@ -480,7 +484,7 @@ impl Font {
                     // Back up so we properly process the first point as a control point.
                     current_point_index -= 1;
                 }
-                path_builder.move_to(first_point);
+                sink.move_to(first_point);
 
                 while current_point_index <= last_point_index_in_contour {
                     let (mut point0, tag0) = get_point(
@@ -492,7 +496,7 @@ impl Font {
                         units_per_em,
                     );
                     if (tag0 & FT_POINT_TAG_ON_CURVE) != 0 {
-                        path_builder.line_to(point0);
+                        sink.line_to(point0);
                         continue;
                     }
 
@@ -500,7 +504,7 @@ impl Font {
                         if current_point_index > last_point_index_in_contour {
                             // The *last* point in the contour is off the curve. So we just need to
                             // close the contour with a quadratic Bézier curve.
-                            path_builder.quadratic_bezier_to(point0, first_point);
+                            sink.quadratic_curve_to(point0, first_point);
                             break;
                         }
 
@@ -514,6 +518,7 @@ impl Font {
                         );
 
                         if (tag0 & FT_POINT_TAG_CUBIC_CONTROL) != 0 {
+                            let ctrl = LineSegment2F::new(point0, point1);
                             if current_point_index <= last_point_index_in_contour {
                                 // FIXME(pcwalton): Can we have implied on-curve points for cubic
                                 // control points too?
@@ -525,27 +530,27 @@ impl Font {
                                     grid_fitting_size,
                                     units_per_em,
                                 );
-                                path_builder.cubic_bezier_to(point0, point1, point2);
+                                sink.cubic_curve_to(ctrl, point2);
                             } else {
-                                // last point on the contour. use first_point as point2
-                                path_builder.cubic_bezier_to(point0, point1, first_point);
+                                // Last point on the contour. Use first_point as point2.
+                                sink.cubic_curve_to(ctrl, first_point);
                             }
                             break;
                         }
 
                         if (tag1 & FT_POINT_TAG_ON_CURVE) != 0 {
-                            path_builder.quadratic_bezier_to(point0, point1);
+                            sink.quadratic_curve_to(point0, point1);
                             break;
                         }
 
                         // We have an implied on-curve point midway between the two consecutive
                         // off-curve points.
                         let point_half = point0.lerp(point1, 0.5);
-                        path_builder.quadratic_bezier_to(point0, point_half);
+                        sink.quadratic_curve_to(point0, point_half);
                         point0 = point1;
                     }
                 }
-                path_builder.close();
+                sink.close();
             }
 
             if hinting.grid_fitting_size().is_some() {
@@ -562,18 +567,16 @@ impl Font {
             last_point_index_in_contour: usize,
             grid_fitting_size: Option<f32>,
             units_per_em: u16,
-        ) -> (Point2D<f32>, c_char) {
+        ) -> (Vector2F, c_char) {
             assert!(*current_point_index <= last_point_index_in_contour);
             let point_position = point_positions[*current_point_index];
             let point_tag = point_tags[*current_point_index];
             *current_point_index += 1;
 
-            let mut point_position = Point2D::new(
-                ft_fixed_26_6_to_f32(point_position.x),
-                ft_fixed_26_6_to_f32(point_position.y),
-            );
+            let point_position = Vector2I::new(point_position.x as i32, point_position.y as i32);
+            let mut point_position = point_position.ft_fixed_26_6_to_f32();
             if let Some(grid_fitting_size) = grid_fitting_size {
-                point_position *= (units_per_em as f32) / grid_fitting_size
+                point_position = point_position.scale((units_per_em as f32) / grid_fitting_size);
             }
 
             (point_position, point_tag)
@@ -581,7 +584,7 @@ impl Font {
     }
 
     /// Returns the boundaries of a glyph in font units.
-    pub fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError> {
+    pub fn typographic_bounds(&self, glyph_id: u32) -> Result<RectF, GlyphLoadingError> {
         unsafe {
             if FT_Load_Glyph(
                 self.freetype_face,
@@ -593,22 +596,20 @@ impl Font {
             }
 
             let metrics = &(*(*self.freetype_face).glyph).metrics;
-            Ok(Rect::new(
-                Point2D::new(
-                    ft_fixed_26_6_to_f32(metrics.horiBearingX),
-                    ft_fixed_26_6_to_f32(metrics.horiBearingY - metrics.height),
+            let rect = RectI::new(
+                Vector2I::new(
+                    metrics.horiBearingX as i32,
+                    (metrics.horiBearingY - metrics.height) as i32,
                 ),
-                Size2D::new(
-                    ft_fixed_26_6_to_f32(metrics.width),
-                    ft_fixed_26_6_to_f32(metrics.height),
-                ),
-            ))
+                Vector2I::new(metrics.width as i32, metrics.height as i32),
+            );
+            Ok(rect.ft_fixed_26_6_to_f32())
         }
     }
 
     /// Returns the distance from the origin of the glyph with the given ID to the next, in font
     /// units.
-    pub fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError> {
+    pub fn advance(&self, glyph_id: u32) -> Result<Vector2F, GlyphLoadingError> {
         unsafe {
             if FT_Load_Glyph(
                 self.freetype_face,
@@ -620,19 +621,16 @@ impl Font {
             }
 
             let advance = (*(*self.freetype_face).glyph).advance;
-            Ok(Vector2D::new(
-                ft_fixed_26_6_to_f32(advance.x),
-                ft_fixed_26_6_to_f32(advance.y),
-            ))
+            Ok(Vector2I::new(advance.x as i32, advance.y as i32).ft_fixed_26_6_to_f32())
         }
     }
 
     /// Returns the amount that the given glyph should be displaced from the origin.
     ///
     /// FIXME(pcwalton): This always returns zero on FreeType.
-    pub fn origin(&self, _: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
+    pub fn origin(&self, _: u32) -> Result<Vector2F, GlyphLoadingError> {
         warn!("unimplemented");
-        Ok(Point2D::zero())
+        Ok(Vector2F::default())
     }
 
     /// Retrieves various metrics that apply to the entire font.
@@ -643,7 +641,12 @@ impl Font {
             let descender = (*self.freetype_face).descender;
             let underline_position = (*self.freetype_face).underline_position;
             let underline_thickness = (*self.freetype_face).underline_thickness;
+
             let bbox = (*self.freetype_face).bbox;
+            let bounding_box_origin = Vector2I::new(bbox.xMin as i32, bbox.yMin as i32);
+            let bounding_box_lower_right = Vector2I::new(bbox.xMax as i32, bbox.yMax as i32);
+            let bounding_box = RectI::from_points(bounding_box_origin, bounding_box_lower_right);
+
             Metrics {
                 units_per_em: (*self.freetype_face).units_per_EM as u32,
                 ascent: ascender as f32,
@@ -657,13 +660,7 @@ impl Font {
                 x_height: os2_table
                     .map(|table| (*table).sxHeight as f32)
                     .unwrap_or(0.0),
-                bounding_box: Rect::new(
-                    Point2D::new(bbox.xMin as f32, bbox.yMin as f32),
-                    Size2D::new(
-                        bbox.xMax as f32 - bbox.xMin as f32,
-                        bbox.yMax as f32 - bbox.yMin as f32,
-                    ),
-                ),
+                bounding_box: bounding_box.to_f32(),
             }
         }
     }
@@ -764,17 +761,15 @@ impl Font {
         &self,
         glyph_id: u32,
         point_size: f32,
-        transform: &FontTransform,
-        origin: &Point2D<f32>,
+        transform: Transform2F,
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
-    ) -> Result<Rect<i32>, GlyphLoadingError> {
+    ) -> Result<RectI, GlyphLoadingError> {
         <Self as Loader>::raster_bounds(
             self,
             glyph_id,
             point_size,
             transform,
-            origin,
             hinting_options,
             rasterization_options,
         )
@@ -794,30 +789,33 @@ impl Font {
         canvas: &mut Canvas,
         glyph_id: u32,
         point_size: f32,
-        transform: &FontTransform,
-        origin: &Point2D<f32>,
+        transform: Transform2F,
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
     ) -> Result<(), GlyphLoadingError> {
         // TODO(pcwalton): This is woefully incomplete. See WebRender's code for a more complete
         // implementation.
         unsafe {
+            let matrix = transform.matrix.0 * F32x4::new(65536.0, -65536.0, -65536.0, 65536.0);
+            let matrix = matrix.to_i32x4();
+            let vector = transform.vector.f32_to_ft_fixed_26_6();
+
             let mut delta = FT_Vector {
-                x: f32_to_ft_fixed_26_6(origin.x),
-                y: f32_to_ft_fixed_26_6(-origin.y),
+                x: vector.x() as i64,
+                y: -vector.y() as i64,
             };
             let mut ft_shape = FT_Matrix {
-                xx: (transform.scale_x * 65536.0) as FT_Fixed,
-                xy: (transform.skew_x * -65536.0) as FT_Fixed,
-                yx: (transform.skew_y * -65536.0) as FT_Fixed,
-                yy: (transform.scale_y * 65536.0) as FT_Fixed,
+                xx: matrix.x() as i64,
+                xy: matrix.y() as i64,
+                yx: matrix.z() as i64,
+                yy: matrix.w() as i64,
             };
             FT_Set_Transform(self.freetype_face, &mut ft_shape, &mut delta);
 
             assert_eq!(
                 FT_Set_Char_Size(
                     self.freetype_face,
-                    f32_to_ft_fixed_26_6(point_size),
+                    point_size.f32_to_ft_fixed_26_6(),
                     0,
                     0,
                     0
@@ -839,13 +837,13 @@ impl Font {
             // that mode.
             let bitmap = &(*(*self.freetype_face).glyph).bitmap;
             let bitmap_stride = (*bitmap).pitch as usize;
-            let bitmap_width = (*bitmap).width as u32;
-            let bitmap_height = (*bitmap).rows as u32;
-            let bitmap_size = Size2D::new(bitmap_width, bitmap_height);
+            let bitmap_width = (*bitmap).width as i32;
+            let bitmap_height = (*bitmap).rows as i32;
+            let bitmap_size = Vector2I::new(bitmap_width, bitmap_height);
             let bitmap_buffer = (*bitmap).buffer as *const i8 as *const u8;
             let bitmap_length = bitmap_stride * bitmap_height as usize;
             let buffer = slice::from_raw_parts(bitmap_buffer, bitmap_length);
-            let dst_point = Point2D::new(
+            let dst_point = Vector2I::new(
                 (*(*self.freetype_face).glyph).bitmap_left,
                 -(*(*self.freetype_face).glyph).bitmap_top,
             );
@@ -853,19 +851,13 @@ impl Font {
             // FIXME(pcwalton): This function should return a Result instead.
             match (*bitmap).pixel_mode {
                 FT_PIXEL_MODE_GRAY => {
-                    canvas.blit_from(dst_point, buffer, &bitmap_size, bitmap_stride, Format::A8);
+                    canvas.blit_from(dst_point, buffer, bitmap_size, bitmap_stride, Format::A8);
                 }
                 FT_PIXEL_MODE_LCD | FT_PIXEL_MODE_LCD_V => {
-                    canvas.blit_from(
-                        dst_point,
-                        buffer,
-                        &bitmap_size,
-                        bitmap_stride,
-                        Format::Rgb24,
-                    );
+                    canvas.blit_from(dst_point, buffer, bitmap_size, bitmap_stride, Format::Rgb24);
                 }
                 FT_PIXEL_MODE_MONO => {
-                    canvas.blit_from_bitmap_1bpp(dst_point, buffer, &bitmap_size, bitmap_stride);
+                    canvas.blit_from_bitmap_1bpp(dst_point, buffer, bitmap_size, bitmap_stride);
                 }
                 _ => panic!("Unexpected FreeType pixel mode!"),
             }
@@ -1064,30 +1056,30 @@ impl Loader for Font {
     }
 
     #[inline]
-    fn outline<B>(
+    fn outline<S>(
         &self,
         glyph_id: u32,
         hinting_mode: HintingOptions,
-        path_builder: &mut B,
+        sink: &mut S,
     ) -> Result<(), GlyphLoadingError>
     where
-        B: PathBuilder,
+        S: OutlineSink,
     {
-        self.outline(glyph_id, hinting_mode, path_builder)
+        self.outline(glyph_id, hinting_mode, sink)
     }
 
     #[inline]
-    fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError> {
+    fn typographic_bounds(&self, glyph_id: u32) -> Result<RectF, GlyphLoadingError> {
         self.typographic_bounds(glyph_id)
     }
 
     #[inline]
-    fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError> {
+    fn advance(&self, glyph_id: u32) -> Result<Vector2F, GlyphLoadingError> {
         self.advance(glyph_id)
     }
 
     #[inline]
-    fn origin(&self, origin: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
+    fn origin(&self, origin: u32) -> Result<Vector2F, GlyphLoadingError> {
         self.origin(origin)
     }
 
@@ -1116,8 +1108,7 @@ impl Loader for Font {
         canvas: &mut Canvas,
         glyph_id: u32,
         point_size: f32,
-        transform: &FontTransform,
-        origin: &Point2D<f32>,
+        transform: Transform2F,
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
     ) -> Result<(), GlyphLoadingError> {
@@ -1126,7 +1117,6 @@ impl Loader for Font {
             glyph_id,
             point_size,
             transform,
-            origin,
             hinting_options,
             rasterization_options,
         )
@@ -1168,12 +1158,46 @@ struct FT_SfntName {
     string_len: FT_UInt,
 }
 
-fn ft_fixed_26_6_to_f32(fixed: FT_Long) -> f32 {
-    (fixed as f32) / 64.0
+trait F32ToFtFixed {
+    type Output;
+    fn f32_to_ft_fixed_26_6(self) -> Self::Output;
 }
 
-fn f32_to_ft_fixed_26_6(float: f32) -> FT_Long {
-    f32::round(float * 64.0) as FT_Long
+trait FtFixedToF32 {
+    type Output;
+    fn ft_fixed_26_6_to_f32(self) -> Self::Output;
+}
+
+impl F32ToFtFixed for Vector2F {
+    type Output = Vector2I;
+    #[inline]
+    fn f32_to_ft_fixed_26_6(self) -> Vector2I {
+        self.scale(64.0).to_i32()
+    }
+}
+
+impl F32ToFtFixed for f32 {
+    type Output = FT_Fixed;
+    #[inline]
+    fn f32_to_ft_fixed_26_6(self) -> FT_Fixed {
+        (self * 64.0) as FT_Fixed
+    }
+}
+
+impl FtFixedToF32 for Vector2I {
+    type Output = Vector2F;
+    #[inline]
+    fn ft_fixed_26_6_to_f32(self) -> Vector2F {
+        self.to_f32().scale(1.0 / 64.0).round()
+    }
+}
+
+impl FtFixedToF32 for RectI {
+    type Output = RectF;
+    #[inline]
+    fn ft_fixed_26_6_to_f32(self) -> RectF {
+        self.to_f32().scale(1.0 / 64.0)
+    }
 }
 
 extern "C" {

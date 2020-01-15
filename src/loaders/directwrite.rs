@@ -22,12 +22,14 @@ use dwrote::FontStyle as DWriteFontStyle;
 use dwrote::GlyphOffset as DWriteGlyphOffset;
 use dwrote::GlyphRunAnalysis as DWriteGlyphRunAnalysis;
 use dwrote::InformationalStringId as DWriteInformationalStringId;
-use dwrote::{DWRITE_TEXTURE_ALIASED_1x1, DWRITE_RENDERING_MODE_NATURAL};
-use dwrote::{DWRITE_TEXTURE_CLEARTYPE_3x1, OutlineBuilder};
-use dwrote::{DWRITE_GLYPH_RUN, DWRITE_MEASURING_MODE_NATURAL, DWRITE_RENDERING_MODE_ALIASED};
-use euclid::default::{Point2D, Rect, Size2D, Vector2D};
-use euclid::point2;
-use lyon_path::builder::PathBuilder;
+use dwrote::OutlineBuilder as DWriteOutlineBuilder;
+use dwrote::{DWRITE_GLYPH_RUN, DWRITE_MEASURING_MODE_NATURAL};
+use dwrote::{DWRITE_RENDERING_MODE_ALIASED, DWRITE_RENDERING_MODE_NATURAL};
+use dwrote::{DWRITE_TEXTURE_ALIASED_1x1, DWRITE_TEXTURE_CLEARTYPE_3x1};
+use pathfinder_geometry::line_segment::LineSegment2F;
+use pathfinder_geometry::rect::{RectF, RectI};
+use pathfinder_geometry::transform2d::Transform2F;
+use pathfinder_geometry::vector::{Vector2F, Vector2I};
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::fmt::{self, Debug, Formatter};
@@ -48,8 +50,9 @@ use crate::error::{FontLoadingError, GlyphLoadingError};
 use crate::file_type::FileType;
 use crate::handle::Handle;
 use crate::hinting::HintingOptions;
-use crate::loader::{FallbackFont, FallbackResult, FontTransform, Loader};
+use crate::loader::{FallbackFont, FallbackResult, Loader};
 use crate::metrics::Metrics;
+use crate::outline::{OutlineBuilder, OutlineSink};
 use crate::properties::{Properties, Stretch, Style, Weight};
 
 const ERROR_BOUND: f32 = 0.0001;
@@ -57,6 +60,7 @@ const ERROR_BOUND: f32 = 0.0001;
 const OPENTYPE_TABLE_TAG_HEAD: u32 = 0x68656164;
 
 /// DirectWrite's representation of a font.
+#[allow(missing_debug_implementations)]
 pub struct NativeFont {
     /// The native DirectWrite font object.
     pub dwrite_font: DWriteFont,
@@ -271,16 +275,16 @@ impl Font {
     /// sending the hinding outlines to the builder.
     ///
     /// TODO(pcwalton): What should we do for bitmap glyphs?
-    pub fn outline<B>(
+    pub fn outline<S>(
         &self,
         glyph_id: u32,
         _: HintingOptions,
-        path_builder: &mut B,
+        sink: &mut S,
     ) -> Result<(), GlyphLoadingError>
     where
-        B: PathBuilder,
+        S: OutlineSink,
     {
-        let outline_buffer = OutlineBuffer::new();
+        let outline_sink = OutlineCanonicalizer::new();
         self.dwrite_font_face.get_glyph_run_outline(
             self.metrics().units_per_em as f32,
             &[glyph_id as u16],
@@ -288,14 +292,14 @@ impl Font {
             None,
             false,
             false,
-            Box::new(outline_buffer.clone()),
+            Box::new(outline_sink.clone()),
         );
-        outline_buffer.flush(path_builder);
+        outline_sink.0.lock().unwrap().builder.take_outline().copy_to(&mut *sink);
         Ok(())
     }
 
     /// Returns the boundaries of a glyph in font units.
-    pub fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError> {
+    pub fn typographic_bounds(&self, glyph_id: u32) -> Result<RectF, GlyphLoadingError> {
         let metrics = self
             .dwrite_font_face
             .get_design_glyph_metrics(&[glyph_id as u16], false);
@@ -313,31 +317,33 @@ impl Font {
         let width = advance_width - (left_side_bearing + right_side_bearing);
         let height = advance_height - (top_side_bearing + bottom_side_bearing);
 
-        Ok(Rect::new(
-            Point2D::new(left_side_bearing as f32, y_offset as f32),
-            Size2D::new(width as f32, height as f32),
-        ))
+        Ok(RectI::new(
+            Vector2I::new(left_side_bearing, y_offset),
+            Vector2I::new(width, height),
+        )
+        .to_f32())
     }
 
     /// Returns the distance from the origin of the glyph with the given ID to the next, in font
     /// units.
-    pub fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError> {
+    pub fn advance(&self, glyph_id: u32) -> Result<Vector2F, GlyphLoadingError> {
         let metrics = self
             .dwrite_font_face
             .get_design_glyph_metrics(&[glyph_id as u16], false);
         let metrics = &metrics[0];
-        Ok(Vector2D::new(metrics.advanceWidth as f32, 0.0))
+        Ok(Vector2F::new(metrics.advanceWidth as f32, 0.0))
     }
 
     /// Returns the amount that the given glyph should be displaced from the origin.
-    pub fn origin(&self, glyph: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
+    pub fn origin(&self, glyph: u32) -> Result<Vector2F, GlyphLoadingError> {
         let metrics = self
             .dwrite_font_face
             .get_design_glyph_metrics(&[glyph as u16], false);
-        Ok(Point2D::new(
-            metrics[0].leftSideBearing as f32,
-            (metrics[0].verticalOriginY + metrics[0].bottomSideBearing) as f32,
-        ))
+        Ok(Vector2I::new(
+            metrics[0].leftSideBearing,
+            metrics[0].verticalOriginY + metrics[0].bottomSideBearing,
+        )
+        .to_f32())
     }
 
     /// Retrieves various metrics that apply to the entire font.
@@ -357,13 +363,14 @@ impl Font {
                 x_height: metrics.xHeight as f32,
                 underline_position: metrics.underlinePosition as f32,
                 underline_thickness: metrics.underlineThickness as f32,
-                bounding_box: Rect::new(
-                    Point2D::new(metrics.glyphBoxLeft as f32, metrics.glyphBoxBottom as f32),
-                    Size2D::new(
-                        (metrics.glyphBoxRight - metrics.glyphBoxLeft) as f32,
-                        (metrics.glyphBoxTop - metrics.glyphBoxBottom) as f32,
+                bounding_box: RectI::new(
+                    Vector2I::new(metrics.glyphBoxLeft as i32, metrics.glyphBoxBottom as i32),
+                    Vector2I::new(
+                        metrics.glyphBoxRight as i32 - metrics.glyphBoxLeft as i32,
+                        metrics.glyphBoxTop as i32 - metrics.glyphBoxBottom as i32,
                     ),
-                ),
+                )
+                .to_f32(),
             },
             DWriteFontMetrics::Metrics0(metrics) => {
                 let bounding_box = match self
@@ -376,12 +383,13 @@ impl Font {
                         let y_min = reader.read_i16::<BigEndian>().unwrap();
                         let x_max = reader.read_i16::<BigEndian>().unwrap();
                         let y_max = reader.read_i16::<BigEndian>().unwrap();
-                        Rect::new(
-                            Point2D::new(x_min as f32, y_min as f32),
-                            Size2D::new((x_max - x_min) as f32, (y_max - y_min) as f32),
+                        RectI::new(
+                            Vector2I::new(x_min as i32, y_min as i32),
+                            Vector2I::new(x_max as i32 - x_min as i32, y_max as i32 - y_min as i32),
                         )
+                        .to_f32()
                     }
-                    None => Rect::zero(),
+                    None => RectF::default(),
                 };
                 Metrics {
                     units_per_em: metrics.designUnitsPerEm as u32,
@@ -429,16 +437,14 @@ impl Font {
         &self,
         glyph_id: u32,
         point_size: f32,
-        transform: &FontTransform,
-        origin: &Point2D<f32>,
+        transform: Transform2F,
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
-    ) -> Result<Rect<i32>, GlyphLoadingError> {
+    ) -> Result<RectI, GlyphLoadingError> {
         let dwrite_analysis = self.build_glyph_analysis(
             glyph_id,
             point_size,
             transform,
-            origin,
             hinting_options,
             rasterization_options,
         )?;
@@ -454,9 +460,9 @@ impl Font {
         let texture_width = texture_bounds.right - texture_bounds.left;
         let texture_height = texture_bounds.bottom - texture_bounds.top;
 
-        Ok(Rect::new(
-            Point2D::new(texture_bounds.left, texture_bounds.top),
-            Size2D::new(texture_width, texture_height).to_i32(),
+        Ok(RectI::new(
+            Vector2I::new(texture_bounds.left, texture_bounds.top),
+            Vector2I::new(texture_width, texture_height),
         ))
     }
 
@@ -474,8 +480,7 @@ impl Font {
         canvas: &mut Canvas,
         glyph_id: u32,
         point_size: f32,
-        transform: &FontTransform,
-        origin: &Point2D<f32>,
+        transform: Transform2F,
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
     ) -> Result<(), GlyphLoadingError> {
@@ -486,7 +491,6 @@ impl Font {
             glyph_id,
             point_size,
             transform,
-            origin,
             hinting_options,
             rasterization_options,
         )?;
@@ -516,15 +520,15 @@ impl Font {
         };
         let texture_bits_per_pixel = texture_format.bits_per_pixel();
         let texture_bytes_per_pixel = texture_bits_per_pixel as usize / 8;
-        let texture_size = Size2D::new(texture_width, texture_height).to_u32();
+        let texture_size = Vector2I::new(texture_width, texture_height);
         let texture_stride = texture_width as usize * texture_bytes_per_pixel;
 
         let mut texture_bytes =
             dwrite_analysis.create_alpha_texture(texture_type, texture_bounds)?;
         canvas.blit_from(
-            point2(texture_bounds.left, texture_bounds.top),
+            Vector2I::new(texture_bounds.left, texture_bounds.top),
             &mut texture_bytes,
-            &texture_size,
+            texture_size,
             texture_stride,
             texture_format,
         );
@@ -557,8 +561,7 @@ impl Font {
         &self,
         glyph_id: u32,
         point_size: f32,
-        transform: &FontTransform,
-        origin: &Point2D<f32>,
+        transform: Transform2F,
         _hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
     ) -> Result<DWriteGlyphRunAnalysis, GlyphLoadingError> {
@@ -591,12 +594,12 @@ impl Font {
                 &glyph_run,
                 1.0,
                 Some(dwrote::DWRITE_MATRIX {
-                    m11: transform.scale_x,
-                    m12: transform.skew_y,
-                    m21: transform.skew_x,
-                    m22: transform.scale_y,
-                    dx: origin.x,
-                    dy: origin.y,
+                    m11: transform.m11(),
+                    m12: transform.m12(),
+                    m21: transform.m21(),
+                    m22: transform.m22(),
+                    dx: transform.vector.x(),
+                    dy: transform.vector.y(),
                 }),
                 rendering_mode,
                 DWRITE_MEASURING_MODE_NATURAL,
@@ -778,30 +781,30 @@ impl Loader for Font {
     }
 
     #[inline]
-    fn outline<B>(
+    fn outline<S>(
         &self,
         glyph_id: u32,
         hinting: HintingOptions,
-        path_builder: &mut B,
+        sink: &mut S,
     ) -> Result<(), GlyphLoadingError>
     where
-        B: PathBuilder,
+        S: OutlineSink,
     {
-        self.outline(glyph_id, hinting, path_builder)
+        self.outline(glyph_id, hinting, sink)
     }
 
     #[inline]
-    fn typographic_bounds(&self, glyph_id: u32) -> Result<Rect<f32>, GlyphLoadingError> {
+    fn typographic_bounds(&self, glyph_id: u32) -> Result<RectF, GlyphLoadingError> {
         self.typographic_bounds(glyph_id)
     }
 
     #[inline]
-    fn advance(&self, glyph_id: u32) -> Result<Vector2D<f32>, GlyphLoadingError> {
+    fn advance(&self, glyph_id: u32) -> Result<Vector2F, GlyphLoadingError> {
         self.advance(glyph_id)
     }
 
     #[inline]
-    fn origin(&self, origin: u32) -> Result<Point2D<f32>, GlyphLoadingError> {
+    fn origin(&self, origin: u32) -> Result<Vector2F, GlyphLoadingError> {
         self.origin(origin)
     }
 
@@ -830,8 +833,7 @@ impl Loader for Font {
         canvas: &mut Canvas,
         glyph_id: u32,
         point_size: f32,
-        transform: &FontTransform,
-        origin: &Point2D<f32>,
+        transform: Transform2F,
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
     ) -> Result<(), GlyphLoadingError> {
@@ -840,7 +842,6 @@ impl Loader for Font {
             glyph_id,
             point_size,
             transform,
-            origin,
             hinting_options,
             rasterization_options,
         )
@@ -857,112 +858,73 @@ impl Loader for Font {
     }
 }
 
-enum Event {
-    MoveTo(Point2D<f32>),
-    LineTo(Point2D<f32>),
-    QuadraticTo {
-        ctrl: Point2D<f32>,
-        point: Point2D<f32>,
-    },
-    CubicTo {
-        ctrl0: Point2D<f32>,
-        ctrl1: Point2D<f32>,
-        point: Point2D<f32>,
-    },
-    Close,
-}
-
 #[derive(Clone)]
-struct OutlineBuffer {
-    path_events: Arc<Mutex<Vec<Event>>>,
+struct OutlineCanonicalizer(Arc<Mutex<OutlineCanonicalizerInfo>>);
+
+struct OutlineCanonicalizerInfo {
+    builder: OutlineBuilder,
+    last_position: Vector2F,
 }
 
-impl OutlineBuffer {
-    fn new() -> OutlineBuffer {
-        OutlineBuffer {
-            path_events: Arc::new(Mutex::new(vec![])),
-        }
-    }
-
-    fn flush<B>(&self, builder: &mut B)
-    where
-        B: PathBuilder,
-    {
-        let mut path_events = self.path_events.lock().unwrap();
-        for event in path_events.drain(..) {
-            match event {
-                Event::MoveTo(p) => builder.move_to(p),
-                Event::LineTo(p) => builder.line_to(p),
-                Event::QuadraticTo { ctrl, point } => {
-                    builder.quadratic_bezier_to(ctrl, point);
-                }
-                Event::CubicTo {
-                    ctrl0,
-                    ctrl1,
-                    point,
-                } => {
-                    builder.cubic_bezier_to(ctrl0, ctrl1, point);
-                }
-                Event::Close => builder.close(),
-            }
-        }
+impl OutlineCanonicalizer {
+    fn new() -> OutlineCanonicalizer {
+        OutlineCanonicalizer(Arc::new(Mutex::new(OutlineCanonicalizerInfo {
+            builder: OutlineBuilder::new(),
+            last_position: Vector2F::default(),
+        })))
     }
 }
 
-impl OutlineBuilder for OutlineBuffer {
-    fn move_to(&mut self, x: f32, y: f32) {
-        self.path_events
-            .lock()
-            .unwrap()
-            .push(Event::MoveTo(Point2D::new(x, -y)))
+impl DWriteOutlineBuilder for OutlineCanonicalizer {
+    fn move_to(&mut self, to_x: f32, to_y: f32) {
+        let to = Vector2F::new(to_x, -to_y);
+
+        let mut this = self.0.lock().unwrap();
+        this.last_position = to;
+        this.builder.move_to(to);
     }
 
-    fn line_to(&mut self, x: f32, y: f32) {
-        self.path_events
-            .lock()
-            .unwrap()
-            .push(Event::LineTo(Point2D::new(x, -y)))
-    }
+    fn line_to(&mut self, to_x: f32, to_y: f32) {
+        let to = Vector2F::new(to_x, -to_y);
 
-    fn curve_to(&mut self, cp0x: f32, cp0y: f32, cp1x: f32, cp1y: f32, x: f32, y: f32) {
-        let (ctrl0, ctrl1) = (Point2D::new(cp0x, -cp0y), Point2D::new(cp1x, -cp1y));
-        let to = Point2D::new(x, -y);
-
-        // This might be a degree-elevated quadratic curve. Try to detect that.
-        // See Sederberg § 2.6, "Distance Between Two Bézier Curves".
-        let mut path_events = self.path_events.lock().unwrap();
-        let from = match *path_events.last().unwrap() {
-            Event::MoveTo(point)
-            | Event::LineTo(point)
-            | Event::QuadraticTo { point, .. }
-            | Event::CubicTo { point, .. } => point,
-            Event::Close => unreachable!(),
-        };
-        let approx_ctrl_0 = (ctrl0 * 3.0 - from) * 0.5;
-        let approx_ctrl_1 = (ctrl1 * 3.0 - to) * 0.5;
-        let delta_ctrl = (approx_ctrl_1 - approx_ctrl_0) * 2.0;
-        let max_error = delta_ctrl.length() / 6.0;
-
-        let event = if max_error < ERROR_BOUND {
-            // Round to nearest 0.5.
-            let mut approx_ctrl = approx_ctrl_0.lerp(approx_ctrl_1, 0.5).to_point();
-            approx_ctrl = (approx_ctrl * 2.0).round() * 0.5;
-            Event::QuadraticTo {
-                ctrl: approx_ctrl,
-                point: to,
-            }
-        } else {
-            Event::CubicTo {
-                ctrl0,
-                ctrl1,
-                point: to,
-            }
-        };
-        path_events.push(event)
+        let mut this = self.0.lock().unwrap();
+        this.last_position = to;
+        this.builder.line_to(to);
     }
 
     fn close(&mut self) {
-        self.path_events.lock().unwrap().push(Event::Close)
+        let mut this = self.0.lock().unwrap();
+        this.builder.close();
+    }
+
+    fn curve_to(&mut self,
+                ctrl0_x: f32,
+                ctrl0_y: f32,
+                ctrl1_x: f32,
+                ctrl1_y: f32,
+                to_x: f32,
+                to_y: f32) {
+        let ctrl = LineSegment2F::new(Vector2F::new(ctrl0_x, -ctrl0_y),
+                                      Vector2F::new(ctrl1_x, -ctrl1_y));
+        let to = Vector2F::new(to_x, -to_y);
+
+        // This might be a degree-elevated quadratic curve. Try to detect that.
+        // See Sederberg § 2.6, "Distance Between Two Bézier Curves".
+        let mut this = self.0.lock().unwrap();
+        let baseline = LineSegment2F::new(this.last_position, to);
+        let approx_ctrl = LineSegment2F(ctrl.scale(3.0).0 - baseline.0).scale(0.5);
+        let delta_ctrl = (approx_ctrl.to() - approx_ctrl.from()).scale(2.0);
+        let max_error = delta_ctrl.length() / 6.0;
+
+        if max_error < ERROR_BOUND {
+            // Round to nearest 0.5.
+            let approx_ctrl = approx_ctrl.midpoint().scale(2.0).round().scale(0.5);
+            this.builder.quadratic_curve_to(approx_ctrl, to);
+        } else {
+            this.builder.cubic_curve_to(ctrl, to);
+        }
+
+        this.last_position = to;
     }
 }
 

@@ -12,7 +12,7 @@
 //!
 //! For OpenType fonts, these mostly come from the `OS/2` table.
 
-use euclid::default::Rect;
+use pathfinder_geometry::rect::RectF;
 
 /// Various metrics that apply to the entire font.
 ///
@@ -54,5 +54,5 @@ pub struct Metrics {
     /// A rectangle that surrounds all bounding boxes of all glyphs, in font units.
     ///
     /// This corresponds to the `xMin`/`xMax`/`yMin`/`yMax` values in the OpenType `head` table.
-    pub bounding_box: Rect<f32>,
+    pub bounding_box: RectF,
 }

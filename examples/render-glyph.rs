@@ -10,16 +10,15 @@
 
 extern crate clap;
 extern crate colored;
-extern crate euclid;
 extern crate font_kit;
+extern crate pathfinder_geometry;
 
 use clap::{App, Arg, ArgGroup, ArgMatches};
 use colored::Colorize;
-use euclid::Point2D;
 use font_kit::canvas::{Canvas, Format, RasterizationOptions};
 use font_kit::hinting::HintingOptions;
-use font_kit::loader::FontTransform;
 use font_kit::source::SystemSource;
+use pathfinder_geometry::transform2d::Transform2F;
 use std::fmt::Write;
 
 #[cfg(any(target_family = "windows", target_os = "macos"))]
@@ -97,10 +96,10 @@ fn main() {
         (Format::A8, RasterizationOptions::GrayscaleAa)
     };
 
-    let mut transform = FontTransform::identity();
+    let mut transform = Transform2F::default();
     if let Some(values) = matches.values_of("transform") {
         if let [Ok(a), Ok(b), Ok(c), Ok(d)] = values.map(|x| x.parse()).collect::<Vec<_>>()[..] {
-            transform = FontTransform::new(a, b, c, d)
+            transform = Transform2F::row_major(a, b, c, d, 0.0, 0.0)
         }
     }
 
@@ -121,34 +120,29 @@ fn main() {
         .raster_bounds(
             glyph_id,
             size,
-            &transform,
-            &Point2D::zero(),
+            transform,
             hinting_options,
             rasterization_options,
         )
         .unwrap();
 
-    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), canvas_format);
-
-    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
-
+    let mut canvas = Canvas::new(raster_rect.size(), canvas_format);
     font.rasterize_glyph(
         &mut canvas,
         glyph_id,
         size,
-        &transform,
-        &origin,
+        Transform2F::from_translation(-raster_rect.origin().to_f32()) * transform,
         hinting_options,
         rasterization_options,
     )
     .unwrap();
 
     println!("glyph {}:", glyph_id);
-    for y in 0..raster_rect.size.height {
+    for y in 0..raster_rect.height() {
         let mut line = String::new();
         let (row_start, row_end) = (y as usize * canvas.stride, (y + 1) as usize * canvas.stride);
         let row = &canvas.pixels[row_start..row_end];
-        for x in 0..raster_rect.size.width {
+        for x in 0..raster_rect.width() {
             match canvas.format {
                 Format::Rgba32 => unimplemented!(),
                 Format::Rgb24 => {
