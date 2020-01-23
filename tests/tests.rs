@@ -118,31 +118,35 @@ pub fn get_glyph_outline() {
         .unwrap();
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
     let mut outline_builder = OutlineBuilder::new();
-    font.outline(glyph, HintingOptions::None, &mut outline_builder).unwrap();
+    font.outline(glyph, HintingOptions::None, &mut outline_builder)
+        .unwrap();
 
     let outline = outline_builder.into_outline();
-    assert_eq!(outline, Outline {
-        contours: vec![
-            Contour {
-                positions: vec![
-                    Vector2F::new(136.0, 1259.0),
-                    Vector2F::new(136.0, 1466.0),
-                    Vector2F::new(316.0, 1466.0),
-                    Vector2F::new(316.0, 1259.0),
-                ],
-                flags: vec![PointFlags::empty(); 4],
-            },
-            Contour {
-                positions: vec![
-                    Vector2F::new(136.0, 0.0),
-                    Vector2F::new(136.0, 1062.0),
-                    Vector2F::new(316.0, 1062.0),
-                    Vector2F::new(316.0, 0.0),
-                ],
-                flags: vec![PointFlags::empty(); 4],
-            },
-        ],
-    });
+    assert_eq!(
+        outline,
+        Outline {
+            contours: vec![
+                Contour {
+                    positions: vec![
+                        Vector2F::new(136.0, 1259.0),
+                        Vector2F::new(136.0, 1466.0),
+                        Vector2F::new(316.0, 1466.0),
+                        Vector2F::new(316.0, 1259.0),
+                    ],
+                    flags: vec![PointFlags::empty(); 4],
+                },
+                Contour {
+                    positions: vec![
+                        Vector2F::new(136.0, 0.0),
+                        Vector2F::new(136.0, 1062.0),
+                        Vector2F::new(316.0, 1062.0),
+                        Vector2F::new(316.0, 0.0),
+                    ],
+                    flags: vec![PointFlags::empty(); 4],
+                },
+            ],
+        }
+    );
 }
 
 #[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
@@ -159,28 +163,31 @@ pub fn get_glyph_outline() {
         .unwrap();
 
     let outline = outline_builder.into_outline();
-    assert_eq!(outline, Outline {
-        contours: vec![
-            Contour {
-                positions: vec![
-                    Vector2F::new(193.0, 1120.0),
-                    Vector2F::new(377.0, 1120.0),
-                    Vector2F::new(377.0, 0.0),
-                    Vector2F::new(193.0, 0.0),
-                ],
-                flags: vec![PointFlags::empty(); 4],
-            },
-            Contour {
-                positions: vec![
-                    Vector2F::new(193.0, 1556.0),
-                    Vector2F::new(377.0, 1556.0),
-                    Vector2F::new(377.0, 1323.0),
-                    Vector2F::new(193.0, 1323.0),
-                ],
-                flags: vec![PointFlags::empty(); 4],
-            },
-        ],
-    });
+    assert_eq!(
+        outline,
+        Outline {
+            contours: vec![
+                Contour {
+                    positions: vec![
+                        Vector2F::new(193.0, 1120.0),
+                        Vector2F::new(377.0, 1120.0),
+                        Vector2F::new(377.0, 0.0),
+                        Vector2F::new(193.0, 0.0),
+                    ],
+                    flags: vec![PointFlags::empty(); 4],
+                },
+                Contour {
+                    positions: vec![
+                        Vector2F::new(193.0, 1556.0),
+                        Vector2F::new(377.0, 1556.0),
+                        Vector2F::new(377.0, 1323.0),
+                        Vector2F::new(193.0, 1323.0),
+                    ],
+                    flags: vec![PointFlags::empty(); 4],
+                },
+            ],
+        }
+    );
 }
 
 // Right now, only FreeType can do hinting.
@@ -341,7 +348,8 @@ pub fn get_empty_glyph_outline() {
     let font = Font::from_file(&mut file, 0).unwrap();
     let glyph = font.glyph_for_char(' ').expect("No glyph for char!");
     let mut outline_builder = OutlineBuilder::new();
-    font.outline(glyph, HintingOptions::None, &mut outline_builder).unwrap();
+    font.outline(glyph, HintingOptions::None, &mut outline_builder)
+        .unwrap();
 
     let outline = outline_builder.into_outline();
     assert_eq!(outline, Outline::new());
@@ -803,7 +811,8 @@ fn get_glyph_outline_eb_garamond_exclam() {
     let font = Font::from_file(&mut file, 0).unwrap();
     let glyph = font.glyph_for_char('!').expect("No glyph for char!");
     let mut outline_builder = OutlineBuilder::new();
-    font.outline(glyph, HintingOptions::None, &mut outline_builder).unwrap();
+    font.outline(glyph, HintingOptions::None, &mut outline_builder)
+        .unwrap();
 
     // The TrueType spec doesn't specify the rounding method for midpoints, as far as I can tell.
     // So we are lenient and accept either values rounded down (what Core Text provides if the
@@ -817,58 +826,93 @@ fn get_glyph_outline_eb_garamond_exclam() {
     }
 
     println!("{:#?}", outline);
-    assert_eq!(outline, Outline {
-        contours: vec![
-            Contour {
-                positions: vec![
-                    Vector2F::new(114.0, 598.0),
-                    Vector2F::new(114.0, 619.0), Vector2F::new(127.0, 634.0),
-                    Vector2F::new(141.0, 649.0), Vector2F::new(161.0, 649.0),
-                    Vector2F::new(181.0, 649.0), Vector2F::new(193.0, 634.0),
-                    Vector2F::new(206.0, 619.0), Vector2F::new(206.0, 598.0),
-                    Vector2F::new(206.0, 526.0), Vector2F::new(176.0, 244.0),
-                    Vector2F::new(172.0, 205.0), Vector2F::new(158.0, 205.0),
-                    Vector2F::new(144.0, 205.0), Vector2F::new(140.0, 244.0),
-                    Vector2F::new(114.0, 491.0), Vector2F::new(114.0, 598.0),
-                ],
-                flags: vec![
-                    PointFlags::empty(),
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(),
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
-                ],
-            },
-            Contour {
-                positions: vec![
-                    Vector2F::new(117.0, 88.0),
-                    Vector2F::new(135.0, 106.0), Vector2F::new(160.0, 106.0),
-                    Vector2F::new(185.0, 106.0), Vector2F::new(202.0, 88.0),
-                    Vector2F::new(220.0, 71.0),  Vector2F::new(220.0, 46.0),
-                    Vector2F::new(220.0, 21.0),  Vector2F::new(202.0, 3.0),
-                    Vector2F::new(185.0, -14.0), Vector2F::new(160.0, -14.0),
-                    Vector2F::new(135.0, -14.0), Vector2F::new(117.0, 3.0),
-                    Vector2F::new(100.0, 21.0),  Vector2F::new(100.0, 46.0),
-                    Vector2F::new(100.0, 71.0),  Vector2F::new(117.0, 88.0),
-                ],
-                flags: vec![
-                    PointFlags::empty(),
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(),
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
-                    PointFlags::CONTROL_POINT_0, PointFlags::empty(), 
-                ],
-            },
-        ],
-    });
+    assert_eq!(
+        outline,
+        Outline {
+            contours: vec![
+                Contour {
+                    positions: vec![
+                        Vector2F::new(114.0, 598.0),
+                        Vector2F::new(114.0, 619.0),
+                        Vector2F::new(127.0, 634.0),
+                        Vector2F::new(141.0, 649.0),
+                        Vector2F::new(161.0, 649.0),
+                        Vector2F::new(181.0, 649.0),
+                        Vector2F::new(193.0, 634.0),
+                        Vector2F::new(206.0, 619.0),
+                        Vector2F::new(206.0, 598.0),
+                        Vector2F::new(206.0, 526.0),
+                        Vector2F::new(176.0, 244.0),
+                        Vector2F::new(172.0, 205.0),
+                        Vector2F::new(158.0, 205.0),
+                        Vector2F::new(144.0, 205.0),
+                        Vector2F::new(140.0, 244.0),
+                        Vector2F::new(114.0, 491.0),
+                        Vector2F::new(114.0, 598.0),
+                    ],
+                    flags: vec![
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                    ],
+                },
+                Contour {
+                    positions: vec![
+                        Vector2F::new(117.0, 88.0),
+                        Vector2F::new(135.0, 106.0),
+                        Vector2F::new(160.0, 106.0),
+                        Vector2F::new(185.0, 106.0),
+                        Vector2F::new(202.0, 88.0),
+                        Vector2F::new(220.0, 71.0),
+                        Vector2F::new(220.0, 46.0),
+                        Vector2F::new(220.0, 21.0),
+                        Vector2F::new(202.0, 3.0),
+                        Vector2F::new(185.0, -14.0),
+                        Vector2F::new(160.0, -14.0),
+                        Vector2F::new(135.0, -14.0),
+                        Vector2F::new(117.0, 3.0),
+                        Vector2F::new(100.0, 21.0),
+                        Vector2F::new(100.0, 46.0),
+                        Vector2F::new(100.0, 71.0),
+                        Vector2F::new(117.0, 88.0),
+                    ],
+                    flags: vec![
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                    ],
+                },
+            ],
+        }
+    );
 }
 
 // https://github.com/pcwalton/pathfinder/issues/84
@@ -879,57 +923,79 @@ fn get_glyph_outline_inconsolata_J() {
     let font = Font::from_file(&mut file, 0).unwrap();
     let glyph = font.glyph_for_char('J').expect("No glyph for char!");
     let mut outline_builder = OutlineBuilder::new();
-    font.outline(glyph, HintingOptions::None, &mut outline_builder).unwrap();
+    font.outline(glyph, HintingOptions::None, &mut outline_builder)
+        .unwrap();
 
     let outline = outline_builder.into_outline();
-    assert_eq!(outline, Outline {
-        contours: vec![Contour {
-            positions: vec![
-                Vector2F::new(198.0, -11.0),
-                Vector2F::new(106.0, -11.0), Vector2F::new(49.0,  58.0),
-                Vector2F::new(89.0,  108.0),
-                Vector2F::new(96.0,  116.0),
-                Vector2F::new(101.0, 112.0),
-                Vector2F::new(102.0, 102.0), Vector2F::new(106.0, 95.0),
-                Vector2F::new(110.0, 88.0),  Vector2F::new(122.0, 78.0),
-                Vector2F::new(157.0, 51.0),  Vector2F::new(196.0, 51.0),
-                Vector2F::new(247.0, 51.0),  Vector2F::new(269.5, 86.5),
-                Vector2F::new(292.0, 122.0), Vector2F::new(292.0, 208.0),
-                Vector2F::new(292.0, 564.0),
-                Vector2F::new(172.0, 564.0),
-                Vector2F::new(172.0, 623.0),
-                Vector2F::new(457.0, 623.0),
-                Vector2F::new(457.0, 564.0),
-                Vector2F::new(361.0, 564.0),
-                Vector2F::new(361.0, 209.0),
-                Vector2F::new(363.0, 133.0), Vector2F::new(341.0, 84.0),
-                Vector2F::new(319.0, 35.0),  Vector2F::new(281.5, 12.0),
-                Vector2F::new(244.0, -11.0), Vector2F::new(198.0, -11.0),
-            ],
-            flags: vec![
-                PointFlags::empty(),
-                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
-                PointFlags::empty(),
-                PointFlags::empty(),
-                PointFlags::empty(),
-                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
-                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
-                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
-                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
-                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
-                PointFlags::empty(),
-                PointFlags::empty(),
-                PointFlags::empty(),
-                PointFlags::empty(),
-                PointFlags::empty(),
-                PointFlags::empty(),
-                PointFlags::empty(),
-                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
-                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
-                PointFlags::CONTROL_POINT_0, PointFlags::empty(),
-            ],
-        }],
-    });
+    assert_eq!(
+        outline,
+        Outline {
+            contours: vec![Contour {
+                positions: vec![
+                    Vector2F::new(198.0, -11.0),
+                    Vector2F::new(106.0, -11.0),
+                    Vector2F::new(49.0, 58.0),
+                    Vector2F::new(89.0, 108.0),
+                    Vector2F::new(96.0, 116.0),
+                    Vector2F::new(101.0, 112.0),
+                    Vector2F::new(102.0, 102.0),
+                    Vector2F::new(106.0, 95.0),
+                    Vector2F::new(110.0, 88.0),
+                    Vector2F::new(122.0, 78.0),
+                    Vector2F::new(157.0, 51.0),
+                    Vector2F::new(196.0, 51.0),
+                    Vector2F::new(247.0, 51.0),
+                    Vector2F::new(269.5, 86.5),
+                    Vector2F::new(292.0, 122.0),
+                    Vector2F::new(292.0, 208.0),
+                    Vector2F::new(292.0, 564.0),
+                    Vector2F::new(172.0, 564.0),
+                    Vector2F::new(172.0, 623.0),
+                    Vector2F::new(457.0, 623.0),
+                    Vector2F::new(457.0, 564.0),
+                    Vector2F::new(361.0, 564.0),
+                    Vector2F::new(361.0, 209.0),
+                    Vector2F::new(363.0, 133.0),
+                    Vector2F::new(341.0, 84.0),
+                    Vector2F::new(319.0, 35.0),
+                    Vector2F::new(281.5, 12.0),
+                    Vector2F::new(244.0, -11.0),
+                    Vector2F::new(198.0, -11.0),
+                ],
+                flags: vec![
+                    PointFlags::empty(),
+                    PointFlags::CONTROL_POINT_0,
+                    PointFlags::empty(),
+                    PointFlags::empty(),
+                    PointFlags::empty(),
+                    PointFlags::empty(),
+                    PointFlags::CONTROL_POINT_0,
+                    PointFlags::empty(),
+                    PointFlags::CONTROL_POINT_0,
+                    PointFlags::empty(),
+                    PointFlags::CONTROL_POINT_0,
+                    PointFlags::empty(),
+                    PointFlags::CONTROL_POINT_0,
+                    PointFlags::empty(),
+                    PointFlags::CONTROL_POINT_0,
+                    PointFlags::empty(),
+                    PointFlags::empty(),
+                    PointFlags::empty(),
+                    PointFlags::empty(),
+                    PointFlags::empty(),
+                    PointFlags::empty(),
+                    PointFlags::empty(),
+                    PointFlags::empty(),
+                    PointFlags::CONTROL_POINT_0,
+                    PointFlags::empty(),
+                    PointFlags::CONTROL_POINT_0,
+                    PointFlags::empty(),
+                    PointFlags::CONTROL_POINT_0,
+                    PointFlags::empty(),
+                ],
+            }],
+        }
+    );
 }
 
 // Makes sure that a canvas has an "L" shape in it. This is used to test rasterization.

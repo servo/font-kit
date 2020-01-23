@@ -78,7 +78,10 @@ impl Outline {
     }
 
     /// Sends this outline to an `OutlineSink`.
-    pub fn copy_to<S>(&self, sink: &mut S) where S: OutlineSink {
+    pub fn copy_to<S>(&self, sink: &mut S)
+    where
+        S: OutlineSink,
+    {
         for contour in &self.contours {
             contour.copy_to(sink);
         }
@@ -89,7 +92,10 @@ impl Contour {
     /// Creates a new empty contour.
     #[inline]
     pub fn new() -> Contour {
-        Contour { positions: vec![], flags: vec![] }
+        Contour {
+            positions: vec![],
+            flags: vec![],
+        }
     }
 
     /// Adds a new point with the given flags to the contour.
@@ -100,7 +106,10 @@ impl Contour {
     }
 
     /// Sends this contour to an `OutlineSink`.
-    pub fn copy_to<S>(&self, sink: &mut S) where S: OutlineSink {
+    pub fn copy_to<S>(&self, sink: &mut S)
+    where
+        S: OutlineSink,
+    {
         debug_assert_eq!(self.positions.len(), self.flags.len());
         if self.positions.is_empty() {
             return;
@@ -133,7 +142,10 @@ impl OutlineBuilder {
     /// Creates a new empty `OutlineBuilder`.
     #[inline]
     pub fn new() -> OutlineBuilder {
-        OutlineBuilder { outline: Outline::new(), current_contour: Contour::new() }
+        OutlineBuilder {
+            outline: Outline::new(),
+            current_contour: Contour::new(),
+        }
     }
 
     /// Consumes this outline builder and returns the resulting outline.
@@ -170,13 +182,17 @@ impl OutlineSink for OutlineBuilder {
 
     #[inline]
     fn cubic_curve_to(&mut self, ctrl: LineSegment2F, to: Vector2F) {
-        self.current_contour.push(ctrl.from(), PointFlags::CONTROL_POINT_0);
-        self.current_contour.push(ctrl.to(), PointFlags::CONTROL_POINT_1);
+        self.current_contour
+            .push(ctrl.from(), PointFlags::CONTROL_POINT_0);
+        self.current_contour
+            .push(ctrl.to(), PointFlags::CONTROL_POINT_1);
         self.current_contour.push(to, PointFlags::empty());
     }
 
     #[inline]
     fn close(&mut self) {
-        self.outline.contours.push(mem::replace(&mut self.current_contour, Contour::new()));
+        self.outline
+            .contours
+            .push(mem::replace(&mut self.current_contour, Contour::new()));
     }
 }

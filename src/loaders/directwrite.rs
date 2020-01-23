@@ -23,9 +23,9 @@ use dwrote::GlyphOffset as DWriteGlyphOffset;
 use dwrote::GlyphRunAnalysis as DWriteGlyphRunAnalysis;
 use dwrote::InformationalStringId as DWriteInformationalStringId;
 use dwrote::OutlineBuilder as DWriteOutlineBuilder;
+use dwrote::{DWRITE_TEXTURE_ALIASED_1x1, DWRITE_TEXTURE_CLEARTYPE_3x1};
 use dwrote::{DWRITE_GLYPH_RUN, DWRITE_MEASURING_MODE_NATURAL};
 use dwrote::{DWRITE_RENDERING_MODE_ALIASED, DWRITE_RENDERING_MODE_NATURAL};
-use dwrote::{DWRITE_TEXTURE_ALIASED_1x1, DWRITE_TEXTURE_CLEARTYPE_3x1};
 use pathfinder_geometry::line_segment::LineSegment2F;
 use pathfinder_geometry::rect::{RectF, RectI};
 use pathfinder_geometry::transform2d::Transform2F;
@@ -294,7 +294,13 @@ impl Font {
             false,
             Box::new(outline_sink.clone()),
         );
-        outline_sink.0.lock().unwrap().builder.take_outline().copy_to(&mut *sink);
+        outline_sink
+            .0
+            .lock()
+            .unwrap()
+            .builder
+            .take_outline()
+            .copy_to(&mut *sink);
         Ok(())
     }
 
@@ -897,15 +903,19 @@ impl DWriteOutlineBuilder for OutlineCanonicalizer {
         this.builder.close();
     }
 
-    fn curve_to(&mut self,
-                ctrl0_x: f32,
-                ctrl0_y: f32,
-                ctrl1_x: f32,
-                ctrl1_y: f32,
-                to_x: f32,
-                to_y: f32) {
-        let ctrl = LineSegment2F::new(Vector2F::new(ctrl0_x, -ctrl0_y),
-                                      Vector2F::new(ctrl1_x, -ctrl1_y));
+    fn curve_to(
+        &mut self,
+        ctrl0_x: f32,
+        ctrl0_y: f32,
+        ctrl1_x: f32,
+        ctrl1_y: f32,
+        to_x: f32,
+        to_y: f32,
+    ) {
+        let ctrl = LineSegment2F::new(
+            Vector2F::new(ctrl0_x, -ctrl0_y),
+            Vector2F::new(ctrl1_x, -ctrl1_y),
+        );
         let to = Vector2F::new(to_x, -to_y);
 
         // This might be a degree-elevated quadratic curve. Try to detect that.

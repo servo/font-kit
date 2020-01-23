@@ -320,13 +320,13 @@ impl Font {
                 CGPathElementType::AddLineToPoint => {
                     sink.line_to(points[0].to_vector().scale(units_per_point))
                 }
-                CGPathElementType::AddQuadCurveToPoint => {
-                    sink.quadratic_curve_to(points[0].to_vector().scale(units_per_point),
-                                            points[1].to_vector().scale(units_per_point))
-                }
+                CGPathElementType::AddQuadCurveToPoint => sink.quadratic_curve_to(
+                    points[0].to_vector().scale(units_per_point),
+                    points[1].to_vector().scale(units_per_point),
+                ),
                 CGPathElementType::AddCurveToPoint => {
-                    let ctrl = LineSegment2F::new(points[0].to_vector(),
-                                                  points[1].to_vector()).scale(units_per_point);
+                    let ctrl = LineSegment2F::new(points[0].to_vector(), points[1].to_vector())
+                        .scale(units_per_point);
                     sink.cubic_curve_to(ctrl, points[2].to_vector().scale(units_per_point))
                 }
                 CGPathElementType::CloseSubpath => sink.close(),
