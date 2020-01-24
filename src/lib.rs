@@ -140,7 +140,10 @@ pub mod loaders;
 pub mod metrics;
 pub mod outline;
 pub mod properties;
+
+#[cfg(feature = "source")]
 pub mod source;
+#[cfg(feature = "source")]
 pub mod sources;
 
 mod matching;

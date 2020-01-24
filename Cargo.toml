@@ -11,10 +11,12 @@ exclude = ["resources/**"]
 edition = "2018"
 
 [features]
+default = ["source"]
 loader-freetype = ["freetype"]
 loader-freetype-default = ["loader-freetype"]
 source-fontconfig = ["servo-fontconfig"]
 source-fontconfig-default = ["source-fontconfig"]
+source = []
 
 [dependencies]
 bitflags = "1"

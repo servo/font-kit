@@ -14,8 +14,10 @@ use font_kit::error::SelectionError;
 use font_kit::family_name::FamilyName;
 use font_kit::handle::Handle;
 use font_kit::properties::Properties;
-use font_kit::source::SystemSource;
 use std::ffi::OsStr;
+
+#[cfg(feature = "source")]
+use font_kit::source::SystemSource;
 
 macro_rules! match_handle {
     ($handle:expr, $path:expr, $index:expr) => {
@@ -50,7 +52,7 @@ fn check_filename(handle: &Handle, filename: &str) {
     }
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(all(feature = "source", target_os = "windows"))]
 mod test {
     use super::*;
 
@@ -160,7 +162,7 @@ mod test {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "source", target_os = "linux"))]
 mod test {
     use super::*;
 
@@ -272,7 +274,7 @@ mod test {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(feature = "source", target_os = "macos"))]
 mod test {
     use super::*;
 

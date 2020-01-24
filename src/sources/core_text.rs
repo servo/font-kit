@@ -27,11 +27,10 @@ use crate::family_name::FamilyName;
 use crate::file_type::FileType;
 use crate::font::Font;
 use crate::handle::Handle;
+use crate::loaders::core_text::{self as core_text_loader, FONT_WEIGHT_MAPPING};
 use crate::properties::{Properties, Stretch, Weight};
 use crate::source::Source;
 use crate::utils;
-
-pub(crate) static FONT_WEIGHT_MAPPING: [f32; 9] = [-0.7, -0.5, -0.23, 0.0, 0.2, 0.3, 0.4, 0.6, 0.8];
 
 /// A source that contains the installed fonts on macOS.
 #[allow(missing_debug_implementations)]
@@ -127,31 +126,9 @@ impl Source for CoreTextSource {
     }
 }
 
-pub(crate) fn piecewise_linear_lookup(index: f32, mapping: &[f32]) -> f32 {
-    let lower_value = mapping[f32::floor(index) as usize];
-    let upper_value = mapping[f32::ceil(index) as usize];
-    utils::lerp(lower_value, upper_value, f32::fract(index))
-}
-
-pub(crate) fn piecewise_linear_find_index(query_value: f32, mapping: &[f32]) -> f32 {
-    let upper_index = match mapping
-        .binary_search_by(|value| value.partial_cmp(&query_value).unwrap_or(Ordering::Less))
-    {
-        Ok(index) => return index as f32,
-        Err(upper_index) => upper_index,
-    };
-    if upper_index == 0 {
-        return upper_index as f32;
-    }
-    let lower_index = upper_index - 1;
-    let (upper_value, lower_value) = (mapping[upper_index], mapping[lower_index]);
-    let t = (query_value - lower_value) / (upper_value - lower_value);
-    lower_index as f32 + t
-}
-
 #[allow(dead_code)]
 fn css_to_core_text_font_weight(css_weight: Weight) -> f32 {
-    piecewise_linear_lookup(
+    core_text_loader::piecewise_linear_lookup(
         f32::max(100.0, css_weight.0) / 100.0 - 1.0,
         &FONT_WEIGHT_MAPPING,
     )
@@ -160,7 +137,7 @@ fn css_to_core_text_font_weight(css_weight: Weight) -> f32 {
 #[allow(dead_code)]
 fn css_stretchiness_to_core_text_width(css_stretchiness: Stretch) -> f32 {
     let css_stretchiness = utils::clamp(css_stretchiness.0, 0.5, 2.0);
-    0.25 * piecewise_linear_find_index(css_stretchiness, &Stretch::MAPPING) - 1.0
+    0.25 * core_text_loader::piecewise_linear_find_index(css_stretchiness, &Stretch::MAPPING) - 1.0
 }
 
 fn create_handles_from_core_text_collection(

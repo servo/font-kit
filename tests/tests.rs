@@ -17,13 +17,15 @@ use font_kit::font::Font;
 use font_kit::hinting::HintingOptions;
 use font_kit::outline::{Contour, Outline, OutlineBuilder, PointFlags};
 use font_kit::properties::{Properties, Stretch, Weight};
-use font_kit::source::SystemSource;
 use pathfinder_geometry::rect::RectF;
 use pathfinder_geometry::transform2d::Transform2F;
 use pathfinder_geometry::vector::{Vector2F, Vector2I};
 use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
+
+#[cfg(feature = "source")]
+use font_kit::source::SystemSource;
 
 static TEST_FONT_FILE_PATH: &'static str = "resources/tests/eb-garamond/EBGaramond12-Regular.otf";
 static TEST_FONT_POSTSCRIPT_NAME: &'static str = "EBGaramond12-Regular";
@@ -51,6 +53,7 @@ static SFNT_VERSIONS: [[u8; 4]; 4] = [
 
 const OPENTYPE_TABLE_TAG_HEAD: u32 = 0x68656164;
 
+#[cfg(feature = "source")]
 #[test]
 pub fn get_font_full_name() {
     let font = SystemSource::new()
@@ -97,6 +100,7 @@ pub fn analyze_bytes() {
     );
 }
 
+#[cfg(feature = "source")]
 #[test]
 pub fn get_glyph_for_char() {
     let font = SystemSource::new()
@@ -108,7 +112,10 @@ pub fn get_glyph_for_char() {
     assert_eq!(glyph, 68);
 }
 
-#[cfg(any(target_family = "windows", target_os = "macos"))]
+#[cfg(all(
+    feature = "source",
+    any(target_family = "windows", target_os = "macos")
+))]
 #[test]
 pub fn get_glyph_outline() {
     let font = SystemSource::new()
@@ -149,7 +156,10 @@ pub fn get_glyph_outline() {
     );
 }
 
-#[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
+#[cfg(all(
+    feature = "source",
+    not(any(target_family = "windows", target_os = "macos", target_os = "ios"))
+))]
 #[test]
 pub fn get_glyph_outline() {
     let font = SystemSource::new()
@@ -193,7 +203,8 @@ pub fn get_glyph_outline() {
 // Right now, only FreeType can do hinting.
 #[cfg(all(
     not(any(target_os = "macos", target_os = "ios", target_family = "windows")),
-    feature = "loader-freetype-default"
+    feature = "loader-freetype-default",
+    feature = "source"
 ))]
 #[test]
 pub fn get_vertically_hinted_glyph_outline() {
@@ -226,7 +237,10 @@ pub fn get_vertically_hinted_glyph_outline() {
     assert_close!(events.next());
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "ios", target_family = "windows")))]
+#[cfg(all(
+    feature = "source",
+    not(any(target_os = "macos", target_os = "ios", target_family = "windows"))
+))]
 #[test]
 pub fn get_vertically_hinted_glyph_outline() {
     let mut path_builder = Path::builder();
@@ -266,7 +280,8 @@ pub fn get_vertically_hinted_glyph_outline() {
 // Right now, only FreeType can do hinting.
 #[cfg(all(
     not(any(target_os = "macos", target_os = "ios", target_family = "windows")),
-    feature = "loader-freetype-default"
+    feature = "loader-freetype-default",
+    feature = "source"
 ))]
 #[test]
 pub fn get_fully_hinted_glyph_outline() {
@@ -304,7 +319,10 @@ pub fn get_fully_hinted_glyph_outline() {
     assert_close!(events.next());
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "ios", target_family = "windows")))]
+#[cfg(all(
+    feature = "source",
+    not(any(target_os = "macos", target_os = "ios", target_family = "windows"))
+))]
 #[test]
 pub fn get_fully_hinted_glyph_outline() {
     let mut file = File::open(FILE_PATH_INCONSOLATA_TTF).unwrap();
@@ -355,7 +373,10 @@ pub fn get_empty_glyph_outline() {
     assert_eq!(outline, Outline::new());
 }
 
-#[cfg(any(target_family = "windows", target_os = "macos", target_os = "ios"))]
+#[cfg(all(
+    feature = "source",
+    any(target_family = "windows", target_os = "macos", target_os = "ios")
+))]
 #[test]
 pub fn get_glyph_typographic_bounds() {
     let font = SystemSource::new()
@@ -373,7 +394,10 @@ pub fn get_glyph_typographic_bounds() {
     );
 }
 
-#[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
+#[cfg(all(
+    feature = "source",
+    not(any(target_family = "windows", target_os = "macos", target_os = "ios"))
+))]
 #[test]
 pub fn get_glyph_typographic_bounds() {
     let font = SystemSource::new()
@@ -391,7 +415,7 @@ pub fn get_glyph_typographic_bounds() {
     );
 }
 
-#[cfg(target_family = "windows")]
+#[cfg(all(feature = "source", target_family = "windows"))]
 #[test]
 pub fn get_glyph_advance_and_origin() {
     let font = SystemSource::new()
@@ -404,7 +428,7 @@ pub fn get_glyph_advance_and_origin() {
     assert_eq!(font.origin(glyph), Ok(Vector2F::new(74.0, 1898.0)));
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(feature = "source", target_os = "macos"))]
 #[test]
 pub fn get_glyph_advance_and_origin() {
     let font = SystemSource::new()
@@ -417,7 +441,10 @@ pub fn get_glyph_advance_and_origin() {
     assert_eq!(font.origin(glyph), Ok(Vector2F::default()));
 }
 
-#[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
+#[cfg(all(
+    feature = "source",
+    not(any(target_family = "windows", target_os = "macos", target_os = "ios"))
+))]
 #[test]
 pub fn get_glyph_advance_and_origin() {
     let font = SystemSource::new()
@@ -430,7 +457,10 @@ pub fn get_glyph_advance_and_origin() {
     assert_eq!(font.origin(glyph), Ok(Point2D::zero()));
 }
 
-#[cfg(any(target_family = "windows", target_os = "macos"))]
+#[cfg(all(
+    feature = "source",
+    any(target_family = "windows", target_os = "macos")
+))]
 #[test]
 pub fn get_font_metrics() {
     let font = SystemSource::new()
@@ -454,7 +484,10 @@ pub fn get_font_metrics() {
     assert_eq!(bounding_box.width(), 5457.0);
 }
 
-#[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
+#[cfg(all(
+    feature = "source",
+    not(any(target_family = "windows", target_os = "macos", target_os = "ios"))
+))]
 #[test]
 pub fn get_font_metrics() {
     let font = SystemSource::new()
@@ -480,6 +513,7 @@ pub fn get_font_metrics() {
     );
 }
 
+#[cfg(feature = "source")]
 #[test]
 pub fn get_font_properties() {
     let font = SystemSource::new()
@@ -492,6 +526,7 @@ pub fn get_font_properties() {
     assert_eq!(properties.stretch, Stretch(1.0));
 }
 
+#[cfg(feature = "source")]
 #[test]
 pub fn get_font_data() {
     let font = SystemSource::new()
@@ -503,6 +538,7 @@ pub fn get_font_data() {
     debug_assert!(SFNT_VERSIONS.iter().any(|version| data[0..4] == *version));
 }
 
+#[cfg(feature = "source")]
 #[test]
 pub fn load_font_table() {
     let font = SystemSource::new()
@@ -516,6 +552,7 @@ pub fn load_font_table() {
     assert_eq!(&head_table[12..16], &[0x5f, 0x0f, 0x3c, 0xf5]);
 }
 
+#[cfg(feature = "source")]
 #[test]
 pub fn rasterize_glyph_with_grayscale_aa() {
     let font = SystemSource::new()
@@ -547,6 +584,7 @@ pub fn rasterize_glyph_with_grayscale_aa() {
     check_L_shape(&canvas);
 }
 
+#[cfg(feature = "source")]
 #[test]
 pub fn rasterize_glyph_bilevel() {
     let font = SystemSource::new()
@@ -582,6 +620,7 @@ pub fn rasterize_glyph_bilevel() {
     check_L_shape(&canvas);
 }
 
+#[cfg(feature = "source")]
 #[test]
 pub fn rasterize_glyph_bilevel_offset() {
     let font = SystemSource::new()
@@ -618,9 +657,12 @@ pub fn rasterize_glyph_bilevel_offset() {
     check_L_shape(&canvas);
 }
 
-#[cfg(any(
-    not(any(target_os = "macos", target_os = "ios", target_family = "windows")),
-    feature = "loader-freetype-default"
+#[cfg(all(
+    feature = "source",
+    any(
+        not(any(target_os = "macos", target_os = "ios", target_family = "windows")),
+        feature = "loader-freetype-default"
+    )
 ))]
 #[test]
 pub fn rasterize_glyph_with_full_hinting() {
@@ -670,7 +712,7 @@ pub fn rasterize_glyph_with_full_hinting() {
     }
 }
 
-#[cfg(target_family = "windows")]
+#[cfg(all(feature = "source", target_family = "windows"))]
 #[test]
 pub fn rasterize_glyph() {
     let font = SystemSource::new()
@@ -703,6 +745,7 @@ pub fn rasterize_glyph() {
 }
 
 // Tests that an empty glyph can be successfully rasterized to a 0x0 canvas (issue #7).
+#[cfg(feature = "source")]
 #[test]
 pub fn rasterize_empty_glyph() {
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
@@ -721,6 +764,7 @@ pub fn rasterize_empty_glyph() {
 }
 
 // Tests that an empty glyph can be successfully rasterized to a 0x0 canvas (issue #7).
+#[cfg(feature = "source")]
 #[test]
 pub fn rasterize_empty_glyph_on_empty_canvas() {
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
@@ -748,6 +792,7 @@ pub fn rasterize_empty_glyph_on_empty_canvas() {
     .unwrap();
 }
 
+#[cfg(feature = "source")]
 #[test]
 pub fn font_transform() {
     let font = SystemSource::new()

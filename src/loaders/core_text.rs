@@ -29,6 +29,7 @@ use pathfinder_geometry::rect::{RectF, RectI};
 use pathfinder_geometry::transform2d::Transform2F;
 use pathfinder_geometry::vector::Vector2F;
 use pathfinder_simd::default::F32x4;
+use std::cmp::Ordering;
 use std::f32;
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
@@ -46,13 +47,14 @@ use crate::loader::{FallbackResult, Loader};
 use crate::metrics::Metrics;
 use crate::outline::OutlineSink;
 use crate::properties::{Properties, Stretch, Style, Weight};
-use crate::sources;
 use crate::utils;
 
 const TTC_TAG: [u8; 4] = [b't', b't', b'c', b'f'];
 
 #[allow(non_upper_case_globals)]
 const kCGImageAlphaOnly: u32 = 7;
+
+pub(crate) static FONT_WEIGHT_MAPPING: [f32; 9] = [-0.7, -0.5, -0.23, 0.0, 0.2, 0.3, 0.4, 0.6, 0.8];
 
 /// Core Text's representation of a font.
 pub type NativeFont = CTFont;
@@ -789,16 +791,13 @@ impl CGPointExt for CGPoint {
 }
 
 fn core_text_to_css_font_weight(core_text_weight: f32) -> Weight {
-    let index = sources::core_text::piecewise_linear_find_index(
-        core_text_weight,
-        &sources::core_text::FONT_WEIGHT_MAPPING,
-    );
+    let index = piecewise_linear_find_index(core_text_weight, &FONT_WEIGHT_MAPPING);
 
     Weight(index * 100.0 + 100.0)
 }
 
 fn core_text_width_to_css_stretchiness(core_text_width: f32) -> Stretch {
-    Stretch(sources::core_text::piecewise_linear_lookup(
+    Stretch(piecewise_linear_lookup(
         (core_text_width + 1.0) * 4.0,
         &Stretch::MAPPING,
     ))
@@ -856,10 +855,13 @@ fn format_to_cg_color_space_and_image_format(format: Format) -> Option<(CGColorS
 mod test {
     use super::Font;
     use crate::properties::{Stretch, Weight};
+
+    #[cfg(feature = "source")]
     use crate::source::SystemSource;
 
     static TEST_FONT_POSTSCRIPT_NAME: &'static str = "ArialMT";
 
+    #[cfg(feature = "source")]
     #[test]
     fn test_from_core_graphics_font() {
         let font0 = SystemSource::new()
@@ -907,4 +909,26 @@ mod test {
             Stretch(1.7)
         );
     }
+}
+
+pub(crate) fn piecewise_linear_lookup(index: f32, mapping: &[f32]) -> f32 {
+    let lower_value = mapping[f32::floor(index) as usize];
+    let upper_value = mapping[f32::ceil(index) as usize];
+    utils::lerp(lower_value, upper_value, f32::fract(index))
+}
+
+pub(crate) fn piecewise_linear_find_index(query_value: f32, mapping: &[f32]) -> f32 {
+    let upper_index = match mapping
+        .binary_search_by(|value| value.partial_cmp(&query_value).unwrap_or(Ordering::Less))
+    {
+        Ok(index) => return index as f32,
+        Err(upper_index) => upper_index,
+    };
+    if upper_index == 0 {
+        return upper_index as f32;
+    }
+    let lower_index = upper_index - 1;
+    let (upper_value, lower_value) = (mapping[upper_index], mapping[lower_index]);
+    let t = (query_value - lower_value) / (upper_value - lower_value);
+    lower_index as f32 + t
 }

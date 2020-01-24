@@ -70,6 +70,10 @@ you want them to be the default, instead use the `loader-freetype-default` and
 `source-fontconfig-default` Cargo features respectively. Beware that `source-fontconfig-default` is
 rarely what you want on those two platforms!
 
+If you don't need to locate fonts on the system at all—for example, if all your fonts are stored
+with your app—then you can omit the default `source` feature and none of that code will be
+included.
+
 ## Features
 
 `font-kit` is capable of doing the following:
