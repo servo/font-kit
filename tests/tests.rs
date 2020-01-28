@@ -169,7 +169,7 @@ pub fn get_glyph_outline() {
         .unwrap();
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
     let mut outline_builder = OutlineBuilder::new();
-    font.outline(glyph, HintingOptions::None, &mut path_builder)
+    font.outline(glyph, HintingOptions::None, &mut outline_builder)
         .unwrap();
 
     let outline = outline_builder.into_outline();
@@ -208,33 +208,42 @@ pub fn get_glyph_outline() {
 ))]
 #[test]
 pub fn get_vertically_hinted_glyph_outline() {
-    let mut path_builder = Path::builder();
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
         .load()
         .unwrap();
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
-    font.outline(glyph, HintingOptions::Vertical(16.0), &mut path_builder)
+    let mut outline_builder = OutlineBuilder::new();
+    font.outline(glyph, HintingOptions::Vertical(16.0), &mut outline_builder)
         .unwrap();
-    let path = path_builder.build();
 
-    let mut events = path.into_iter();
-    assert_line_to!(events.next(), Point2D::new(136.0, 1316.0));
-    assert_line_to!(events.next(), Point2D::new(136.0, 1536.0));
-    assert_line_to!(events.next(), Point2D::new(316.0, 1536.0));
-    assert_line_to!(events.next(), Point2D::new(316.0, 1316.0));
-    assert_close!(events.next());
+    let outline = outline_builder.into_outline();
     assert_eq!(
-        events.next(),
-        Some(PathEvent::Begin {
-            at: Point2D::new(136.0, 0.0)
-        })
+        outline,
+        Outline {
+            contours: vec![
+                Contour {
+                    positions: vec![
+                        Vector2F::new(136.0, 1316.0),
+                        Vector2F::new(136.0, 1536.0),
+                        Vector2F::new(316.0, 1536.0),
+                        Vector2F::new(316.0, 1316.0),
+                    ],
+                    flags: vec![PointFlags::empty(); 4],
+                },
+                Contour {
+                    positions: vec![
+                        Vector2F::new(136.0, 0.0),
+                        Vector2F::new(136.0, 1152.0),
+                        Vector2F::new(316.0, 1152.0),
+                        Vector2F::new(316.0, 0.0),
+                    ],
+                    flags: vec![PointFlags::empty(); 4],
+                },
+            ],
+        }
     );
-    assert_line_to!(events.next(), Point2D::new(136.0, 1152.0));
-    assert_line_to!(events.next(), Point2D::new(316.0, 1152.0));
-    assert_line_to!(events.next(), Point2D::new(316.0, 0.0));
-    assert_close!(events.next());
 }
 
 #[cfg(all(
@@ -243,38 +252,42 @@ pub fn get_vertically_hinted_glyph_outline() {
 ))]
 #[test]
 pub fn get_vertically_hinted_glyph_outline() {
-    let mut path_builder = Path::builder();
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
         .load()
         .unwrap();
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
-    font.outline(glyph, HintingOptions::Vertical(16.0), &mut path_builder)
+    let mut outline_builder = OutlineBuilder::new();
+    font.outline(glyph, HintingOptions::Vertical(16.0), &mut outline_builder)
         .unwrap();
-    let path = path_builder.build();
 
-    let mut events = path.into_iter();
+    let outline = outline_builder.into_outline();
     assert_eq!(
-        events.next(),
-        Some(PathEvent::Begin {
-            at: Point2D::new(194.0, 1152.0)
-        })
+        outline,
+        Outline {
+            contours: vec![
+                Contour {
+                    positions: vec![
+                        Vector2F::new(256.0, 1152.0),
+                        Vector2F::new(384.0, 1152.0),
+                        Vector2F::new(384.0, 0.0),
+                        Vector2F::new(256.0, 0.0),
+                    ],
+                    flags: vec![PointFlags::empty(); 4],
+                },
+                Contour {
+                    positions: vec![
+                        Vector2F::new(256.0, 1536.0),
+                        Vector2F::new(384.0, 1536.0),
+                        Vector2F::new(384.0, 1280.0),
+                        Vector2F::new(256.0, 1280.0),
+                    ],
+                    flags: vec![PointFlags::empty(); 4],
+                },
+            ],
+        }
     );
-    assert_line_to!(events.next(), Point2D::new(378.0, 1152.0));
-    assert_line_to!(events.next(), Point2D::new(378.0, 0.0));
-    assert_line_to!(events.next(), Point2D::new(194.0, 0.0));
-    assert_close!(events.next());
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::Begin {
-            at: Point2D::new(194.0, 1536.0)
-        })
-    );
-    assert_line_to!(events.next(), Point2D::new(378.0, 1536.0));
-    assert_line_to!(events.next(), Point2D::new(378.0, 1302.0));
-    assert_line_to!(events.next(), Point2D::new(194.0, 1302.0));
-    assert_close!(events.next());
 }
 
 // Right now, only FreeType can do hinting.
@@ -285,38 +298,42 @@ pub fn get_vertically_hinted_glyph_outline() {
 ))]
 #[test]
 pub fn get_fully_hinted_glyph_outline() {
-    let mut path_builder = Path::builder();
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
         .load()
         .unwrap();
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
-    font.outline(glyph, HintingOptions::Full(10.0), &mut path_builder)
+    let mut outline_builder = OutlineBuilder::new();
+    font.outline(glyph, HintingOptions::Full(10.0), &mut outline_builder)
         .unwrap();
-    let path = path_builder.build();
 
-    let mut events = path.into_iter();
+    let outline = outline_builder.into_outline();
     assert_eq!(
-        events.next(),
-        Some(PathEvent::Begin {
-            at: Point2D::new(137.6, 1228.8)
-        })
+        outline,
+        Outline {
+            contours: vec![
+                Contour {
+                    positions: vec![
+                        Vector2F::new(137.6, 1228.8),
+                        Vector2F::new(137.6, 1433.6),
+                        Vector2F::new(316.80002, 1433.6),
+                        Vector2F::new(316.80002, 1228.8),
+                    ],
+                    flags: vec![PointFlags::empty(); 4],
+                },
+                Contour {
+                    positions: vec![
+                        Vector2F::new(137.6, 0.0),
+                        Vector2F::new(137.6, 1024.0),
+                        Vector2F::new(316.80002, 1024.0),
+                        Vector2F::new(316.80002, 0.0),
+                    ],
+                    flags: vec![PointFlags::empty(); 4],
+                },
+            ],
+        }
     );
-    assert_line_to!(events.next(), Point2D::new(137.6, 1433.6));
-    assert_line_to!(events.next(), Point2D::new(316.80002, 1433.6));
-    assert_line_to!(events.next(), Point2D::new(316.80002, 1228.8));
-    assert_close!(events.next());
-    assert_eq!(
-        events.next(),
-        Some(PathEvent::Begin {
-            at: Point2D::new(137.6, 0.0)
-        })
-    );
-    assert_line_to!(events.next(), Point2D::new(137.6, 1024.0));
-    assert_line_to!(events.next(), Point2D::new(316.80002, 1024.0));
-    assert_line_to!(events.next(), Point2D::new(316.80002, 0.0));
-    assert_close!(events.next());
 }
 
 #[cfg(all(
@@ -329,35 +346,73 @@ pub fn get_fully_hinted_glyph_outline() {
     let font = Font::from_file(&mut file, 0).unwrap();
     let glyph = font.glyph_for_char('i').expect("No glyph for char!");
 
-    let mut path_builder = Path::builder();
-    font.outline(glyph, HintingOptions::Full(10.0), &mut path_builder)
+    let mut outline_builder = OutlineBuilder::new();
+    font.outline(glyph, HintingOptions::Full(10.0), &mut outline_builder)
         .unwrap();
-    let path = path_builder.build();
-    println!("{:?}", font.postscript_name());
-    println!("{:?}", path.into_iter().collect::<Vec<_>>());
 
-    let mut path_builder = Path::builder();
-    font.outline(glyph, HintingOptions::Full(10.0), &mut path_builder)
-        .unwrap();
-    let path = path_builder.build();
-
-    let mut events = path.into_iter();
+    let outline = outline_builder.into_outline();
     assert_eq!(
-        events.next(),
-        Some(PathEvent::Begin {
-            at: Point2D::new(100.0, 75.0)
-        })
+        outline,
+        Outline {
+            contours: vec![
+                Contour {
+                    positions: vec![
+                        Vector2F::new(100.0, 100.0),
+                        Vector2F::new(200.0, 100.0),
+                        Vector2F::new(200.0, 400.0),
+                        Vector2F::new(100.0, 400.0),
+                        Vector2F::new(100.0, 500.0),
+                        Vector2F::new(300.0, 500.0),
+                        Vector2F::new(300.0, 100.0),
+                        Vector2F::new(400.0, 100.0),
+                        Vector2F::new(400.0, 0.0),
+                        Vector2F::new(100.0, 0.0),
+                    ],
+                    flags: vec![PointFlags::empty(); 10],
+                },
+                Contour {
+                    positions: vec![
+                        Vector2F::new(200.0, 600.0),
+                        Vector2F::new(200.0, 600.0),
+                        Vector2F::new(200.0, 600.0),
+                        Vector2F::new(200.0, 600.0),
+                        Vector2F::new(200.0, 600.0),
+                        Vector2F::new(200.0, 700.0),
+                        Vector2F::new(200.0, 700.0),
+                        Vector2F::new(200.0, 700.0),
+                        Vector2F::new(200.0, 700.0),
+                        Vector2F::new(300.0, 700.0),
+                        Vector2F::new(300.0, 700.0),
+                        Vector2F::new(300.0, 700.0),
+                        Vector2F::new(300.0, 600.0),
+                        Vector2F::new(300.0, 600.0),
+                        Vector2F::new(300.0, 600.0),
+                        Vector2F::new(300.0, 600.0),
+                        Vector2F::new(200.0, 600.0),
+                    ],
+                    flags: vec![
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                        PointFlags::CONTROL_POINT_0,
+                        PointFlags::empty(),
+                    ],
+                },
+            ],
+        }
     );
-    assert_line_to!(events.next(), Point2D::new(217.1875, 75.0));
-    assert_line_to!(events.next(), Point2D::new(217.1875, 425.0));
-    assert_line_to!(events.next(), Point2D::new(106.25, 425.0));
-    assert_line_to!(events.next(), Point2D::new(106.25, 500.0));
-    assert_line_to!(events.next(), Point2D::new(289.0625, 500.0));
-    assert_line_to!(events.next(), Point2D::new(289.0625, 75.0));
-    assert_line_to!(events.next(), Point2D::new(395.3125, 75.0));
-    assert_line_to!(events.next(), Point2D::new(395.3125, 0.0));
-    assert_line_to!(events.next(), Point2D::new(100.0, 0.0));
-    assert_close!(events.next());
 }
 
 #[test]
@@ -408,9 +463,9 @@ pub fn get_glyph_typographic_bounds() {
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
     assert_eq!(
         font.typographic_bounds(glyph),
-        Ok(Rect::new(
-            Point2D::new(123.0, -29.0),
-            Size2D::new(946.0, 1176.0)
+        Ok(RectF::new(
+            Vector2F::new(123.0, -29.0),
+            Vector2F::new(946.0, 1176.0)
         ))
     );
 }
@@ -453,8 +508,8 @@ pub fn get_glyph_advance_and_origin() {
         .load()
         .unwrap();
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
-    assert_eq!(font.advance(glyph), Ok(Vector2D::new(1255.0, 0.0)));
-    assert_eq!(font.origin(glyph), Ok(Point2D::zero()));
+    assert_eq!(font.advance(glyph), Ok(Vector2F::new(1255.0, 0.0)));
+    assert_eq!(font.origin(glyph), Ok(Vector2F::default()));
 }
 
 #[cfg(all(
@@ -682,13 +737,13 @@ pub fn rasterize_glyph_with_full_hinting() {
             RasterizationOptions::Bilevel,
         )
         .unwrap();
-    let origin = Point2D::new(-raster_rect.origin.x, -raster_rect.origin.y).to_f32();
-    let mut canvas = Canvas::new(&raster_rect.size.to_u32(), Format::A8);
+    let origin = -raster_rect.origin().to_f32();
+    let mut canvas = Canvas::new(raster_rect.size(), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
         glyph_id,
         size,
-        Transform2F::from_translation(-raster_rect.origin().to_f32()),
+        Transform2F::from_translation(origin),
         HintingOptions::Full(size),
         RasterizationOptions::GrayscaleAa,
     )
@@ -702,7 +757,7 @@ pub fn rasterize_glyph_with_full_hinting() {
     }
 
     assert!(top_row.iter().any(|&value| value == 0xff));
-    for y in (0..(canvas.size.height as usize)).rev() {
+    for y in (0..(canvas.size.y() as usize)).rev() {
         let bottom_row = &canvas.pixels[(y * canvas.stride)..((y + 1) * canvas.stride)];
         if bottom_row.iter().all(|&value| value == 0) {
             continue;
