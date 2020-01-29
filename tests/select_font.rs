@@ -160,6 +160,14 @@ mod test {
             other => panic!("unexpected error: {:?}", other),
         }
     }
+
+    #[test]
+    fn select_localized_family_name() {
+        let handle = SystemSource::new().select_best_match(
+            &[FamilyName::Title("ＭＳ ゴシック".to_string())],
+            &Properties::default()).unwrap();
+        match_handle!(handle, "C:\\WINDOWS\\FONTS\\msgothic.ttc", 0);
+    }
 }
 
 #[cfg(all(feature = "source", target_os = "linux"))]
