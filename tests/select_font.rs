@@ -280,6 +280,15 @@ mod test {
             other => panic!("unexpected error: {:?}", other),
         }
     }
+
+    #[test]
+    fn select_localized_family_name() {
+        if let Ok(handle) = SystemSource::new().select_best_match(
+            &[FamilyName::Title("さざなみゴシック".to_string())],
+            &Properties::default()) {
+            check_filename(&handle, "sazanami-gothic.ttf");
+        }
+    }
 }
 
 #[cfg(all(feature = "source", target_os = "macos"))]
