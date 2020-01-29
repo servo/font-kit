@@ -376,4 +376,12 @@ mod test {
             other => panic!("unexpected error: {:?}", other),
         }
     }
+
+    #[test]
+    fn select_localized_family_name() {
+        let handle =
+            SystemSource::new().select_best_match(&[FamilyName::Title("רעננה".to_string())],
+                                                  &Properties::default()).unwrap();
+        match_handle!(handle, "/Library/Fonts/Raanana.ttc", 0);
+    }
 }

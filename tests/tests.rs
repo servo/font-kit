@@ -67,6 +67,20 @@ pub fn get_font_full_name() {
     assert_eq!(font.full_name(), KNOWN_SYSTEM_FONT_NAME);
 }
 
+#[cfg(feature = "source")]
+#[test]
+pub fn get_font_full_name_from_lowercase_family_name() {
+    let font = SystemSource::new()
+        .select_best_match(
+            &[FamilyName::Title(KNOWN_SYSTEM_FONT_NAME.to_ascii_lowercase())],
+            &Properties::new(),
+        )
+        .unwrap()
+        .load()
+        .unwrap();
+    assert_eq!(font.full_name(), KNOWN_SYSTEM_FONT_NAME);
+}
+
 #[test]
 pub fn load_font_from_file() {
     let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();

@@ -1,7 +1,25 @@
+// font-kit/examples/match-font.rs
+//
+// Copyright © 2020 The Pathfinder Project Developers.
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
+//! Looks up fonts by name.
+
 extern crate font_kit;
 
+use font_kit::family_name::FamilyName;
+use font_kit::handle::Handle;
+use font_kit::properties::Properties;
+use font_kit::source::SystemSource;
+use std::env;
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<_> = std::env::args().collect();
+    let args: Vec<_> = env::args().collect();
     if args.len() != 2 {
         println!("Usage:\n\tmatch-font \"Times New Roman, Arial, serif\"");
         std::process::exit(1);
@@ -12,23 +30,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let family = family.replace('\'', "");
         let family = family.trim();
         families.push(match family {
-            "serif" => font_kit::family_name::FamilyName::Serif,
-            "sans-serif" => font_kit::family_name::FamilyName::SansSerif,
-            "monospace" => font_kit::family_name::FamilyName::Monospace,
-            "cursive" => font_kit::family_name::FamilyName::Cursive,
-            "fantasy" => font_kit::family_name::FamilyName::Fantasy,
-            _ => font_kit::family_name::FamilyName::Title(family.to_string()),
+            "serif" => FamilyName::Serif,
+            "sans-serif" => FamilyName::SansSerif,
+            "monospace" => FamilyName::Monospace,
+            "cursive" => FamilyName::Cursive,
+            "fantasy" => FamilyName::Fantasy,
+            _ => FamilyName::Title(family.to_string()),
         });
     }
 
-    let properties = font_kit::properties::Properties::default();
-    let handle = font_kit::source::SystemSource::new().select_best_match(&families, &properties)?;
+    let properties = Properties::default();
+    let handle = SystemSource::new().select_best_match(&families, &properties)?;
 
-    if let font_kit::handle::Handle::Path {
-        ref path,
-        font_index,
-    } = handle
-    {
+    if let Handle::Path { ref path, font_index } = handle {
         println!("Path: {}", path.display());
         println!("Index: {}", font_index);
     }

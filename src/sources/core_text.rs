@@ -17,7 +17,6 @@ use core_foundation::string::CFString;
 use core_text::font_collection::{self, CTFontCollection};
 use core_text::font_descriptor::{self, CTFontDescriptor};
 use core_text::font_manager;
-use std::cmp::Ordering;
 use std::f32;
 use std::path::Path;
 
