@@ -163,9 +163,12 @@ mod test {
 
     #[test]
     fn select_localized_family_name() {
-        let handle = SystemSource::new().select_best_match(
-            &[FamilyName::Title("ＭＳ ゴシック".to_string())],
-            &Properties::default()).unwrap();
+        let handle = SystemSource::new()
+            .select_best_match(
+                &[FamilyName::Title("ＭＳ ゴシック".to_string())],
+                &Properties::default(),
+            )
+            .unwrap();
         match_handle!(handle, "C:\\WINDOWS\\FONTS\\msgothic.ttc", 0);
     }
 }
@@ -285,7 +288,8 @@ mod test {
     fn select_localized_family_name() {
         if let Ok(handle) = SystemSource::new().select_best_match(
             &[FamilyName::Title("さざなみゴシック".to_string())],
-            &Properties::default()) {
+            &Properties::default(),
+        ) {
             check_filename(&handle, "sazanami-gothic.ttf");
         }
     }
@@ -396,9 +400,12 @@ mod test {
 
     #[test]
     fn select_localized_family_name() {
-        let handle =
-            SystemSource::new().select_best_match(&[FamilyName::Title("רעננה".to_string())],
-                                                  &Properties::default()).unwrap();
+        let handle = SystemSource::new()
+            .select_best_match(
+                &[FamilyName::Title("רעננה".to_string())],
+                &Properties::default(),
+            )
+            .unwrap();
         match_handle!(handle, "/Library/Fonts/Raanana.ttc", 0);
     }
 }

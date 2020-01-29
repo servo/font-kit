@@ -42,7 +42,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let properties = Properties::default();
     let handle = SystemSource::new().select_best_match(&families, &properties)?;
 
-    if let Handle::Path { ref path, font_index } = handle {
+    if let Handle::Path {
+        ref path,
+        font_index,
+    } = handle
+    {
         println!("Path: {}", path.display());
         println!("Index: {}", font_index);
     }

@@ -72,7 +72,9 @@ pub fn get_font_full_name() {
 pub fn get_font_full_name_from_lowercase_family_name() {
     let font = SystemSource::new()
         .select_best_match(
-            &[FamilyName::Title(KNOWN_SYSTEM_FONT_NAME.to_ascii_lowercase())],
+            &[FamilyName::Title(
+                KNOWN_SYSTEM_FONT_NAME.to_ascii_lowercase(),
+            )],
             &Properties::new(),
         )
         .unwrap()
