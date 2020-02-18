@@ -182,6 +182,8 @@ fn default_font_directories() -> Vec<PathBuf> {
     let mut directories = vec![
         PathBuf::from("/usr/share/fonts"),
         PathBuf::from("/usr/local/share/fonts"),
+        PathBuf::from("/var/run/host/usr/share/fonts"),
+        PathBuf::from("/var/run/host/usr/local/share/fonts"),
     ];
     if let Some(mut path) = dirs::home_dir() {
         path.push(".fonts");
