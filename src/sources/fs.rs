@@ -186,7 +186,11 @@ fn default_font_directories() -> Vec<PathBuf> {
         PathBuf::from("/var/run/host/usr/local/share/fonts"),
     ];
     if let Some(mut path) = dirs::home_dir() {
-        path.push(".fonts");
+        path.push(".fonts"); // ~/.fonts is deprecated
+        directories.push(path);
+    }
+    if let Some(mut path) = dirs::data_dir() {
+        path.push("fonts");
         directories.push(path);
     }
     directories
