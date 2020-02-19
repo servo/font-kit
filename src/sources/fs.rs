@@ -182,12 +182,12 @@ fn default_font_directories() -> Vec<PathBuf> {
     let mut directories = vec![
         PathBuf::from("/usr/share/fonts"),
         PathBuf::from("/usr/local/share/fonts"),
-        PathBuf::from("/var/run/host/usr/share/fonts"),
+        PathBuf::from("/var/run/host/usr/share/fonts"), // Flatpak specific
         PathBuf::from("/var/run/host/usr/local/share/fonts"),
     ];
-    if let Some(mut path) = dirs::home_dir() {
-        path.push(".fonts"); // ~/.fonts is deprecated
-        directories.push(path);
+    if let Some(path) = dirs::home_dir() {
+        directories.push(path.join(".fonts")); // ~/.fonts is deprecated
+        directories.push(path.join("local").join("share").join("fonts")); // Flatpak specific
     }
     if let Some(mut path) = dirs::data_dir() {
         path.push("fonts");
