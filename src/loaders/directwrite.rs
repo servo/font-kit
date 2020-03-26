@@ -635,7 +635,7 @@ impl Font {
         };
         let text_analysis = dwrote::TextAnalysisSource::from_text_and_number_subst(
             Box::new(text_analysis_source),
-            text_utf16,
+            text_utf16.into(),
             number_subst,
         );
         let sys_fallback = sys_fallback.unwrap();
