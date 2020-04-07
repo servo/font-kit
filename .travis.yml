@@ -15,5 +15,6 @@ install:
 before_script:
   - rustup component add rustfmt
 script:
+  - set RUST_BACKTRACE=1
   - cargo fmt --all -- --check
   - cargo test
