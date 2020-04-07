@@ -206,7 +206,7 @@ pub trait Loader: Clone + Sized {
     ) -> Result<RectI, GlyphLoadingError> {
         let typographic_bounds = self.typographic_bounds(glyph_id)?;
         let mut typographic_raster_bounds =
-            typographic_bounds.scale(point_size / self.metrics().units_per_em as f32);
+            typographic_bounds * (point_size / self.metrics().units_per_em as f32);
         typographic_raster_bounds.set_origin_y(
             -typographic_raster_bounds.origin_y() - typographic_raster_bounds.height(),
         );
