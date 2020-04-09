@@ -143,8 +143,9 @@ pub trait Source {
     ) -> Result<Vec<Properties>, SelectionError> {
         let mut fields = vec![];
         for font_handle in family.fonts() {
-            let font = Font::from_handle(font_handle).unwrap();
-            fields.push(font.properties())
+            if let Ok(font) = Font::from_handle(font_handle) {
+                fields.push(font.properties())
+            }
         }
         Ok(fields)
     }
