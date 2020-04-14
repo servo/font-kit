@@ -922,13 +922,13 @@ impl DWriteOutlineBuilder for OutlineCanonicalizer {
         // See Sederberg § 2.6, "Distance Between Two Bézier Curves".
         let mut this = self.0.lock().unwrap();
         let baseline = LineSegment2F::new(this.last_position, to);
-        let approx_ctrl = LineSegment2F(ctrl.scale(3.0).0 - baseline.0).scale(0.5);
-        let delta_ctrl = (approx_ctrl.to() - approx_ctrl.from()).scale(2.0);
+        let approx_ctrl = LineSegment2F((ctrl * 3.0).0 - baseline.0) * 0.5;
+        let delta_ctrl = (approx_ctrl.to() - approx_ctrl.from()) * 2.0;
         let max_error = delta_ctrl.length() / 6.0;
 
         if max_error < ERROR_BOUND {
             // Round to nearest 0.5.
-            let approx_ctrl = approx_ctrl.midpoint().scale(2.0).round().scale(0.5);
+            let approx_ctrl = (approx_ctrl.midpoint() * 2.0).round() * 0.5;
             this.builder.quadratic_curve_to(approx_ctrl, to);
         } else {
             this.builder.cubic_curve_to(ctrl, to);
