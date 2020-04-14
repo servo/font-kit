@@ -317,19 +317,19 @@ impl Font {
             let points = element.points();
             match element.element_type {
                 CGPathElementType::MoveToPoint => {
-                    sink.move_to(points[0].to_vector().scale(units_per_point))
+                    sink.move_to(points[0].to_vector() * units_per_point)
                 }
                 CGPathElementType::AddLineToPoint => {
-                    sink.line_to(points[0].to_vector().scale(units_per_point))
+                    sink.line_to(points[0].to_vector() * units_per_point)
                 }
                 CGPathElementType::AddQuadCurveToPoint => sink.quadratic_curve_to(
-                    points[0].to_vector().scale(units_per_point),
-                    points[1].to_vector().scale(units_per_point),
+                    points[0].to_vector() * units_per_point,
+                    points[1].to_vector() * units_per_point,
                 ),
                 CGPathElementType::AddCurveToPoint => {
                     let ctrl = LineSegment2F::new(points[0].to_vector(), points[1].to_vector())
-                        .scale(units_per_point);
-                    sink.cubic_curve_to(ctrl, points[2].to_vector().scale(units_per_point))
+                        * units_per_point;
+                    sink.cubic_curve_to(ctrl, points[2].to_vector() * units_per_point)
                 }
                 CGPathElementType::CloseSubpath => sink.close(),
             }
@@ -346,7 +346,7 @@ impl Font {
             Vector2F::new(rect.origin.x as f32, rect.origin.y as f32),
             Vector2F::new(rect.size.width as f32, rect.size.height as f32),
         );
-        Ok(rect.scale(self.units_per_point() as f32))
+        Ok(rect * self.units_per_point() as f32)
     }
 
     /// Returns the distance from the origin of the glyph with the given ID to the next, in font
@@ -362,7 +362,7 @@ impl Font {
                 1,
             );
             let advance = Vector2F::new(advance.width as f32, advance.height as f32);
-            Ok(advance.scale(self.units_per_point() as f32))
+            Ok(advance * self.units_per_point() as f32)
         }
     }
 
@@ -378,7 +378,7 @@ impl Font {
                 1,
             );
             let translation = Vector2F::new(translation.width as f32, translation.height as f32);
-            Ok(translation.scale(self.units_per_point() as f32))
+            Ok(translation * self.units_per_point() as f32)
         }
     }
 
@@ -395,7 +395,7 @@ impl Font {
                 bounding_box.size.height as f32,
             ),
         );
-        let bounding_box = bounding_box.scale(units_per_point as f32);
+        let bounding_box = bounding_box * units_per_point as f32;
 
         Metrics {
             units_per_em,

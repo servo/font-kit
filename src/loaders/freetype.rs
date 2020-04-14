@@ -576,7 +576,7 @@ impl Font {
             let point_position = Vector2I::new(point_position.x as i32, point_position.y as i32);
             let mut point_position = point_position.ft_fixed_26_6_to_f32();
             if let Some(grid_fitting_size) = grid_fitting_size {
-                point_position = point_position.scale((units_per_em as f32) / grid_fitting_size);
+                point_position = point_position * (units_per_em as f32) / grid_fitting_size;
             }
 
             (point_position, point_tag)
@@ -1172,7 +1172,7 @@ impl F32ToFtFixed for Vector2F {
     type Output = Vector2I;
     #[inline]
     fn f32_to_ft_fixed_26_6(self) -> Vector2I {
-        self.scale(64.0).to_i32()
+        (self * 64.0).to_i32()
     }
 }
 
@@ -1188,7 +1188,7 @@ impl FtFixedToF32 for Vector2I {
     type Output = Vector2F;
     #[inline]
     fn ft_fixed_26_6_to_f32(self) -> Vector2F {
-        self.to_f32().scale(1.0 / 64.0).round()
+        (self.to_f32() * (1.0 / 64.0)).round()
     }
 }
 
@@ -1196,7 +1196,7 @@ impl FtFixedToF32 for RectI {
     type Output = RectF;
     #[inline]
     fn ft_fixed_26_6_to_f32(self) -> RectF {
-        self.to_f32().scale(1.0 / 64.0)
+        (self.to_f32() * (1.0 / 64.0))
     }
 }
 
