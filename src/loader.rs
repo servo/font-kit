@@ -205,11 +205,15 @@ pub trait Loader: Clone + Sized {
         _: RasterizationOptions,
     ) -> Result<RectI, GlyphLoadingError> {
         let typographic_bounds = self.typographic_bounds(glyph_id)?;
-        let mut typographic_raster_bounds =
+        let typographic_raster_bounds =
             typographic_bounds * (point_size / self.metrics().units_per_em as f32);
-        typographic_raster_bounds.set_origin_y(
+
+        // Translate the origin to "origin is top left" coordinate system.
+        let new_origin = Vector2F::new(
+            typographic_raster_bounds.origin_x(),
             -typographic_raster_bounds.origin_y() - typographic_raster_bounds.height(),
         );
+        let typographic_raster_bounds = RectF::new(new_origin, typographic_raster_bounds.size());
         Ok((transform * typographic_raster_bounds).round_out().to_i32())
     }
 
