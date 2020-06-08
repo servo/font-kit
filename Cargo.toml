@@ -58,7 +58,7 @@ core-text = "15"
 freetype = "^0.5.1"
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
-servo-fontconfig = "0.4"
+servo-fontconfig = "0.5"
 
 [target.'cfg(not(any(target_arch = "wasm32", target_family = "windows", target_os = "android")))'.dependencies]
 dirs = "2.0"
