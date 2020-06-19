@@ -41,7 +41,7 @@ where
     }
 
     #[inline]
-    pub(crate) fn from_handle(family_handle: &FamilyHandle) -> Result<Family<F>, FontLoadingError> {
+    pub fn from_handle(family_handle: &FamilyHandle) -> Result<Family<F>, FontLoadingError> {
         Family::from_font_handles(family_handle.fonts.iter())
     }
 
