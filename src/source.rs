@@ -143,8 +143,9 @@ pub trait Source {
     ) -> Result<Vec<Properties>, SelectionError> {
         let mut fields = vec![];
         for font_handle in family.fonts() {
-            if let Ok(font) = Font::from_handle(font_handle) {
-                fields.push(font.properties())
+            match Font::from_handle(font_handle) {
+                Ok(font) => fields.push(font.properties()),
+                Err(e) => log::warn!("Error loading font from handle: {:?}", e),
             }
         }
         Ok(fields)

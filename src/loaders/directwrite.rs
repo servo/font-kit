@@ -731,6 +731,13 @@ impl Loader for Font {
         Font::from_file(file, font_index)
     }
 
+    fn from_path<P>(path: P, font_index: u32) -> Result<Self, FontLoadingError>
+    where
+        P: AsRef<Path>,
+    {
+        Font::from_path(path, font_index)
+    }
+
     #[inline]
     unsafe fn from_native_font(native_font: Self::NativeFont) -> Self {
         Font::from_native_font(native_font)
