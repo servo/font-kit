@@ -9,6 +9,7 @@ matrix:
     - os: windows
     - rust: nightly
       name: minimal-versions
+      before_script: ~
       script:
         - cargo -Z minimal-versions build --verbose
 rust:
