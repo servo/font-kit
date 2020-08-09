@@ -258,7 +258,15 @@ impl Font {
             .get_glyph_indices(&chars)
             .into_iter()
             .next()
-            .map(|g| g as u32)
+            .and_then(|g| {
+                // 0 means the char is not present in the font per
+                // https://docs.microsoft.com/en-us/windows/win32/api/dwrite/nf-dwrite-idwritefontface-getglyphindices
+                if g != 0 {
+                    Some(g as u32)
+                } else {
+                    None
+                }
+            })
     }
 
     /// Returns the number of glyphs in the font.
