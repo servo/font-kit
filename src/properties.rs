@@ -13,7 +13,10 @@
 //! Much of the documentation in this modules comes from the CSS 3 Fonts specification:
 //! https://drafts.csswg.org/css-fonts-3/
 
-use std::fmt::{self, Debug, Display, Formatter};
+use std::{
+    fmt::{self, Debug, Display, Formatter},
+    hash::{Hash, Hasher},
+};
 
 /// Properties that specify which font in a family to use: e.g. style, weight, and stretchiness.
 ///
@@ -21,7 +24,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 ///
 ///     # use font_kit::properties::{Properties, Style};
 ///     println!("{:?}", Properties::new().style(Style::Italic));
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
 pub struct Properties {
     /// The font style, as defined in CSS.
     pub style: Style,
@@ -62,7 +65,7 @@ impl Properties {
 }
 
 /// Allows italic or oblique faces to be selected.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Hash)]
 pub enum Style {
     /// A face that is neither italic not obliqued.
     Normal,
@@ -95,6 +98,14 @@ impl Default for Weight {
         Weight::NORMAL
     }
 }
+
+impl Hash for Weight {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u32(u32::from_be_bytes(self.0.to_be_bytes()));
+    }
+}
+
+impl Eq for Weight {}
 
 impl Weight {
     /// Thin weight (100), the thinnest value.
@@ -129,6 +140,14 @@ impl Default for Stretch {
         Stretch::NORMAL
     }
 }
+
+impl Hash for Stretch {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u32(u32::from_be_bytes(self.0.to_be_bytes()));
+    }
+}
+
+impl Eq for Stretch {}
 
 impl Stretch {
     /// Ultra-condensed width (50%), the narrowest possible.
