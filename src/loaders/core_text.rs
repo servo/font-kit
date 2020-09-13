@@ -11,6 +11,7 @@
 //! A loader that uses Apple's Core Text API to load and rasterize fonts.
 
 use byteorder::{BigEndian, ReadBytesExt};
+use core_foundation::data::CFData;
 use core_graphics::base::{kCGImageAlphaPremultipliedLast, CGFloat};
 use core_graphics::color_space::CGColorSpace;
 use core_graphics::context::{CGContext, CGTextDrawingMode};
@@ -76,16 +77,17 @@ impl Font {
         font_index: u32,
     ) -> Result<Font, FontLoadingError> {
         // Sadly, there's no API to load OpenType collections on macOS, I don't believe…
-        if font_is_collection(&**font_data) {
+        if font_is_collection(&*font_data) {
             let mut new_font_data = (*font_data).clone();
             unpack_otc_font(&mut new_font_data, font_index)?;
             font_data = Arc::new(new_font_data);
         }
 
-        let data_provider = CGDataProvider::from_buffer(font_data.clone());
-        let core_graphics_font =
-            CGFont::from_data_provider(data_provider).map_err(|_| FontLoadingError::Parse)?;
-        let core_text_font = core_text::font::new_from_CGFont(&core_graphics_font, 16.0);
+        let core_text_font = match core_text::font::new_from_buffer(&*font_data) {
+            Ok(ct_font) => ct_font,
+            Err(_) => return Err(FontLoadingError::Parse),
+        };
+
         Ok(Font {
             core_text_font,
             font_data: FontData::Memory(font_data),
@@ -158,8 +160,7 @@ impl Font {
         if let Ok(font_count) = read_number_of_fonts_from_otc_header(&font_data) {
             return Ok(FileType::Collection(font_count));
         }
-        let data_provider = CGDataProvider::from_buffer(font_data);
-        match CGFont::from_data_provider(data_provider) {
+        match core_text::font::new_from_buffer(&*font_data) {
             Ok(_) => Ok(FileType::Single),
             Err(_) => Err(FontLoadingError::Parse),
         }
@@ -174,8 +175,7 @@ impl Font {
             return Ok(FileType::Collection(font_count));
         }
 
-        let data_provider = CGDataProvider::from_buffer(font_data.clone());
-        match CGFont::from_data_provider(data_provider) {
+        match core_text::font::new_from_buffer(&*font_data) {
             Ok(_) => Ok(FileType::Single),
             Err(_) => Err(FontLoadingError::Parse),
         }
