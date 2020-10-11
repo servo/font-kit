@@ -21,7 +21,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 ///
 ///     # use font_kit::properties::{Properties, Style};
 ///     println!("{:?}", Properties::new().style(Style::Italic));
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Hash)]
 pub struct Properties {
     /// The font style, as defined in CSS.
     pub style: Style,
