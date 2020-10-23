@@ -19,6 +19,7 @@ use crate::family_name::FamilyName;
 use crate::handle::Handle;
 use crate::properties::Properties;
 use crate::source::Source;
+use std::ops::Index;
 
 /// A source that encapsulates multiple sources and allows them to be queried as a group.
 ///
@@ -111,5 +112,13 @@ impl Source for MultiSource {
     #[inline]
     fn select_by_postscript_name(&self, postscript_name: &str) -> Result<Handle, SelectionError> {
         self.select_by_postscript_name(postscript_name)
+    }
+}
+
+impl Index<usize> for MultiSource {
+    type Output = dyn Source;
+
+    fn index(&self, idx: usize) -> &Self::Output {
+        &*self.subsources[idx]
     }
 }
