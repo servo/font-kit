@@ -52,10 +52,10 @@ impl MemSource {
     /// Note that adding fonts to an existing `MemSource` is slower than creating a new one from a
     /// `Handle` iterator, since this method sorts after every addition, rather than once at the
     /// end.
-    pub fn add_font(&mut self, font: Handle) -> Result<(), FontLoadingError> {
+    pub fn add_font(&mut self, handle: Handle) -> Result<(), FontLoadingError> {
         let font = Font::from_handle(&handle)?;
         if let Some(postscript_name) = font.postscript_name() {
-            families.push(FamilyEntry {
+            self.families.push(FamilyEntry {
                 family_name: font.family_name(),
                 postscript_name: postscript_name,
                 font: handle,
