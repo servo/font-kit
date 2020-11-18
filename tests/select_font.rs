@@ -33,7 +33,16 @@ macro_rules! match_handle {
                     font_index, $index
                 );
             }
-            _ => unreachable!(),
+            Handle::Memory {
+                bytes: _,
+                font_index,
+            } => {
+                assert_eq!(
+                    font_index, $index,
+                    "expecting font index {} not {}",
+                    font_index, $index
+                );
+            }
         }
     };
 }
