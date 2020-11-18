@@ -30,6 +30,8 @@ use crate::loaders::core_text::{self as core_text_loader, FONT_WEIGHT_MAPPING};
 use crate::properties::{Properties, Stretch, Weight};
 use crate::source::Source;
 use crate::utils;
+use std::fs::File;
+use std::sync::Arc;
 
 /// A source that contains the installed fonts on macOS.
 #[allow(missing_debug_implementations)]
@@ -160,18 +162,32 @@ fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Handle {
     let font_path = Path::new(&descriptor.font_path().unwrap()).to_owned();
     if let Ok(FileType::Collection(font_count)) = Font::analyze_path(font_path.clone()) {
         let postscript_name = descriptor.font_name();
+
+        let mut file = if let Ok(file) = File::open(font_path.clone()) {
+            file
+        } else {
+            return Handle::from_path(font_path, 0);
+        };
+
+        let font_data = if let Ok(font_data) = utils::slurp_file(&mut file) {
+            Arc::new(font_data)
+        } else {
+            return Handle::from_path(font_path, 0);
+        };
+
         for font_index in 0..font_count {
-            let font_handle = Handle::from_path(font_path.clone(), font_index);
-            if let Ok(font) = Font::from_handle(&font_handle) {
+            if let Ok(font) = Font::from_bytes(Arc::clone(&font_data), font_index) {
                 if let Some(font_postscript_name) = font.postscript_name() {
                     if postscript_name == font_postscript_name {
-                        return font_handle;
+                        return Handle::from_memory(font_data, font_index);
                     }
                 }
             }
         }
+        Handle::from_memory(font_data, 0)
+    } else {
+        Handle::from_path(font_path, 0)
     }
-    Handle::from_path(font_path, 0)
 }
 
 #[cfg(test)]
