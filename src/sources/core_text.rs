@@ -32,6 +32,7 @@ use crate::source::Source;
 use crate::utils;
 use std::fs::File;
 use std::sync::Arc;
+use std::collections::HashMap;
 
 /// A source that contains the installed fonts on macOS.
 #[allow(missing_debug_implementations)]
@@ -146,9 +147,45 @@ fn create_handles_from_core_text_collection(
 ) -> Result<Vec<Handle>, SelectionError> {
     let mut fonts = vec![];
     if let Some(descriptors) = collection.get_descriptors() {
-        for index in 0..descriptors.len() {
+        let mut font_data = HashMap::new();
+
+        'outer: for index in 0..descriptors.len() {
             let descriptor = descriptors.get(index).unwrap();
-            fonts.push(create_handle_from_descriptor(&*descriptor));
+            let postscript_name = descriptor.font_name();
+            let font_path = descriptor.font_path().unwrap();
+
+            let data = if let Some(data) = font_data.get(&font_path) {
+                Arc::clone(data)
+            } else {
+                let mut file = if let Ok(file) = File::open(&font_path) {
+                    file
+                } else {
+                    break;
+                };
+                let data = if let Ok(data) = utils::slurp_file(&mut file) {
+                    Arc::new(data)
+                } else {
+                    break;
+                };
+                font_data.insert(font_path.clone(), Arc::clone(&data));
+                data
+            };
+
+            if let Ok(FileType::Collection(font_count)) = Font::analyze_path(font_path) {
+                for font_index in 0..font_count {
+                    if let Ok(font) = Font::from_bytes(Arc::clone(&data), font_index) {
+                        if let Some(font_postscript_name) = font.postscript_name() {
+                            if postscript_name == font_postscript_name {
+                                fonts.push(Handle::from_memory(data, font_index));
+                                break 'outer;
+                            }
+                        }
+                    }
+                }
+                fonts.push(Handle::from_memory(data, 0));
+            } else {
+                fonts.push(Handle::from_memory(data, 0));
+            }
         }
     }
     if fonts.is_empty() {
