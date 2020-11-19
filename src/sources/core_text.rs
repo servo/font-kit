@@ -30,9 +30,9 @@ use crate::loaders::core_text::{self as core_text_loader, FONT_WEIGHT_MAPPING};
 use crate::properties::{Properties, Stretch, Weight};
 use crate::source::Source;
 use crate::utils;
+use std::collections::HashMap;
 use std::fs::File;
 use std::sync::Arc;
-use std::collections::HashMap;
 
 /// A source that contains the installed fonts on macOS.
 #[allow(missing_debug_implementations)]
