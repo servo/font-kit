@@ -34,17 +34,39 @@ impl MemSource {
     {
         let mut families = vec![];
         for handle in fonts {
-            let font = Font::from_handle(&handle)?;
-            if let Some(postscript_name) = font.postscript_name() {
-                families.push(FamilyEntry {
-                    family_name: font.family_name(),
-                    postscript_name: postscript_name,
-                    font: handle,
-                })
-            }
+            add_font(handle, &mut families)?;
         }
         families.sort_by(|a, b| a.family_name.cmp(&b.family_name));
         Ok(MemSource { families })
+    }
+
+    /// Add an existing font handle to a `MemSource`.
+    ///
+    /// Note that adding fonts to an existing `MemSource` is slower than creating a new one from a
+    /// `Handle` iterator, since this method sorts after every addition, rather than once at the
+    /// end.
+    pub fn add_font(&mut self, handle: Handle) -> Result<(), FontLoadingError> {
+        add_font(handle, &mut self.families)?;
+        self.families
+            .sort_by(|a, b| a.family_name.cmp(&b.family_name));
+        Ok(())
+    }
+
+    /// Add a number of existing font handles to a `MemSource`.
+    ///
+    /// Note that adding fonts to an existing `MemSource` is slower than creating a new one from a
+    /// `Handle` iterator, because extra unnecessary sorting with occur with every call to this
+    /// method.
+    pub fn add_fonts(
+        &mut self,
+        handles: impl Iterator<Item = Handle>,
+    ) -> Result<(), FontLoadingError> {
+        for handle in handles {
+            add_font(handle, &mut self.families)?;
+        }
+        self.families
+            .sort_by(|a, b| a.family_name.cmp(&b.family_name));
+        Ok(())
     }
 
     /// Returns paths of all fonts installed on the system.
@@ -143,6 +165,19 @@ impl Source for MemSource {
     fn select_by_postscript_name(&self, postscript_name: &str) -> Result<Handle, SelectionError> {
         self.select_by_postscript_name(postscript_name)
     }
+}
+
+/// Adds a font, but doesn't sort
+fn add_font(handle: Handle, families: &mut Vec<FamilyEntry>) -> Result<(), FontLoadingError> {
+    let font = Font::from_handle(&handle)?;
+    if let Some(postscript_name) = font.postscript_name() {
+        families.push(FamilyEntry {
+            family_name: font.family_name(),
+            postscript_name: postscript_name,
+            font: handle,
+        })
+    }
+    Ok(())
 }
 
 struct FamilyEntry {
