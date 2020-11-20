@@ -160,12 +160,12 @@ fn create_handles_from_core_text_collection(
                 let mut file = if let Ok(file) = File::open(&font_path) {
                     file
                 } else {
-                    break;
+                    continue;
                 };
                 let data = if let Ok(data) = utils::slurp_file(&mut file) {
                     Arc::new(data)
                 } else {
-                    break;
+                    continue;
                 };
                 font_data.insert(font_path.clone(), Arc::clone(&data));
                 data
@@ -177,7 +177,7 @@ fn create_handles_from_core_text_collection(
                         if let Some(font_postscript_name) = font.postscript_name() {
                             if postscript_name == font_postscript_name {
                                 fonts.push(Handle::from_memory(data, font_index));
-                                break 'outer;
+                                continue 'outer;
                             }
                         }
                     }
