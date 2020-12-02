@@ -171,7 +171,7 @@ fn create_handles_from_core_text_collection(
                 data
             };
 
-            if let Ok(FileType::Collection(font_count)) = Font::analyze_path(font_path) {
+            if let Ok(FileType::Collection(font_count)) = Font::analyze_bytes(Arc::clone(&data)) {
                 for font_index in 0..font_count {
                     if let Ok(font) = Font::from_bytes(Arc::clone(&data), font_index) {
                         if let Some(font_postscript_name) = font.postscript_name() {
