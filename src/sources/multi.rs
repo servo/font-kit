@@ -19,7 +19,7 @@ use crate::family_name::FamilyName;
 use crate::handle::Handle;
 use crate::properties::Properties;
 use crate::source::Source;
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 
 /// A source that encapsulates multiple sources and allows them to be queried as a group.
 ///
@@ -120,5 +120,11 @@ impl Index<usize> for MultiSource {
 
     fn index(&self, idx: usize) -> &Self::Output {
         &*self.subsources[idx]
+    }
+}
+
+impl IndexMut<usize> for MultiSource {
+    fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
+        &mut *self.subsources[idx]
     }
 }
