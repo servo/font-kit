@@ -14,6 +14,7 @@
 //!
 //! This is the native source on Android.
 
+use std::any::Any;
 use std::fs::File;
 use std::path::PathBuf;
 use walkdir::WalkDir;
@@ -140,6 +141,16 @@ impl Source for FsSource {
 
     fn select_by_postscript_name(&self, postscript_name: &str) -> Result<Handle, SelectionError> {
         self.select_by_postscript_name(postscript_name)
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_mut_any(&mut self) -> &mut dyn Any {
+        self
     }
 }
 

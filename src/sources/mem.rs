@@ -17,6 +17,7 @@ use crate::font::Font;
 use crate::handle::Handle;
 use crate::properties::Properties;
 use crate::source::Source;
+use std::any::Any;
 
 /// A source that keeps fonts in memory.
 #[allow(missing_debug_implementations)]
@@ -164,6 +165,16 @@ impl Source for MemSource {
 
     fn select_by_postscript_name(&self, postscript_name: &str) -> Result<Handle, SelectionError> {
         self.select_by_postscript_name(postscript_name)
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_mut_any(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
