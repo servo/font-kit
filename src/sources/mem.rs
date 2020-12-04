@@ -48,14 +48,16 @@ impl MemSource {
 
     /// Add an existing font handle to a `MemSource`.
     ///
+    /// Returns the font that was just added.
+    ///
     /// Note that adding fonts to an existing `MemSource` is slower than creating a new one from a
     /// `Handle` iterator, since this method sorts after every addition, rather than once at the
     /// end.
-    pub fn add_font(&mut self, handle: Handle) -> Result<(), FontLoadingError> {
-        add_font(handle, &mut self.families)?;
+    pub fn add_font(&mut self, handle: Handle) -> Result<Font, FontLoadingError> {
+        let font = add_font(handle, &mut self.families)?;
         self.families
             .sort_by(|a, b| a.family_name.cmp(&b.family_name));
-        Ok(())
+        Ok(font)
     }
 
     /// Add a number of existing font handles to a `MemSource`.
@@ -183,8 +185,8 @@ impl Source for MemSource {
     }
 }
 
-/// Adds a font, but doesn't sort
-fn add_font(handle: Handle, families: &mut Vec<FamilyEntry>) -> Result<(), FontLoadingError> {
+/// Adds a font, but doesn't sort. Returns the font that was created to check for validity.
+fn add_font(handle: Handle, families: &mut Vec<FamilyEntry>) -> Result<Font, FontLoadingError> {
     let font = Font::from_handle(&handle)?;
     if let Some(postscript_name) = font.postscript_name() {
         families.push(FamilyEntry {
@@ -193,7 +195,7 @@ fn add_font(handle: Handle, families: &mut Vec<FamilyEntry>) -> Result<(), FontL
             font: handle,
         })
     }
-    Ok(())
+    Ok(font)
 }
 
 struct FamilyEntry {
