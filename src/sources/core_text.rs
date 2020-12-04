@@ -17,8 +17,12 @@ use core_foundation::string::CFString;
 use core_text::font_collection::{self, CTFontCollection};
 use core_text::font_descriptor::{self, CTFontDescriptor};
 use core_text::font_manager;
+use std::any::Any;
+use std::collections::HashMap;
 use std::f32;
+use std::fs::File;
 use std::path::Path;
+use std::sync::Arc;
 
 use crate::error::SelectionError;
 use crate::family_handle::FamilyHandle;
@@ -30,9 +34,6 @@ use crate::loaders::core_text::{self as core_text_loader, FONT_WEIGHT_MAPPING};
 use crate::properties::{Properties, Stretch, Weight};
 use crate::source::Source;
 use crate::utils;
-use std::collections::HashMap;
-use std::fs::File;
-use std::sync::Arc;
 
 /// A source that contains the installed fonts on macOS.
 #[allow(missing_debug_implementations)]
@@ -125,6 +126,16 @@ impl Source for CoreTextSource {
 
     fn select_by_postscript_name(&self, postscript_name: &str) -> Result<Handle, SelectionError> {
         self.select_by_postscript_name(postscript_name)
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_mut_any(&mut self) -> &mut dyn Any {
+        self
     }
 }
 

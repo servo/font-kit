@@ -19,7 +19,12 @@ use crate::family_name::FamilyName;
 use crate::handle::Handle;
 use crate::properties::Properties;
 use crate::source::Source;
-use std::ops::{Index, IndexMut};
+use std::{
+    any::Any,
+    fmt,
+    ops::{Index, IndexMut},
+    slice,
+};
 
 /// A source that encapsulates multiple sources and allows them to be queried as a group.
 ///
@@ -91,6 +96,32 @@ impl MultiSource {
     ) -> Result<Handle, SelectionError> {
         <Self as Source>::select_best_match(self, family_names, properties)
     }
+
+    /// Returns an iterator over the contained sources.
+    #[inline]
+    pub fn iter<'a>(&'a self) -> MultiIter<'a> {
+        MultiIter(self.subsources.iter())
+    }
+
+    /// Returns an iterator over the contained sources with mutable access.
+    #[inline]
+    pub fn iter_mut<'a>(&'a mut self) -> MultiIterMut<'a> {
+        MultiIterMut(self.subsources.iter_mut())
+    }
+
+    /// A convenience method to get the first source with the given type.
+    ///
+    /// Returns `None` if no source of the given type was found.
+    pub fn find_source<T: Source + 'static>(&self) -> Option<&T> {
+        self.iter().find_map(|v| v.as_any().downcast_ref())
+    }
+
+    /// A convenience method to get the first source with the given type.
+    ///
+    /// Returns `None` if no source of the given type was found.
+    pub fn find_source_mut<T: Source + 'static>(&mut self) -> Option<&mut T> {
+        self.iter_mut().find_map(|v| v.as_mut_any().downcast_mut())
+    }
 }
 
 impl Source for MultiSource {
@@ -113,6 +144,14 @@ impl Source for MultiSource {
     fn select_by_postscript_name(&self, postscript_name: &str) -> Result<Handle, SelectionError> {
         self.select_by_postscript_name(postscript_name)
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 impl Index<usize> for MultiSource {
@@ -126,5 +165,39 @@ impl Index<usize> for MultiSource {
 impl IndexMut<usize> for MultiSource {
     fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
         &mut *self.subsources[idx]
+    }
+}
+
+/// An iterator over the sources in a [`MultiSource`].
+pub struct MultiIter<'a>(slice::Iter<'a, Box<dyn Source>>);
+
+impl<'a> Iterator for MultiIter<'a> {
+    type Item = &'a dyn Source;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|v| &**v)
+    }
+}
+
+impl fmt::Debug for MultiIter<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("MultiIter").finish()
+    }
+}
+
+/// An iterator over the mutable sources in a [`MultiSource`].
+pub struct MultiIterMut<'a>(slice::IterMut<'a, Box<dyn Source>>);
+
+impl<'a> Iterator for MultiIterMut<'a> {
+    type Item = &'a mut dyn Source;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|v| &mut **v)
+    }
+}
+
+impl fmt::Debug for MultiIterMut<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("MultiIterMut").finish()
     }
 }

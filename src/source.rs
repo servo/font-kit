@@ -151,4 +151,12 @@ pub trait Source: Any {
         }
         Ok(fields)
     }
+
+    /// Accesses this `Source` as `Any`, which allows downcasting back to a concrete type from a
+    /// trait object.
+    fn as_any(&self) -> &dyn Any;
+
+    /// Accesses this `Source` as `Any`, which allows downcasting back to a concrete type from a
+    /// trait object.
+    fn as_mut_any(&mut self) -> &mut dyn Any;
 }

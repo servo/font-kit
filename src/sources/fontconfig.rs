@@ -21,6 +21,7 @@ use crate::family_name::FamilyName;
 use crate::handle::Handle;
 use crate::properties::Properties;
 use crate::source::Source;
+use std::any::Any;
 
 /// A source that contains the fonts installed on the system, as reported by the Fontconfig
 /// library.
@@ -226,6 +227,16 @@ impl Source for FontconfigSource {
     #[inline]
     fn select_by_postscript_name(&self, postscript_name: &str) -> Result<Handle, SelectionError> {
         self.select_by_postscript_name(postscript_name)
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_mut_any(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
