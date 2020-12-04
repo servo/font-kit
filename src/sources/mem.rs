@@ -26,6 +26,11 @@ pub struct MemSource {
 }
 
 impl MemSource {
+    /// Creates a new empty memory source.
+    pub fn empty() -> MemSource {
+        MemSource { families: vec![] }
+    }
+
     /// Creates a new memory source that contains the given set of font handles.
     ///
     /// The fonts referenced by the handles are eagerly loaded into memory.
