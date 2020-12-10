@@ -18,6 +18,7 @@ use crate::font::Font;
 use crate::handle::Handle;
 use crate::matching;
 use crate::properties::Properties;
+use std::any::Any;
 
 #[cfg(all(
     any(target_os = "macos", target_os = "ios"),
@@ -68,7 +69,7 @@ const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "fantasy";
 /// A database of installed fonts that can be queried.
 ///
 /// This trait is object-safe.
-pub trait Source {
+pub trait Source: Any {
     /// Returns paths of all fonts installed on the system.
     fn all_fonts(&self) -> Result<Vec<Handle>, SelectionError>;
 
@@ -143,10 +144,19 @@ pub trait Source {
     ) -> Result<Vec<Properties>, SelectionError> {
         let mut fields = vec![];
         for font_handle in family.fonts() {
-            if let Ok(font) = Font::from_handle(font_handle) {
-                fields.push(font.properties())
+            match Font::from_handle(font_handle) {
+                Ok(font) => fields.push(font.properties()),
+                Err(e) => log::warn!("Error loading font from handle: {:?}", e),
             }
         }
         Ok(fields)
     }
+
+    /// Accesses this `Source` as `Any`, which allows downcasting back to a concrete type from a
+    /// trait object.
+    fn as_any(&self) -> &dyn Any;
+
+    /// Accesses this `Source` as `Any`, which allows downcasting back to a concrete type from a
+    /// trait object.
+    fn as_mut_any(&mut self) -> &mut dyn Any;
 }

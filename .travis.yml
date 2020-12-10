@@ -1,10 +1,17 @@
 language: rust
+notifications:
+  webhooks: http://build.servo.org:54856/travis
 matrix:
   include:
     - os: linux
       dist: xenial
     - os: osx
     - os: windows
+    - rust: nightly
+      name: minimal-versions
+      before_script: ~
+      script:
+        - cargo -Z minimal-versions build --verbose
 rust:
   - stable
 install:

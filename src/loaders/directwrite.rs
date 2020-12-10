@@ -258,7 +258,15 @@ impl Font {
             .get_glyph_indices(&chars)
             .into_iter()
             .next()
-            .map(|g| g as u32)
+            .and_then(|g| {
+                // 0 means the char is not present in the font per
+                // https://docs.microsoft.com/en-us/windows/win32/api/dwrite/nf-dwrite-idwritefontface-getglyphindices
+                if g != 0 {
+                    Some(g as u32)
+                } else {
+                    None
+                }
+            })
     }
 
     /// Returns the number of glyphs in the font.
@@ -635,7 +643,7 @@ impl Font {
         };
         let text_analysis = dwrote::TextAnalysisSource::from_text_and_number_subst(
             Box::new(text_analysis_source),
-            text_utf16,
+            text_utf16.into(),
             number_subst,
         );
         let sys_fallback = sys_fallback.unwrap();
@@ -729,6 +737,13 @@ impl Loader for Font {
     #[inline]
     fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
         Font::from_file(file, font_index)
+    }
+
+    fn from_path<P>(path: P, font_index: u32) -> Result<Self, FontLoadingError>
+    where
+        P: AsRef<Path>,
+    {
+        Font::from_path(path, font_index)
     }
 
     #[inline]

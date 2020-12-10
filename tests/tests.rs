@@ -17,7 +17,7 @@ use font_kit::font::Font;
 use font_kit::hinting::HintingOptions;
 use font_kit::outline::{Contour, Outline, OutlineBuilder, PointFlags};
 use font_kit::properties::{Properties, Stretch, Weight};
-use pathfinder_geometry::rect::RectF;
+use pathfinder_geometry::rect::{RectF, RectI};
 use pathfinder_geometry::transform2d::Transform2F;
 use pathfinder_geometry::vector::{Vector2F, Vector2I};
 use std::fs::File;
@@ -442,6 +442,32 @@ pub fn get_empty_glyph_outline() {
 
     let outline = outline_builder.into_outline();
     assert_eq!(outline, Outline::new());
+}
+
+// https://github.com/servo/font-kit/issues/141
+#[test]
+pub fn get_glyph_raster_bounds() {
+    let mut file = File::open(FILE_PATH_INCONSOLATA_TTF).unwrap();
+    let font = Font::from_file(&mut file, 0).unwrap();
+    let glyph = font.glyph_for_char('J').expect("No glyph for char!");
+    let transform = Transform2F::default();
+    let size = 32.0;
+    let hinting_options = HintingOptions::None;
+    let rasterization_options = RasterizationOptions::GrayscaleAa;
+    #[cfg(all(not(target_family = "windows")))]
+    let expected_rect = RectI::new(Vector2I::new(1, -20), Vector2I::new(14, 21));
+    #[cfg(target_family = "windows")]
+    let expected_rect = RectI::new(Vector2I::new(1, -20), Vector2I::new(14, 20));
+    assert_eq!(
+        font.raster_bounds(
+            glyph,
+            size,
+            transform,
+            hinting_options,
+            rasterization_options
+        ),
+        Ok(expected_rect)
+    );
 }
 
 #[cfg(all(

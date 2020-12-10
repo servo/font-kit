@@ -12,6 +12,7 @@
 
 use dwrote::Font as DWriteFont;
 use dwrote::FontCollection as DWriteFontCollection;
+use std::any::Any;
 
 use crate::error::SelectionError;
 use crate::family_handle::FamilyHandle;
@@ -122,5 +123,15 @@ impl Source for DirectWriteSource {
     #[inline]
     fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
         self.select_family_by_name(family_name)
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_mut_any(&mut self) -> &mut dyn Any {
+        self
     }
 }

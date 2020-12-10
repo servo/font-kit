@@ -14,7 +14,6 @@ use byteorder::{BigEndian, ReadBytesExt};
 use core_graphics::base::{kCGImageAlphaPremultipliedLast, CGFloat};
 use core_graphics::color_space::CGColorSpace;
 use core_graphics::context::{CGContext, CGTextDrawingMode};
-use core_graphics::data_provider::CGDataProvider;
 use core_graphics::font::{CGFont, CGGlyph};
 use core_graphics::geometry::{CGAffineTransform, CGPoint, CGRect, CGSize};
 use core_graphics::geometry::{CG_AFFINE_TRANSFORM_IDENTITY, CG_ZERO_POINT, CG_ZERO_SIZE};
@@ -50,6 +49,11 @@ use crate::properties::{Properties, Stretch, Style, Weight};
 use crate::utils;
 
 const TTC_TAG: [u8; 4] = [b't', b't', b'c', b'f'];
+const OTTO_TAG: [u8; 4] = [b'O', b'T', b'T', b'O'];
+const OTTO_HEX: u32 = 0x4f54544f; // 'OTTO'
+const TRUE_HEX: u32 = 0x74727565; // 'true'
+const TYP1_HEX: u32 = 0x74797031; // 'typ1'
+const SFNT_HEX: u32 = 0x73666e74; // 'sfnt'
 
 #[allow(non_upper_case_globals)]
 const kCGImageAlphaOnly: u32 = 7;
@@ -76,16 +80,22 @@ impl Font {
         font_index: u32,
     ) -> Result<Font, FontLoadingError> {
         // Sadly, there's no API to load OpenType collections on macOS, I don't believe…
-        if font_is_collection(&**font_data) {
+        // If not otf/ttf or otc/ttc, we unpack it as data fork font.
+        if !font_is_single_otf(&*font_data) && !font_is_collection(&*font_data) {
+            let mut new_font_data = (*font_data).clone();
+            unpack_data_fork_font(&mut new_font_data)?;
+            font_data = Arc::new(new_font_data);
+        } else if font_is_collection(&*font_data) {
             let mut new_font_data = (*font_data).clone();
             unpack_otc_font(&mut new_font_data, font_index)?;
             font_data = Arc::new(new_font_data);
         }
 
-        let data_provider = CGDataProvider::from_buffer(font_data.clone());
-        let core_graphics_font =
-            CGFont::from_data_provider(data_provider).map_err(|_| FontLoadingError::Parse)?;
-        let core_text_font = core_text::font::new_from_CGFont(&core_graphics_font, 16.0);
+        let core_text_font = match core_text::font::new_from_buffer(&*font_data) {
+            Ok(ct_font) => ct_font,
+            Err(_) => return Err(FontLoadingError::Parse),
+        };
+
         Ok(Font {
             core_text_font,
             font_data: FontData::Memory(font_data),
@@ -158,8 +168,7 @@ impl Font {
         if let Ok(font_count) = read_number_of_fonts_from_otc_header(&font_data) {
             return Ok(FileType::Collection(font_count));
         }
-        let data_provider = CGDataProvider::from_buffer(font_data);
-        match CGFont::from_data_provider(data_provider) {
+        match core_text::font::new_from_buffer(&*font_data) {
             Ok(_) => Ok(FileType::Single),
             Err(_) => Err(FontLoadingError::Parse),
         }
@@ -174,8 +183,7 @@ impl Font {
             return Ok(FileType::Collection(font_count));
         }
 
-        let data_provider = CGDataProvider::from_buffer(font_data.clone());
-        match CGFont::from_data_provider(data_provider) {
+        match core_text::font::new_from_buffer(&*font_data) {
             Ok(_) => Ok(FileType::Single),
             Err(_) => Err(FontLoadingError::Parse),
         }
@@ -849,6 +857,58 @@ fn format_to_cg_color_space_and_image_format(format: Format) -> Option<(CGColorS
         )),
         Format::A8 => Some((CGColorSpace::create_device_gray(), kCGImageAlphaOnly)),
     }
+}
+
+fn font_is_single_otf(header: &[u8]) -> bool {
+    header.len() >= 4
+        && ((&header[..4]).read_u32::<BigEndian>().unwrap() == 0x00010000
+            || header[..4] == OTTO_TAG)
+}
+
+/// https://developer.apple.com/library/archive/documentation/mac/pdf/MoreMacintoshToolbox.pdf#page=151
+fn unpack_data_fork_font(data: &mut [u8]) -> Result<(), FontLoadingError> {
+    let data_offset = (&data[..]).read_u32::<BigEndian>()? as usize;
+    let map_offset = (&data[4..]).read_u32::<BigEndian>()? as usize;
+    let num_types = (&data[map_offset + 28..]).read_u16::<BigEndian>()? as usize + 1;
+
+    let mut font_data_offset = 0;
+    let mut font_data_len = 0;
+
+    let type_list_offset =
+        (&data[map_offset + 24..]).read_u16::<BigEndian>()? as usize + map_offset;
+    for i in 0..num_types {
+        let res_type = (&data[map_offset + 30 + i * 8..]).read_u32::<BigEndian>()?;
+
+        if res_type == SFNT_HEX {
+            let ref_list_offset =
+                (&data[map_offset + 30 + i * 8 + 6..]).read_u16::<BigEndian>()? as usize;
+            let res_data_offset =
+                (&data[type_list_offset + ref_list_offset + 5..]).read_u24::<BigEndian>()? as usize;
+            font_data_len =
+                (&data[data_offset + res_data_offset..]).read_u32::<BigEndian>()? as usize;
+            font_data_offset = data_offset + res_data_offset + 4;
+            let sfnt_version = (&data[font_data_offset..]).read_u32::<BigEndian>()?;
+
+            // TrueType outline, 'OTTO', 'true', 'typ1'
+            if sfnt_version == 0x00010000
+                || sfnt_version == OTTO_HEX
+                || sfnt_version == TRUE_HEX
+                || sfnt_version == TYP1_HEX
+            {
+                break;
+            }
+        }
+    }
+
+    if font_data_len == 0 {
+        return Err(FontLoadingError::Parse);
+    }
+
+    for offset in 0..font_data_len {
+        data[offset] = data[font_data_offset + offset];
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
