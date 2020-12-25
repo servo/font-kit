@@ -85,7 +85,7 @@ fn main() {
     let matches = get_args();
 
     let postscript_name = matches.value_of("POSTSCRIPT-NAME").unwrap();
-    let character = matches.value_of("GLYPH").unwrap().as_bytes()[0] as char;
+    let character = matches.value_of("GLYPH").unwrap().chars().next().unwrap();
     let size: f32 = matches.value_of("SIZE").unwrap().parse().unwrap();
 
     let (canvas_format, rasterization_options) = if matches.is_present("bilevel") {
