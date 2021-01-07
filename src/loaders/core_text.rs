@@ -11,6 +11,8 @@
 //! A loader that uses Apple's Core Text API to load and rasterize fonts.
 
 use byteorder::{BigEndian, ReadBytesExt};
+use core_foundation::array::CFArray;
+use core_foundation::string::CFString;
 use core_graphics::base::{kCGImageAlphaPremultipliedLast, CGFloat};
 use core_graphics::color_space::CGColorSpace;
 use core_graphics::context::{CGContext, CGTextDrawingMode};
@@ -19,9 +21,10 @@ use core_graphics::geometry::{CGAffineTransform, CGPoint, CGRect, CGSize};
 use core_graphics::geometry::{CG_AFFINE_TRANSFORM_IDENTITY, CG_ZERO_POINT, CG_ZERO_SIZE};
 use core_graphics::path::CGPathElementType;
 use core_text;
-use core_text::font::CTFont;
-use core_text::font_descriptor::kCTFontDefaultOrientation;
-use core_text::font_descriptor::{SymbolicTraitAccessors, TraitAccessors};
+use core_text::font::{cascade_list_for_languages, CTFont};
+use core_text::font_descriptor::{
+    kCTFontDefaultOrientation, SymbolicTraitAccessors, TraitAccessors,
+};
 use log::warn;
 use pathfinder_geometry::line_segment::LineSegment2F;
 use pathfinder_geometry::rect::{RectF, RectI};
@@ -42,7 +45,7 @@ use crate::error::{FontLoadingError, GlyphLoadingError};
 use crate::file_type::FileType;
 use crate::handle::Handle;
 use crate::hinting::HintingOptions;
-use crate::loader::{FallbackResult, Loader};
+use crate::loader::{FallbackFont, FallbackResult, Loader};
 use crate::metrics::Metrics;
 use crate::outline::OutlineSink;
 use crate::properties::{Properties, Stretch, Style, Weight};
@@ -586,12 +589,20 @@ impl Font {
 
     /// Get font fallback results for the given text and locale.
     ///
-    /// Note: this is currently just a stub implementation, a proper implementation
-    /// would use CTFontCopyDefaultCascadeListForLanguages.
-    fn get_fallbacks(&self, text: &str, _locale: &str) -> FallbackResult<Font> {
-        warn!("unsupported");
+    /// The `locale` argument is a language tag such as `"en-US"` or `"zh-Hans-CN"`.
+    fn get_fallbacks(&self, text: &str, locale: &str) -> FallbackResult<Font> {
+        let lang_pref_list = CFArray::from_CFTypes(&[CFString::new(locale)]);
+        let list = cascade_list_for_languages(&self.core_text_font, &lang_pref_list);
+        let fonts: Vec<_> = list
+            .iter()
+            .map(|descriptor| {
+                let ct_font = core_text::font::new_from_descriptor(&descriptor, 16.0);
+                let font = unsafe { Self::from_core_text_font(ct_font) };
+                FallbackFont { font, scale: 1.0 }
+            })
+            .collect();
         FallbackResult {
-            fonts: Vec::new(),
+            fonts,
             valid_len: text.len(),
         }
     }
