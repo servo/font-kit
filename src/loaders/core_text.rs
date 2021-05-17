@@ -14,6 +14,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use core_graphics::base::{kCGImageAlphaPremultipliedLast, CGFloat};
 use core_graphics::color_space::CGColorSpace;
 use core_graphics::context::{CGContext, CGTextDrawingMode};
+use core_graphics::data_provider::CGDataProvider;
 use core_graphics::font::{CGFont, CGGlyph};
 use core_graphics::geometry::{CGAffineTransform, CGPoint, CGRect, CGSize};
 use core_graphics::geometry::{CG_AFFINE_TRANSFORM_IDENTITY, CG_ZERO_POINT, CG_ZERO_SIZE};
@@ -91,11 +92,10 @@ impl Font {
             font_data = Arc::new(new_font_data);
         }
 
-        let core_text_font = match core_text::font::new_from_buffer(&*font_data) {
-            Ok(ct_font) => ct_font,
-            Err(_) => return Err(FontLoadingError::Parse),
-        };
-
+        let data_provider = CGDataProvider::from_buffer(font_data.clone());
+        let core_graphics_font =
+            CGFont::from_data_provider(data_provider).map_err(|_| FontLoadingError::Parse)?;
+        let core_text_font = core_text::font::new_from_CGFont(&core_graphics_font, 16.0);
         Ok(Font {
             core_text_font,
             font_data: FontData::Memory(font_data),
@@ -168,7 +168,8 @@ impl Font {
         if let Ok(font_count) = read_number_of_fonts_from_otc_header(&font_data) {
             return Ok(FileType::Collection(font_count));
         }
-        match core_text::font::new_from_buffer(&*font_data) {
+        let data_provider = CGDataProvider::from_buffer(font_data);
+        match CGFont::from_data_provider(data_provider) {
             Ok(_) => Ok(FileType::Single),
             Err(_) => Err(FontLoadingError::Parse),
         }
@@ -183,7 +184,8 @@ impl Font {
             return Ok(FileType::Collection(font_count));
         }
 
-        match core_text::font::new_from_buffer(&*font_data) {
+        let data_provider = CGDataProvider::from_buffer(font_data.clone());
+        match CGFont::from_data_provider(data_provider) {
             Ok(_) => Ok(FileType::Single),
             Err(_) => Err(FontLoadingError::Parse),
         }
