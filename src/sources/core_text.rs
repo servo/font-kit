@@ -21,7 +21,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::f32;
 use std::fs::File;
-use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::error::SelectionError;
@@ -95,7 +95,7 @@ impl CoreTextSource {
         let collection = font_collection::new_from_descriptors(&descriptors);
         match collection.get_descriptors() {
             None => Err(SelectionError::NotFound),
-            Some(descriptors) => Ok(create_handle_from_descriptor(&*descriptors.get(0).unwrap())),
+            Some(descriptors) => create_handle_from_descriptor(&*descriptors.get(0).unwrap()),
         }
     }
 
@@ -153,20 +153,25 @@ fn css_stretchiness_to_core_text_width(css_stretchiness: Stretch) -> f32 {
     0.25 * core_text_loader::piecewise_linear_find_index(css_stretchiness, &Stretch::MAPPING) - 1.0
 }
 
+#[derive(Clone)]
+struct FontDataInfo {
+    data: Arc<Vec<u8>>,
+    file_type: FileType,
+}
+
 fn create_handles_from_core_text_collection(
     collection: CTFontCollection,
 ) -> Result<Vec<Handle>, SelectionError> {
     let mut fonts = vec![];
     if let Some(descriptors) = collection.get_descriptors() {
-        let mut font_data = HashMap::new();
+        let mut font_data_info_cache: HashMap<PathBuf, FontDataInfo> = HashMap::new();
 
         'outer: for index in 0..descriptors.len() {
             let descriptor = descriptors.get(index).unwrap();
-            let postscript_name = descriptor.font_name();
             let font_path = descriptor.font_path().unwrap();
 
-            let data = if let Some(data) = font_data.get(&font_path) {
-                Arc::clone(data)
+            let data_info = if let Some(data_info) = font_data_info_cache.get(&font_path) {
+                data_info.clone()
             } else {
                 let mut file = if let Ok(file) = File::open(&font_path) {
                     file
@@ -178,24 +183,37 @@ fn create_handles_from_core_text_collection(
                 } else {
                     continue;
                 };
-                font_data.insert(font_path.clone(), Arc::clone(&data));
-                data
+
+                let file_type = match Font::analyze_bytes(Arc::clone(&data)) {
+                    Ok(file_type) => file_type,
+                    Err(_) => continue,
+                };
+
+                let data_info = FontDataInfo { data, file_type };
+
+                font_data_info_cache.insert(font_path.clone(), data_info.clone());
+
+                data_info
             };
 
-            if let Ok(FileType::Collection(font_count)) = Font::analyze_bytes(Arc::clone(&data)) {
-                for font_index in 0..font_count {
-                    if let Ok(font) = Font::from_bytes(Arc::clone(&data), font_index) {
-                        if let Some(font_postscript_name) = font.postscript_name() {
-                            if postscript_name == font_postscript_name {
-                                fonts.push(Handle::from_memory(data, font_index));
-                                continue 'outer;
+            match data_info.file_type {
+                FileType::Collection(font_count) => {
+                    let postscript_name = descriptor.font_name();
+                    for font_index in 0..font_count {
+                        if let Ok(font) = Font::from_bytes(Arc::clone(&data_info.data), font_index)
+                        {
+                            if let Some(font_postscript_name) = font.postscript_name() {
+                                if postscript_name == font_postscript_name {
+                                    fonts.push(Handle::from_memory(data_info.data, font_index));
+                                    continue 'outer;
+                                }
                             }
                         }
                     }
                 }
-                fonts.push(Handle::from_memory(data, 0));
-            } else {
-                fonts.push(Handle::from_memory(data, 0));
+                FileType::Single => {
+                    fonts.push(Handle::from_memory(data_info.data, 0));
+                }
             }
         }
     }
@@ -206,35 +224,38 @@ fn create_handles_from_core_text_collection(
     }
 }
 
-fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Handle {
-    let font_path = Path::new(&descriptor.font_path().unwrap()).to_owned();
-    if let Ok(FileType::Collection(font_count)) = Font::analyze_path(font_path.clone()) {
-        let postscript_name = descriptor.font_name();
+fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Result<Handle, SelectionError> {
+    let font_path = descriptor.font_path().unwrap();
 
-        let mut file = if let Ok(file) = File::open(font_path.clone()) {
-            file
-        } else {
-            return Handle::from_path(font_path, 0);
-        };
+    let mut file = if let Ok(file) = File::open(&font_path) {
+        file
+    } else {
+        return Err(SelectionError::CannotAccessSource);
+    };
 
-        let font_data = if let Ok(font_data) = utils::slurp_file(&mut file) {
-            Arc::new(font_data)
-        } else {
-            return Handle::from_path(font_path, 0);
-        };
+    let font_data = if let Ok(font_data) = utils::slurp_file(&mut file) {
+        Arc::new(font_data)
+    } else {
+        return Err(SelectionError::CannotAccessSource);
+    };
 
-        for font_index in 0..font_count {
-            if let Ok(font) = Font::from_bytes(Arc::clone(&font_data), font_index) {
-                if let Some(font_postscript_name) = font.postscript_name() {
-                    if postscript_name == font_postscript_name {
-                        return Handle::from_memory(font_data, font_index);
+    match Font::analyze_bytes(Arc::clone(&font_data)) {
+        Ok(FileType::Collection(font_count)) => {
+            let postscript_name = descriptor.font_name();
+            for font_index in 0..font_count {
+                if let Ok(font) = Font::from_bytes(Arc::clone(&font_data), font_index) {
+                    if let Some(font_postscript_name) = font.postscript_name() {
+                        if postscript_name == font_postscript_name {
+                            return Ok(Handle::from_memory(font_data, font_index));
+                        }
                     }
                 }
             }
+
+            Err(SelectionError::NotFound)
         }
-        Handle::from_memory(font_data, 0)
-    } else {
-        Handle::from_path(font_path, 0)
+        Ok(FileType::Single) => Ok(Handle::from_memory(font_data, 0)),
+        Err(_) => Err(SelectionError::CannotAccessSource),
     }
 }
 
