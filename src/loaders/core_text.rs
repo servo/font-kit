@@ -980,6 +980,23 @@ mod test {
             Stretch(1.7)
         );
     }
+
+    #[test]
+    fn test_piecewise_linear_find_index() {
+        assert_eq!(
+            super::piecewise_linear_find_index(0.4, &[0.1, 0.2, 0.3]),
+            3.
+        );
+        assert_eq!(super::piecewise_linear_find_index(0., &[0.1, 0.2, 0.3]), 0.);
+        assert_eq!(
+            super::piecewise_linear_find_index(0.2, &[0.1, 0.2, 0.3]),
+            1.
+        );
+        assert_eq!(
+            super::piecewise_linear_find_index(0.25, &[0.1, 0.2, 0.3]),
+            1.5
+        );
+    }
 }
 
 pub(crate) fn piecewise_linear_lookup(index: f32, mapping: &[f32]) -> f32 {
