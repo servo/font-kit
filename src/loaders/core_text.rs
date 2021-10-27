@@ -66,8 +66,8 @@ pub type NativeFont = CTFont;
 /// A loader that uses Apple's Core Text API to load and rasterize fonts.
 #[derive(Clone)]
 pub struct Font {
-    pub core_text_font: CTFont,
-    pub font_data: FontData,
+    core_text_font: CTFont,
+    font_data: FontData,
 }
 
 impl Font {
@@ -124,6 +124,15 @@ impl Font {
     /// Creates a font from a native API handle.
     pub unsafe fn from_native_font(core_text_font: NativeFont) -> Font {
         Font::from_core_text_font(core_text_font)
+    }
+
+    /// Creates a font object to allow an interface to all the font-kit functions
+    /// without loading it into the memory.
+    pub fn from_ct_font(ct_font: CTFont) -> Font {
+        Font {
+            core_text_font: ct_font,
+            font_data: FontData::Unavailable,
+        }
     }
 
     unsafe fn from_core_text_font(core_text_font: NativeFont) -> Font {
@@ -771,12 +780,9 @@ impl Debug for Font {
     }
 }
 
-/// Describes the font.
 #[derive(Debug, Clone)]
-pub enum FontData {
-    /// No available information
+enum FontData {
     Unavailable,
-    /// From bytes
     Memory(Arc<Vec<u8>>),
 }
 
