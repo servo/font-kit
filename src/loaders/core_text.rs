@@ -126,6 +126,17 @@ impl Font {
         Font::from_core_text_font(core_text_font)
     }
 
+    /// This is an edit made by Warp team. We should avoid using the provided font loading functions
+    /// in font-kit as they are extremely memory inefficient. This function instead creates a font
+    /// object with an existing CTFont to allow an interface to all the font-kit functions without
+    /// loading it into the memory.
+    pub fn from_ct_font(ct_font: CTFont) -> Font {
+        Font {
+            core_text_font: ct_font,
+            font_data: FontData::Unavailable,
+        }
+    }
+
     unsafe fn from_core_text_font(core_text_font: NativeFont) -> Font {
         let mut font_data = FontData::Unavailable;
         match core_text_font.url() {
