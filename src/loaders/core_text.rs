@@ -771,9 +771,12 @@ impl Debug for Font {
     }
 }
 
-#[derive(Clone)]
-enum FontData {
+/// Describes the font.
+#[derive(Debug, Clone)]
+pub enum FontData {
+    /// No available information
     Unavailable,
+    /// From bytes
     Memory(Arc<Vec<u8>>),
 }
 
