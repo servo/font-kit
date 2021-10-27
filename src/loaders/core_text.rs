@@ -780,7 +780,7 @@ impl Debug for Font {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 enum FontData {
     Unavailable,
     Memory(Arc<Vec<u8>>),
