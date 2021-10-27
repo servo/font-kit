@@ -66,8 +66,8 @@ pub type NativeFont = CTFont;
 /// A loader that uses Apple's Core Text API to load and rasterize fonts.
 #[derive(Clone)]
 pub struct Font {
-    core_text_font: CTFont,
-    font_data: FontData,
+    pub core_text_font: CTFont,
+    pub font_data: FontData,
 }
 
 impl Font {
