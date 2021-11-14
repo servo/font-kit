@@ -244,6 +244,10 @@ impl Font {
         self.core_text_font.symbolic_traits().is_monospace()
     }
 
+    pub fn is_emoji(&self) -> bool {
+        self.family_name() == "AppleColorEmoji" || self.family_name() == "Apple Color Emoji"
+    }
+
     /// Returns the values of various font properties, corresponding to those defined in CSS.
     pub fn properties(&self) -> Properties {
         let symbolic_traits = self.core_text_font.symbolic_traits();
@@ -561,20 +565,38 @@ impl Font {
 
         // CoreGraphics origin is in the bottom left. This makes behavior consistent.
         core_graphics_context.translate(0.0, canvas.size.y() as CGFloat);
-        core_graphics_context.set_font(&self.core_text_font.copy_to_CGFont());
-        core_graphics_context.set_font_size(point_size as CGFloat);
         core_graphics_context.set_text_drawing_mode(CGTextDrawingMode::CGTextFill);
-        let matrix = transform.matrix.0 * F32x4::new(1.0, -1.0, -1.0, 1.0);
-        core_graphics_context.set_text_matrix(&CGAffineTransform {
-            a: matrix.x() as CGFloat,
-            b: matrix.y() as CGFloat,
-            c: matrix.z() as CGFloat,
-            d: matrix.w() as CGFloat,
-            tx: transform.vector.x() as CGFloat,
-            ty: -transform.vector.y() as CGFloat,
-        });
+
         let origin = CGPoint::new(0.0, 0.0);
-        core_graphics_context.show_glyphs_at_positions(&[glyph_id as CGGlyph], &[origin]);
+        if self.is_emoji() {
+            core_graphics_context.set_text_matrix(&CG_AFFINE_TRANSFORM_IDENTITY);
+            core_graphics_context.concat_ctm(self.core_text_font.get_matrix());
+            let matrix = transform.matrix.0 * F32x4::new(1.0, -1.0, -1.0, 1.0);
+            core_graphics_context.concat_ctm(CGAffineTransform {
+                a: matrix.x() as CGFloat,
+                b: matrix.y() as CGFloat,
+                c: matrix.z() as CGFloat,
+                d: matrix.w() as CGFloat,
+                tx: transform.vector.x() as CGFloat,
+                ty: -transform.vector.y() as CGFloat,
+            });
+            self.core_text_font
+                .clone_with_font_size(point_size as CGFloat)
+                .draw_glyphs(&[glyph_id as CGGlyph], &[origin], core_graphics_context);
+        } else {
+            core_graphics_context.set_font(&self.core_text_font.copy_to_CGFont());
+            core_graphics_context.set_font_size(point_size as CGFloat);
+            let matrix = transform.matrix.0 * F32x4::new(1.0, -1.0, -1.0, 1.0);
+            core_graphics_context.set_text_matrix(&CGAffineTransform {
+                a: matrix.x() as CGFloat,
+                b: matrix.y() as CGFloat,
+                c: matrix.z() as CGFloat,
+                d: matrix.w() as CGFloat,
+                tx: transform.vector.x() as CGFloat,
+                ty: -transform.vector.y() as CGFloat,
+            });
+            core_graphics_context.show_glyphs_at_positions(&[glyph_id as CGGlyph], &[origin]);
+        }
 
         Ok(())
     }
