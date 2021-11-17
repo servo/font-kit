@@ -20,7 +20,7 @@ use core_graphics::geometry::{CG_AFFINE_TRANSFORM_IDENTITY, CG_ZERO_POINT, CG_ZE
 use core_graphics::path::CGPathElementType;
 use core_text;
 use core_text::font::CTFont;
-use core_text::font_descriptor::kCTFontDefaultOrientation;
+use core_text::font_descriptor::{kCTFontColorGlyphsTrait, kCTFontDefaultOrientation};
 use core_text::font_descriptor::{SymbolicTraitAccessors, TraitAccessors};
 use log::warn;
 use pathfinder_geometry::line_segment::LineSegment2F;
@@ -242,6 +242,18 @@ impl Font {
     #[inline]
     pub fn is_monospace(&self) -> bool {
         self.core_text_font.symbolic_traits().is_monospace()
+    }
+
+    /// Returns whether the given font family is an emoji font
+    /// Added by the Warp team for emoji support
+    pub fn is_emoji(&self) -> bool {
+        // Logic matches iterm's https://github.com/gnachman/iTerm2/blob/c52136b7c0bae545436be8d1441449f19e21faa1/sources/Metal/Support/iTermCharacterSource.m#L639
+        self.family_name() == "AppleColorEmoji" || self.family_name() == "Apple Color Emoji"
+    }
+
+    /// Returns whether the given font has colored glyphs
+    pub fn is_colored(&self) -> bool {
+        (self.core_text_font.symbolic_traits() & kCTFontColorGlyphsTrait) != 0
     }
 
     /// Returns the values of various font properties, corresponding to those defined in CSS.
@@ -561,20 +573,43 @@ impl Font {
 
         // CoreGraphics origin is in the bottom left. This makes behavior consistent.
         core_graphics_context.translate(0.0, canvas.size.y() as CGFloat);
-        core_graphics_context.set_font(&self.core_text_font.copy_to_CGFont());
-        core_graphics_context.set_font_size(point_size as CGFloat);
         core_graphics_context.set_text_drawing_mode(CGTextDrawingMode::CGTextFill);
+
         let matrix = transform.matrix.0 * F32x4::new(1.0, -1.0, -1.0, 1.0);
-        core_graphics_context.set_text_matrix(&CGAffineTransform {
-            a: matrix.x() as CGFloat,
-            b: matrix.y() as CGFloat,
-            c: matrix.z() as CGFloat,
-            d: matrix.w() as CGFloat,
-            tx: transform.vector.x() as CGFloat,
-            ty: -transform.vector.y() as CGFloat,
-        });
         let origin = CGPoint::new(0.0, 0.0);
-        core_graphics_context.show_glyphs_at_positions(&[glyph_id as CGGlyph], &[origin]);
+        if self.is_colored() {
+            // Note that emoji rendering requires a different rasterization path than
+            // normal glyph rendering.  The difference is that in the emoji case we
+            // need to call CTFont DrawGlyphs, as opposed to CGContext ShowGlyphsAtPositions.
+            // This is inspired by the iterm implementation here:
+            // https://github.com/gnachman/iTerm2/blob/c52136b7c0bae545436be8d1441449f19e21faa1/sources/Metal/Support/iTermCharacterSource.m#L830
+
+            core_graphics_context.set_text_matrix(&CG_AFFINE_TRANSFORM_IDENTITY);
+            core_graphics_context.concat_ctm(self.core_text_font.get_matrix());
+            core_graphics_context.concat_ctm(CGAffineTransform {
+                a: matrix.x() as CGFloat,
+                b: matrix.y() as CGFloat,
+                c: matrix.z() as CGFloat,
+                d: matrix.w() as CGFloat,
+                tx: transform.vector.x() as CGFloat,
+                ty: -transform.vector.y() as CGFloat,
+            });
+            self.core_text_font
+                .clone_with_font_size(point_size as CGFloat)
+                .draw_glyphs(&[glyph_id as CGGlyph], &[origin], core_graphics_context);
+        } else {
+            core_graphics_context.set_font(&self.core_text_font.copy_to_CGFont());
+            core_graphics_context.set_font_size(point_size as CGFloat);
+            core_graphics_context.set_text_matrix(&CGAffineTransform {
+                a: matrix.x() as CGFloat,
+                b: matrix.y() as CGFloat,
+                c: matrix.z() as CGFloat,
+                d: matrix.w() as CGFloat,
+                tx: transform.vector.x() as CGFloat,
+                ty: -transform.vector.y() as CGFloat,
+            });
+            core_graphics_context.show_glyphs_at_positions(&[glyph_id as CGGlyph], &[origin]);
+        }
 
         Ok(())
     }
