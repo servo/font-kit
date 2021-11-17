@@ -20,7 +20,7 @@ use core_graphics::geometry::{CG_AFFINE_TRANSFORM_IDENTITY, CG_ZERO_POINT, CG_ZE
 use core_graphics::path::CGPathElementType;
 use core_text;
 use core_text::font::CTFont;
-use core_text::font_descriptor::kCTFontDefaultOrientation;
+use core_text::font_descriptor::{kCTFontColorGlyphsTrait, kCTFontDefaultOrientation};
 use core_text::font_descriptor::{SymbolicTraitAccessors, TraitAccessors};
 use log::warn;
 use pathfinder_geometry::line_segment::LineSegment2F;
@@ -249,6 +249,11 @@ impl Font {
     pub fn is_emoji(&self) -> bool {
         // Logic matches iterm's https://github.com/gnachman/iTerm2/blob/c52136b7c0bae545436be8d1441449f19e21faa1/sources/Metal/Support/iTermCharacterSource.m#L639
         self.family_name() == "AppleColorEmoji" || self.family_name() == "Apple Color Emoji"
+    }
+
+    /// Returns whether the given font has colored glyphs
+    pub fn is_colored(&self) -> bool {
+        (self.core_text_font.symbolic_traits() & kCTFontColorGlyphsTrait) != 0
     }
 
     /// Returns the values of various font properties, corresponding to those defined in CSS.
@@ -572,7 +577,7 @@ impl Font {
 
         let matrix = transform.matrix.0 * F32x4::new(1.0, -1.0, -1.0, 1.0);
         let origin = CGPoint::new(0.0, 0.0);
-        if self.is_emoji() {
+        if self.is_colored() {
             // Note that emoji rendering requires a different rasterization path than
             // normal glyph rendering.  The difference is that in the emoji case we
             // need to call CTFont DrawGlyphs, as opposed to CGContext ShowGlyphsAtPositions.
