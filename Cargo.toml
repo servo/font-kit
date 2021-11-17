@@ -50,9 +50,13 @@ version = "0.3"
 features = ["dwrite", "minwindef", "sysinfoapi", "winbase", "winnt"]
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
-core-foundation = "0.9"
-core-graphics = "0.22"
-core-text = "19.1.0"
+# Note, this was changed by warp to point at our core foundation repo.
+core-foundation = {git = "https://github.com/warpdotdev/core-foundation-rs", rev = "e3ba932fef7eba84c23f51ee79e00954dbf338f5"}
+core-graphics = {git = "https://github.com/warpdotdev/core-foundation-rs", rev = "e3ba932fef7eba84c23f51ee79e00954dbf338f5"}
+core-text = {git = "https://github.com/warpdotdev/core-foundation-rs", rev = "e3ba932fef7eba84c23f51ee79e00954dbf338f5"}
+# core-foundation = "0.9"
+# core-graphics = "0.22"
+# core-text = "19.1.0"
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))'.dependencies]
 freetype = "0.7"

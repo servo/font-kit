@@ -244,7 +244,10 @@ impl Font {
         self.core_text_font.symbolic_traits().is_monospace()
     }
 
+    /// Returns whether the given font family is an emoji font
+    /// Added by the Warp team for emoji support
     pub fn is_emoji(&self) -> bool {
+        // Logic matches iterm's https://github.com/gnachman/iTerm2/blob/c52136b7c0bae545436be8d1441449f19e21faa1/sources/Metal/Support/iTermCharacterSource.m#L639
         self.family_name() == "AppleColorEmoji" || self.family_name() == "Apple Color Emoji"
     }
 
@@ -567,11 +570,17 @@ impl Font {
         core_graphics_context.translate(0.0, canvas.size.y() as CGFloat);
         core_graphics_context.set_text_drawing_mode(CGTextDrawingMode::CGTextFill);
 
+        let matrix = transform.matrix.0 * F32x4::new(1.0, -1.0, -1.0, 1.0);
         let origin = CGPoint::new(0.0, 0.0);
         if self.is_emoji() {
+            // Note that emoji rendering requires a different rasterization path than
+            // normal glyph rendering.  The difference is that in the emoji case we
+            // need to call CTFont DrawGlyphs, as opposed to CGContext ShowGlyphsAtPositions.
+            // This is inspired by the iterm implementation here:
+            // https://github.com/gnachman/iTerm2/blob/c52136b7c0bae545436be8d1441449f19e21faa1/sources/Metal/Support/iTermCharacterSource.m#L830
+
             core_graphics_context.set_text_matrix(&CG_AFFINE_TRANSFORM_IDENTITY);
             core_graphics_context.concat_ctm(self.core_text_font.get_matrix());
-            let matrix = transform.matrix.0 * F32x4::new(1.0, -1.0, -1.0, 1.0);
             core_graphics_context.concat_ctm(CGAffineTransform {
                 a: matrix.x() as CGFloat,
                 b: matrix.y() as CGFloat,
@@ -586,7 +595,6 @@ impl Font {
         } else {
             core_graphics_context.set_font(&self.core_text_font.copy_to_CGFont());
             core_graphics_context.set_font_size(point_size as CGFloat);
-            let matrix = transform.matrix.0 * F32x4::new(1.0, -1.0, -1.0, 1.0);
             core_graphics_context.set_text_matrix(&CGAffineTransform {
                 a: matrix.x() as CGFloat,
                 b: matrix.y() as CGFloat,
