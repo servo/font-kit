@@ -1198,7 +1198,7 @@ impl FtFixedToF32 for RectI {
     type Output = RectF;
     #[inline]
     fn ft_fixed_26_6_to_f32(self) -> RectF {
-        (self.to_f32() * (1.0 / 64.0))
+        self.to_f32() * (1.0 / 64.0)
     }
 }
 
