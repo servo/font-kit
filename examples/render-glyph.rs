@@ -15,7 +15,7 @@ extern crate pathfinder_geometry;
 
 use clap::{App, Arg, ArgGroup, ArgMatches};
 use colored::Colorize;
-use font_kit::canvas::{Canvas, Format, RasterizationOptions};
+use font_kit::canvas::{AntialiasingStrategy, Canvas, Format, RasterizationOptions};
 use font_kit::hinting::HintingOptions;
 use font_kit::source::SystemSource;
 use pathfinder_geometry::transform2d::Transform2F;
@@ -65,6 +65,9 @@ fn get_args() -> ArgMatches<'static> {
         .number_of_values(4);
     let rasterization_mode_group =
         ArgGroup::with_name("rasterization-mode").args(&["grayscale", "bilevel", "subpixel"]);
+    let thin_strokes_arg = Arg::with_name("use_thin_strokes")
+        .help("Use thin strokes when rasterizing glyphs")
+        .long("use_thin_strokes");
     App::new("render-glyph")
         .version("0.1")
         .author("The Pathfinder Project Developers")
@@ -76,6 +79,7 @@ fn get_args() -> ArgMatches<'static> {
         .arg(bilevel_arg)
         .arg(subpixel_arg)
         .group(rasterization_mode_group)
+        .arg(thin_strokes_arg)
         .arg(hinting_arg)
         .arg(transform_arg)
         .get_matches()
@@ -88,12 +92,17 @@ fn main() {
     let character = matches.value_of("GLYPH").unwrap().chars().next().unwrap();
     let size: f32 = matches.value_of("SIZE").unwrap().parse().unwrap();
 
-    let (canvas_format, rasterization_options) = if matches.is_present("bilevel") {
-        (Format::A8, RasterizationOptions::Bilevel)
+    let (canvas_format, antialiasing_strategy) = if matches.is_present("bilevel") {
+        (Format::A8, AntialiasingStrategy::Bilevel)
     } else if matches.is_present("subpixel") {
-        (Format::Rgb24, RasterizationOptions::SubpixelAa)
+        (Format::Rgb24, AntialiasingStrategy::SubpixelAa)
     } else {
-        (Format::A8, RasterizationOptions::GrayscaleAa)
+        (Format::A8, AntialiasingStrategy::GrayscaleAa)
+    };
+
+    let rasterization_options = RasterizationOptions {
+        antialiasing_strategy,
+        use_thin_strokes: matches.is_present("use_thin_strokes"),
     };
 
     let mut transform = Transform2F::default();

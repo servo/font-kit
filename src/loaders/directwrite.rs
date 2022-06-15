@@ -45,7 +45,7 @@ use winapi::um::dwrite::DWRITE_READING_DIRECTION;
 use winapi::um::dwrite::DWRITE_READING_DIRECTION_LEFT_TO_RIGHT;
 use winapi::um::fileapi;
 
-use crate::canvas::{Canvas, Format, RasterizationOptions};
+use crate::canvas::{AntialiasingStrategy, Canvas, Format, RasterizationOptions};
 use crate::error::{FontLoadingError, GlyphLoadingError};
 use crate::file_type::FileType;
 use crate::handle::Handle;
@@ -463,9 +463,9 @@ impl Font {
             rasterization_options,
         )?;
 
-        let texture_type = match rasterization_options {
-            RasterizationOptions::Bilevel => DWRITE_TEXTURE_ALIASED_1x1,
-            RasterizationOptions::GrayscaleAa | RasterizationOptions::SubpixelAa => {
+        let texture_type = match rasterization_options.antialiasing_strategy {
+            AntialiasingStrategy::Bilevel => DWRITE_TEXTURE_ALIASED_1x1,
+            AntialiasingStrategy::GrayscaleAa | AntialiasingStrategy::SubpixelAa => {
                 DWRITE_TEXTURE_CLEARTYPE_3x1
             }
         };
@@ -509,9 +509,9 @@ impl Font {
             rasterization_options,
         )?;
 
-        let texture_type = match rasterization_options {
-            RasterizationOptions::Bilevel => DWRITE_TEXTURE_ALIASED_1x1,
-            RasterizationOptions::GrayscaleAa | RasterizationOptions::SubpixelAa => {
+        let texture_type = match rasterization_options.antialiasing_strategy {
+            AntialiasingStrategy::Bilevel => DWRITE_TEXTURE_ALIASED_1x1,
+            AntialiasingStrategy::GrayscaleAa | AntialiasingStrategy::SubpixelAa => {
                 DWRITE_TEXTURE_CLEARTYPE_3x1
             }
         };
@@ -597,9 +597,9 @@ impl Font {
                 bidiLevel: 0,
             };
 
-            let rendering_mode = match rasterization_options {
-                RasterizationOptions::Bilevel => DWRITE_RENDERING_MODE_ALIASED,
-                RasterizationOptions::GrayscaleAa | RasterizationOptions::SubpixelAa => {
+            let rendering_mode = match rasterization_options.antialiasing_strategy {
+                AntialiasingStrategy::Bilevel => DWRITE_RENDERING_MODE_ALIASED,
+                AntialiasingStrategy::GrayscaleAa | AntialiasingStrategy::SubpixelAa => {
                     DWRITE_RENDERING_MODE_NATURAL
                 }
             };

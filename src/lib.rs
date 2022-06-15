@@ -17,7 +17,7 @@
 //!     # extern crate font_kit;
 //!     # extern crate pathfinder_geometry;
 //!     #
-//!     use font_kit::canvas::{Canvas, Format, RasterizationOptions};
+//!     use font_kit::canvas::{AntialiasingStrategy, Canvas, Format, RasterizationOptions};
 //!     use font_kit::family_name::FamilyName;
 //!     use font_kit::hinting::HintingOptions;
 //!     use font_kit::properties::Properties;
@@ -37,7 +37,10 @@
 //!                          32.0,
 //!                          Transform2F::from_translation(Vector2F::new(0.0, 32.0)),
 //!                          HintingOptions::None,
-//!                          RasterizationOptions::GrayscaleAa)
+//!                          RasterizationOptions {
+//!                              antialiasing_strategy: AntialiasingStrategy::GrayscaleAa,
+//!                              use_thin_strokes: false,
+//!                          })
 //!         .unwrap();
 //!
 //! ## Backends

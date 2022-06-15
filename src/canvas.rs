@@ -249,13 +249,24 @@ impl Format {
 
 /// The antialiasing strategy that should be used when rasterizing glyphs.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum RasterizationOptions {
+pub enum AntialiasingStrategy {
     /// "Black-and-white" rendering. Each pixel is either entirely on or off.
     Bilevel,
     /// Grayscale antialiasing. Only one channel is used.
     GrayscaleAa,
     /// Subpixel RGB antialiasing, for LCD screens.
     SubpixelAa,
+}
+
+/// Options to control rasterization.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RasterizationOptions {
+    /// The antialiasing strategy to use when rasterizing glyphs.
+    pub antialiasing_strategy: AntialiasingStrategy,
+
+    /// Whether or not to render glyphs with a thinner stroke.
+    /// Currently only supported for the core_text loader.
+    pub use_thin_strokes: bool,
 }
 
 trait Blit {

@@ -17,7 +17,7 @@ use pathfinder_geometry::transform2d::Transform2F;
 use pathfinder_geometry::vector::Vector2F;
 use std::sync::Arc;
 
-use crate::canvas::{Canvas, RasterizationOptions};
+use crate::canvas::{AntialiasingStrategy, Canvas, RasterizationOptions};
 use crate::error::{FontLoadingError, GlyphLoadingError};
 use crate::file_type::FileType;
 use crate::handle::Handle;

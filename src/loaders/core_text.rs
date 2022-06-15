@@ -37,7 +37,7 @@ use std::ops::Deref;
 use std::path::Path;
 use std::sync::Arc;
 
-use crate::canvas::{Canvas, Format, RasterizationOptions};
+use crate::canvas::{AntialiasingStrategy, Canvas, Format, RasterizationOptions};
 use crate::error::{FontLoadingError, GlyphLoadingError};
 use crate::file_type::FileType;
 use crate::handle::Handle;
@@ -550,16 +550,22 @@ impl Font {
         let core_graphics_size = CGSize::new(canvas.size.x() as f64, canvas.size.y() as f64);
         core_graphics_context.fill_rect(CGRect::new(&CG_ZERO_POINT, &core_graphics_size));
 
-        match rasterization_options {
-            RasterizationOptions::Bilevel => {
+        match rasterization_options.antialiasing_strategy {
+            AntialiasingStrategy::Bilevel => {
                 core_graphics_context.set_allows_font_smoothing(false);
                 core_graphics_context.set_should_smooth_fonts(false);
                 core_graphics_context.set_should_antialias(false);
             }
-            RasterizationOptions::GrayscaleAa | RasterizationOptions::SubpixelAa => {
+            AntialiasingStrategy::GrayscaleAa | AntialiasingStrategy::SubpixelAa => {
                 // FIXME(pcwalton): These shouldn't be handled the same!
+                if rasterization_options.use_thin_strokes {
+                    // Font smoothing produces thicker strokes; turning it off will lead to
+                    // thinner glyphs.
+                    core_graphics_context.set_should_smooth_fonts(false);
+                } else {
+                    core_graphics_context.set_should_smooth_fonts(true);
+                }
                 core_graphics_context.set_allows_font_smoothing(true);
-                core_graphics_context.set_should_smooth_fonts(true);
                 core_graphics_context.set_should_antialias(true);
             }
         }

@@ -42,7 +42,7 @@ use std::ptr;
 use std::slice;
 use std::sync::Arc;
 
-use crate::canvas::{Canvas, Format, RasterizationOptions};
+use crate::canvas::{AntialiasingStrategy, Canvas, Format, RasterizationOptions};
 use crate::error::{FontLoadingError, GlyphLoadingError};
 use crate::file_type::FileType;
 use crate::handle::Handle;
@@ -430,7 +430,10 @@ impl Font {
         S: OutlineSink,
     {
         unsafe {
-            let rasterization_options = RasterizationOptions::GrayscaleAa;
+            let rasterization_options = RasterizationOptions {
+                antialiasing_strategy: AntialiasingStrategy::GrayscaleAa,
+                use_thin_strokes: false,
+            };
             let load_flags = self
                 .hinting_and_rasterization_options_to_load_flags(hinting, rasterization_options);
 
@@ -875,17 +878,17 @@ impl Font {
         hinting: HintingOptions,
         rasterization: RasterizationOptions,
     ) -> u32 {
-        let mut options = match (hinting, rasterization) {
-            (HintingOptions::VerticalSubpixel(_), _) | (_, RasterizationOptions::SubpixelAa) => {
+        let mut options = match (hinting, rasterization.antialiasing_strategy) {
+            (HintingOptions::VerticalSubpixel(_), _) | (_, AntialiasingStrategy::SubpixelAa) => {
                 FT_LOAD_TARGET_LCD
             }
             (HintingOptions::None, _) => FT_LOAD_TARGET_NORMAL | FT_LOAD_NO_HINTING,
-            (HintingOptions::Vertical(_), RasterizationOptions::Bilevel)
-            | (HintingOptions::Full(_), RasterizationOptions::Bilevel) => FT_LOAD_TARGET_MONO,
+            (HintingOptions::Vertical(_), AntialiasingStrategy::Bilevel)
+            | (HintingOptions::Full(_), AntialiasingStrategy::Bilevel) => FT_LOAD_TARGET_MONO,
             (HintingOptions::Vertical(_), _) => FT_LOAD_TARGET_LIGHT,
             (HintingOptions::Full(_), _) => FT_LOAD_TARGET_NORMAL,
         };
-        if rasterization == RasterizationOptions::Bilevel {
+        if rasterization.antialiasing_strategy == AntialiasingStrategy::Bilevel {
             options |= FT_LOAD_MONOCHROME
         }
         options
