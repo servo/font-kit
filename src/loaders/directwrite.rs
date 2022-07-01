@@ -132,20 +132,20 @@ impl Font {
     /// If the file is a collection (`.ttc`/`.otc`/etc.), `font_index` specifies the index of the
     /// font to load from it. If the file represents a single font, pass 0 for `font_index`.
     pub fn from_file(file: &mut File, font_index: u32) -> Result<Font, FontLoadingError> {
-        unsafe {
+        
             let mut path = vec![0; MAX_PATH + 1];
-            let path_len = fileapi::GetFinalPathNameByHandleW(
+            let path_len = unsafe {fileapi::GetFinalPathNameByHandleW(
                 file.as_raw_handle(),
                 path.as_mut_ptr(),
                 path.len() as u32 - 1,
                 0,
-            );
+            )};
             if path_len == 0 {
                 return Err(FontLoadingError::Io(io::Error::last_os_error()));
             }
             path.truncate(path_len as usize);
             Font::from_path(PathBuf::from(OsString::from_wide(&path)), font_index)
-        }
+        
     }
 
     /// Loads a font from the path to a `.ttf`/`.otf`/etc. file.
@@ -579,14 +579,14 @@ impl Font {
         _hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
     ) -> Result<DWriteGlyphRunAnalysis, GlyphLoadingError> {
-        unsafe {
+        
             let glyph_id = glyph_id as u16;
             let advance = 0.0;
             let offset = DWriteGlyphOffset {
                 advanceOffset: 0.0,
                 ascenderOffset: 0.0,
             };
-            let glyph_run = DWRITE_GLYPH_RUN {
+            let glyph_run = unsafe {DWRITE_GLYPH_RUN {
                 fontFace: self.dwrite_font_face.as_ptr(),
                 fontEmSize: point_size,
                 glyphCount: 1,
@@ -595,7 +595,7 @@ impl Font {
                 glyphOffsets: &offset,
                 isSideways: FALSE,
                 bidiLevel: 0,
-            };
+            }};
 
             let rendering_mode = match rasterization_options {
                 RasterizationOptions::Bilevel => DWRITE_RENDERING_MODE_ALIASED,
@@ -620,7 +620,7 @@ impl Font {
                 0.0,
                 0.0,
             )?)
-        }
+        
     }
 
     /// Get font fallback results for the given text and locale.
