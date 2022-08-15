@@ -264,6 +264,7 @@ pub fn get_vertically_hinted_glyph_outline() {
 
 #[cfg(all(
     feature = "source",
+    not(feature = "loader-freetype-default"),
     not(any(target_os = "macos", target_os = "ios", target_family = "windows"))
 ))]
 #[test]
@@ -354,6 +355,7 @@ pub fn get_fully_hinted_glyph_outline() {
 
 #[cfg(all(
     feature = "source",
+    not(feature = "loader-freetype-default"),
     not(any(target_os = "macos", target_os = "ios", target_family = "windows"))
 ))]
 #[test]
