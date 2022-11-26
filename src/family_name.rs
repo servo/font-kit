@@ -16,7 +16,7 @@
 /// https://drafts.csswg.org/css-fonts-3/#font-family-prop.
 ///
 /// TODO(pcwalton): `system-ui`, `emoji`, `math`, `fangsong`
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash)]
 pub enum FamilyName {
     /// A specific font family, specified by name: e.g. "Arial", "times".
     Title(String),
