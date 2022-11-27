@@ -62,7 +62,7 @@ impl Properties {
 }
 
 /// Allows italic or oblique faces to be selected.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Hash)]
 pub enum Style {
     /// A face that is neither italic not obliqued.
     Normal,
