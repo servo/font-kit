@@ -1,6 +1,7 @@
 # font-kit
-[![Build Status](https://travis-ci.org/servo/font-kit.svg?branch=master)](https://travis-ci.org/servo/font-kit)
-[![Crates.io](https://img.shields.io/crates/v/font-kit.svg)](https://crates.io/crates/font-kit)
+
+[![Build Status](https://github.com/servo/font-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/servo/font-kit/actions)
+[![crates.io](https://img.shields.io/crates/v/font-kit.svg)](https://crates.io/crates/font-kit)
 [![Documentation](https://docs.rs/font-kit/badge.svg)](https://docs.rs/font-kit)
 
 `font-kit` provides a common interface to the various system font libraries and provides
@@ -106,7 +107,7 @@ included.
 
 ## Dependencies
 
-**Ubuntu Linux**
+**Ubuntu**
 
 `sudo apt install pkg-config libfreetype6-dev libfontconfig1-dev`
 
