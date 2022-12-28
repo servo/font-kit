@@ -599,7 +599,7 @@ pub fn get_font_metrics() {
     assert_eq!(metrics.ascent, 1901.0);
     assert_eq!(metrics.descent, -483.0);
     assert_eq!(metrics.line_gap, 0.0); // FIXME(pcwalton): Huh?!
-    assert_eq!(metrics.underline_position, -130.0);
+    assert_eq!(metrics.underline_position, -40.0);
     assert_eq!(metrics.underline_thickness, 90.0);
     assert_eq!(metrics.cap_height, 0.0); // FIXME(pcwalton): Huh?!
     assert_eq!(metrics.x_height, 0.0); // FIXME(pcwalton): Huh?!
