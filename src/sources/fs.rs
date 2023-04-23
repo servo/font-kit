@@ -19,8 +19,6 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
-#[cfg(not(any(target_os = "android", target_family = "windows")))]
-use dirs_next;
 #[cfg(target_family = "windows")]
 use std::ffi::OsString;
 #[cfg(target_family = "windows")]
@@ -197,7 +195,7 @@ fn default_font_directories() -> Vec<PathBuf> {
         PathBuf::from("/Library/Fonts"),
         PathBuf::from("/Network/Library/Fonts"),
     ];
-    if let Some(mut path) = dirs_next::home_dir() {
+    if let Some(mut path) = home::home_dir() {
         path.push("Library");
         path.push("Fonts");
         directories.push(path);
@@ -213,11 +211,11 @@ fn default_font_directories() -> Vec<PathBuf> {
         PathBuf::from("/var/run/host/usr/share/fonts"), // Flatpak specific
         PathBuf::from("/var/run/host/usr/local/share/fonts"),
     ];
-    if let Some(path) = dirs_next::home_dir() {
+    if let Some(path) = home::home_dir() {
         directories.push(path.join(".fonts")); // ~/.fonts is deprecated
         directories.push(path.join("local").join("share").join("fonts")); // Flatpak specific
     }
-    if let Some(mut path) = dirs_next::data_dir() {
+    if let Some(mut path) = home::data_dir() {
         path.push("fonts");
         directories.push(path);
     }
