@@ -844,6 +844,13 @@ impl Font {
             let bitmap_size = Vector2I::new(bitmap_width, bitmap_height);
             let bitmap_buffer = (*bitmap).buffer as *const i8 as *const u8;
             let bitmap_length = bitmap_stride * bitmap_height as usize;
+            if bitmap_buffer.is_null() {
+                assert_eq!(
+                    bitmap_length, 0,
+                    "bitmap length should be 0 when bitmap_buffer is nullptr"
+                );
+                return Ok(());
+            }
             let buffer = slice::from_raw_parts(bitmap_buffer, bitmap_length);
             let dst_point = Vector2I::new(
                 (*(*self.freetype_face).glyph).bitmap_left,
