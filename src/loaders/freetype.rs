@@ -16,9 +16,11 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_Face, FT_FACE_FLAG_FIXED_WIDTH};
 use freetype::freetype::{
+    FT_Done_FreeType, FT_Get_Sfnt_Table, FT_Init_FreeType, FT_LcdFilter, FT_Library,
+};
+use freetype::freetype::{
     FT_Fixed, FT_Get_Char_Index, FT_Get_Name_Index, FT_Get_Postscript_Name, FT_Pos,
 };
-use freetype::freetype::{FT_Get_Sfnt_Table, FT_Init_FreeType, FT_LcdFilter, FT_Library};
 use freetype::freetype::{FT_Library_SetLcdFilter, FT_Load_Glyph, FT_LOAD_DEFAULT};
 use freetype::freetype::{FT_Load_Sfnt_Table, FT_Long, FT_Matrix, FT_New_Memory_Face};
 use freetype::freetype::{FT_Reference_Face, FT_Set_Char_Size, FT_Set_Transform, FT_Sfnt_Tag};
@@ -94,14 +96,25 @@ const BDF_PROPERTY_TYPE_INTEGER: BDF_PropertyType = 2;
 const BDF_PROPERTY_TYPE_CARDINAL: BDF_PropertyType = 3;
 
 thread_local! {
-    static FREETYPE_LIBRARY: FT_Library = {
+    static FREETYPE_LIBRARY: FtLibrary = {
         unsafe {
             let mut library = ptr::null_mut();
             assert_eq!(FT_Init_FreeType(&mut library), 0);
             FT_Library_SetLcdFilter(library, FT_LcdFilter::FT_LCD_FILTER_DEFAULT);
-            library
+            FtLibrary(library)
         }
     };
+}
+
+#[repr(transparent)]
+struct FtLibrary(FT_Library);
+
+impl Drop for FtLibrary {
+    fn drop(&mut self) {
+        unsafe {
+            FT_Done_FreeType(self.0);
+        }
+    }
 }
 
 /// The handle that the FreeType API natively uses to represent a font.
@@ -137,7 +150,7 @@ impl Font {
         FREETYPE_LIBRARY.with(|freetype_library| unsafe {
             let mut freetype_face = ptr::null_mut();
             if FT_New_Memory_Face(
-                *freetype_library,
+                freetype_library.0,
                 (*font_data).as_ptr(),
                 font_data.len() as FT_Long,
                 font_index as FT_Long,
@@ -216,7 +229,7 @@ impl Font {
         FREETYPE_LIBRARY.with(|freetype_library| unsafe {
             let mut freetype_face = ptr::null_mut();
             if FT_New_Memory_Face(
-                *freetype_library,
+                freetype_library.0,
                 (*font_data).as_ptr(),
                 font_data.len() as FT_Long,
                 0,
@@ -244,7 +257,7 @@ impl Font {
 
             let mut freetype_face = ptr::null_mut();
             if FT_New_Memory_Face(
-                *freetype_library,
+                freetype_library.0,
                 (*font_data).as_ptr(),
                 font_data.len() as FT_Long,
                 0,
