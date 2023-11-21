@@ -50,6 +50,7 @@ pub struct Contour {
 
 bitflags! {
     /// Flags that specify what type of point the corresponding position represents.
+    #[derive(Clone, Debug, PartialEq)]
     pub struct PointFlags: u8 {
         /// This point is the control point of a quadratic Bézier curve or the first control point
         /// of a cubic Bézier curve.
@@ -117,20 +118,20 @@ impl Contour {
         sink.move_to(self.positions[0]);
 
         let mut iter = self.positions[1..].iter().zip(self.flags[1..].iter());
-        while let Some((&position_0, &flags_0)) = iter.next() {
-            if flags_0 == PointFlags::empty() {
+        while let Some((&position_0, ref flags_0)) = iter.next() {
+            if flags_0.is_empty() {
                 sink.line_to(position_0);
                 continue;
             }
 
-            let (&position_1, &flags_1) = iter.next().expect("Invalid outline!");
-            if flags_1 == PointFlags::empty() {
+            let (&position_1, ref flags_1) = iter.next().expect("Invalid outline!");
+            if flags_1.is_empty() {
                 sink.quadratic_curve_to(position_0, position_1);
                 continue;
             }
 
-            let (&position_2, &flags_2) = iter.next().expect("Invalid outline!");
-            debug_assert_eq!(flags_2, PointFlags::empty());
+            let (&position_2, ref flags_2) = iter.next().expect("Invalid outline!");
+            debug_assert!(flags_2.is_empty());
             sink.cubic_curve_to(LineSegment2F::new(position_0, position_1), position_2);
         }
 

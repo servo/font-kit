@@ -20,7 +20,7 @@ source-fontconfig-default = ["source-fontconfig"]
 source = []
 
 [dependencies]
-bitflags = "1"
+bitflags = "2.4"
 byteorder = "1.2"
 float-ord = "0.2"
 lazy_static = "1.1"
