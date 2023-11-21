@@ -34,7 +34,7 @@ version = "0.7"
 optional = true
 
 [dependencies.yeslogic-fontconfig-sys]
-version = "3.0.0"
+version = "5.0"
 optional = true
 
 [dev-dependencies]
@@ -59,7 +59,7 @@ core-text = "19.1.0"
 freetype = "0.7"
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
-yeslogic-fontconfig-sys = "3.0.0"
+yeslogic-fontconfig-sys = "5.0"
 
 [target.'cfg(not(any(target_arch = "wasm32", target_family = "windows", target_os = "android")))'.dependencies]
 dirs-next = "2.0"
