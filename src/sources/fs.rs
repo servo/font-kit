@@ -50,6 +50,12 @@ pub struct FsSource {
     mem_source: MemSource,
 }
 
+impl Default for FsSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FsSource {
     /// Opens the default set of directories on this platform and indexes the fonts found within.
     ///

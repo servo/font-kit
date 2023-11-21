@@ -34,6 +34,12 @@ pub struct FontconfigSource {
     config: fc::Config,
 }
 
+impl Default for FontconfigSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FontconfigSource {
     /// Initializes Fontconfig and prepares it for queries.
     pub fn new() -> FontconfigSource {
@@ -272,7 +278,7 @@ mod fc {
     }
 
     impl MatchKind {
-        fn to_u32(&self) -> u32 {
+        fn to_u32(self) -> u32 {
             match self {
                 MatchKind::Pattern => ffi::FcMatchPattern,
                 MatchKind::Font => ffi::FcMatchFont,
@@ -559,7 +565,7 @@ mod fc {
             let idx = self.idx;
             self.idx += 1;
 
-            let d = unsafe { *(*self.d).fonts.offset(idx as isize) };
+            let d = unsafe { *(*self.d).fonts.add(idx) };
             Some(PatternRef { d })
         }
 

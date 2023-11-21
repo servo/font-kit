@@ -413,7 +413,7 @@ impl Font {
                 unsafe { FT_Get_Name_Index(self.freetype_face, ffi_name.as_ptr() as *mut c_char) };
 
             if code > 0 {
-                return Some(u32::from(code));
+                return Some(code);
             }
         }
         None
@@ -461,11 +461,9 @@ impl Font {
             }
 
             let outline = &(*(*self.freetype_face).glyph).outline;
-            let contours =
-                slice::from_raw_parts((*outline).contours, (*outline).n_contours as usize);
-            let point_positions =
-                slice::from_raw_parts((*outline).points, (*outline).n_points as usize);
-            let point_tags = slice::from_raw_parts((*outline).tags, (*outline).n_points as usize);
+            let contours = slice::from_raw_parts(outline.contours, outline.n_contours as usize);
+            let point_positions = slice::from_raw_parts(outline.points, outline.n_points as usize);
+            let point_tags = slice::from_raw_parts(outline.tags, outline.n_points as usize);
 
             let mut current_point_index = 0;
             for &last_point_index_in_contour in contours {
@@ -569,7 +567,7 @@ impl Font {
             }
 
             if hinting.grid_fitting_size().is_some() {
-                reset_freetype_face_char_size((*self).freetype_face)
+                reset_freetype_face_char_size(self.freetype_face)
             }
         }
 
@@ -851,11 +849,11 @@ impl Font {
             // need to keep this around for bilevel rendering, as the direct API doesn't work with
             // that mode.
             let bitmap = &(*(*self.freetype_face).glyph).bitmap;
-            let bitmap_stride = (*bitmap).pitch as usize;
-            let bitmap_width = (*bitmap).width as i32;
-            let bitmap_height = (*bitmap).rows as i32;
+            let bitmap_stride = bitmap.pitch as usize;
+            let bitmap_width = bitmap.width as i32;
+            let bitmap_height = bitmap.rows as i32;
             let bitmap_size = Vector2I::new(bitmap_width, bitmap_height);
-            let bitmap_buffer = (*bitmap).buffer as *const i8 as *const u8;
+            let bitmap_buffer = bitmap.buffer as *const i8 as *const u8;
             let bitmap_length = bitmap_stride * bitmap_height as usize;
             if bitmap_buffer.is_null() {
                 assert_eq!(
@@ -871,7 +869,7 @@ impl Font {
             );
 
             // FIXME(pcwalton): This function should return a Result instead.
-            match (*bitmap).pixel_mode {
+            match bitmap.pixel_mode {
                 FT_PIXEL_MODE_GRAY => {
                     canvas.blit_from(dst_point, buffer, bitmap_size, bitmap_stride, Format::A8);
                 }
@@ -1244,8 +1242,8 @@ extern "C" {
 mod test {
     use crate::loaders::freetype::Font;
 
-    static PCF_FONT_PATH: &'static str = "resources/tests/times-roman-pcf/timR12.pcf";
-    static PCF_FONT_POSTSCRIPT_NAME: &'static str = "Times-Roman";
+    static PCF_FONT_PATH: &str = "resources/tests/times-roman-pcf/timR12.pcf";
+    static PCF_FONT_POSTSCRIPT_NAME: &str = "Times-Roman";
 
     #[test]
     fn get_pcf_postscript_name() {

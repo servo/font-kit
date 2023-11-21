@@ -24,7 +24,7 @@ use std::fmt::Write;
 #[cfg(any(target_family = "windows", target_os = "macos"))]
 static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "ArialMT";
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
-static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "DejaVuSans";
+static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &str = "DejaVuSans";
 
 fn get_args() -> ArgMatches {
     let postscript_name_arg = Arg::with_name("POSTSCRIPT-NAME")
@@ -104,13 +104,13 @@ fn main() {
     }
 
     let hinting_options = match matches.value_of("hinting") {
-        Some(value) if value == "vertical" => HintingOptions::Vertical(size),
-        Some(value) if value == "full" => HintingOptions::Full(size),
+        Some("vertical") => HintingOptions::Vertical(size),
+        Some("full") => HintingOptions::Full(size),
         _ => HintingOptions::None,
     };
 
     let font = SystemSource::new()
-        .select_by_postscript_name(&postscript_name)
+        .select_by_postscript_name(postscript_name)
         .unwrap()
         .load()
         .unwrap();
@@ -149,7 +149,7 @@ fn main() {
                     write!(
                         &mut line,
                         "{}{}{}",
-                        shade(row[x as usize * 3 + 0]).to_string().red(),
+                        shade(row[x as usize * 3]).to_string().red(),
                         shade(row[x as usize * 3 + 1]).to_string().green(),
                         shade(row[x as usize * 3 + 2]).to_string().blue()
                     )

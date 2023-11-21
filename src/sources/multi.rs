@@ -99,13 +99,13 @@ impl MultiSource {
 
     /// Returns an iterator over the contained sources.
     #[inline]
-    pub fn iter<'a>(&'a self) -> MultiIter<'a> {
+    pub fn iter(&self) -> MultiIter<'_> {
         MultiIter(self.subsources.iter())
     }
 
     /// Returns an iterator over the contained sources with mutable access.
     #[inline]
-    pub fn iter_mut<'a>(&'a mut self) -> MultiIterMut<'a> {
+    pub fn iter_mut(&mut self) -> MultiIterMut<'_> {
         MultiIterMut(self.subsources.iter_mut())
     }
 

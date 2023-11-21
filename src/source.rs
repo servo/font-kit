@@ -56,15 +56,15 @@ const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "Impact";
 const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "Papyrus";
 
 #[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
-const DEFAULT_FONT_FAMILY_SERIF: &'static str = "serif";
+const DEFAULT_FONT_FAMILY_SERIF: &str = "serif";
 #[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
-const DEFAULT_FONT_FAMILY_SANS_SERIF: &'static str = "sans-serif";
+const DEFAULT_FONT_FAMILY_SANS_SERIF: &str = "sans-serif";
 #[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
-const DEFAULT_FONT_FAMILY_MONOSPACE: &'static str = "monospace";
+const DEFAULT_FONT_FAMILY_MONOSPACE: &str = "monospace";
 #[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
-const DEFAULT_FONT_FAMILY_CURSIVE: &'static str = "cursive";
+const DEFAULT_FONT_FAMILY_CURSIVE: &str = "cursive";
 #[cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))]
-const DEFAULT_FONT_FAMILY_FANTASY: &'static str = "fantasy";
+const DEFAULT_FONT_FAMILY_FANTASY: &str = "fantasy";
 
 /// A database of installed fonts that can be queried.
 ///
