@@ -11,7 +11,7 @@
 extern crate clap;
 extern crate font_kit;
 
-use clap::{App, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, Command};
 
 use font_kit::loader::Loader;
 use font_kit::source::SystemSource;
@@ -22,19 +22,19 @@ static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "ArialMT";
 static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &str = "DejaVuSans";
 
 fn get_args() -> ArgMatches {
-    let postscript_name_arg = Arg::with_name("POSTSCRIPT-NAME")
+    let postscript_name_arg = Arg::new("POSTSCRIPT-NAME")
         .help("PostScript name of the font")
         .default_value(SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME)
         .index(1);
-    let text_arg = Arg::with_name("TEXT")
+    let text_arg = Arg::new("TEXT")
         .help("Text to query")
         .default_value("A")
         .index(2);
-    let locale_arg = Arg::with_name("LOCALE")
+    let locale_arg = Arg::new("LOCALE")
         .help("Locale for fallback query")
         .default_value("en-US")
         .index(3);
-    App::new("fallback")
+    Command::new("fallback")
         .version("0.1")
         .arg(postscript_name_arg)
         .arg(text_arg)
@@ -44,9 +44,18 @@ fn get_args() -> ArgMatches {
 
 fn main() {
     let matches = get_args();
-    let postscript_name = matches.value_of("POSTSCRIPT-NAME").unwrap();
-    let text = matches.value_of("TEXT").unwrap();
-    let locale = matches.value_of("LOCALE").unwrap();
+    let postscript_name = matches
+        .get_one::<String>("POSTSCRIPT-NAME")
+        .map(|s| s.as_str())
+        .unwrap();
+    let text = matches
+        .get_one::<String>("TEXT")
+        .map(|s| s.as_str())
+        .unwrap();
+    let locale = matches
+        .get_one::<String>("LOCALE")
+        .map(|s| s.as_str())
+        .unwrap();
     let font = SystemSource::new()
         .select_by_postscript_name(postscript_name)
         .expect("Font not found")

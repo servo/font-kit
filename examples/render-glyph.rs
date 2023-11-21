@@ -13,7 +13,7 @@ extern crate colored;
 extern crate font_kit;
 extern crate pathfinder_geometry;
 
-use clap::{App, Arg, ArgGroup, ArgMatches};
+use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command};
 use colored::Colorize;
 use font_kit::canvas::{Canvas, Format, RasterizationOptions};
 use font_kit::hinting::HintingOptions;
@@ -27,45 +27,46 @@ static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "ArialMT";
 static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &str = "DejaVuSans";
 
 fn get_args() -> ArgMatches {
-    let postscript_name_arg = Arg::with_name("POSTSCRIPT-NAME")
+    let postscript_name_arg = Arg::new("POSTSCRIPT-NAME")
         .help("PostScript name of the font")
         .default_value(SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME)
         .index(1);
-    let glyph_arg = Arg::with_name("GLYPH")
+    let glyph_arg = Arg::new("GLYPH")
         .help("Character to render")
         .default_value("A")
         .index(2);
-    let size_arg = Arg::with_name("SIZE")
+    let size_arg = Arg::new("SIZE")
         .help("Font size in blocks")
         .default_value("32")
         .index(3);
-    let grayscale_arg = Arg::with_name("grayscale")
+    let grayscale_arg = Arg::new("grayscale")
         .long("grayscale")
         .help("Use grayscale antialiasing (default)");
-    let bilevel_arg = Arg::with_name("bilevel")
+    let bilevel_arg = Arg::new("bilevel")
         .help("Use bilevel (black & white) rasterization")
         .short('b')
-        .long("bilevel");
-    let subpixel_arg = Arg::with_name("subpixel")
+        .long("bilevel")
+        .action(ArgAction::SetTrue);
+    let subpixel_arg = Arg::new("subpixel")
         .help("Use subpixel (LCD) rasterization")
         .short('s')
-        .long("subpixel");
-    let hinting_arg = Arg::with_name("hinting")
+        .long("subpixel")
+        .action(ArgAction::SetTrue);
+    let hinting_value_parser =
+        clap::builder::PossibleValuesParser::new(["none", "vertical", "full"]);
+    let hinting_arg = Arg::new("hinting")
         .help("Select hinting type")
         .short('H')
         .long("hinting")
-        .takes_value(true)
-        .possible_value("none")
-        .possible_value("vertical")
-        .possible_value("full")
+        .value_parser(hinting_value_parser)
         .value_names(&["TYPE"]);
-    let transform_arg = Arg::with_name("transform")
+    let transform_arg = Arg::new("transform")
         .help("Transform to apply to glyph when rendering")
         .long("transform")
-        .number_of_values(4);
+        .num_args(4);
     let rasterization_mode_group =
-        ArgGroup::with_name("rasterization-mode").args(&["grayscale", "bilevel", "subpixel"]);
-    App::new("render-glyph")
+        ArgGroup::new("rasterization-mode").args(&["grayscale", "bilevel", "subpixel"]);
+    Command::new("render-glyph")
         .version("0.1")
         .author("The Pathfinder Project Developers")
         .about("Simple example tool to render glyphs with `font-kit`")
@@ -84,26 +85,40 @@ fn get_args() -> ArgMatches {
 fn main() {
     let matches = get_args();
 
-    let postscript_name = matches.value_of("POSTSCRIPT-NAME").unwrap();
-    let character = matches.value_of("GLYPH").unwrap().chars().next().unwrap();
-    let size: f32 = matches.value_of("SIZE").unwrap().parse().unwrap();
+    let postscript_name = matches
+        .get_one::<String>("POSTSCRIPT-NAME")
+        .map(|s| s.as_str())
+        .unwrap();
+    let character = matches
+        .get_one::<String>("GLYPH")
+        .map(|s| s.as_str())
+        .unwrap()
+        .chars()
+        .next()
+        .unwrap();
+    let size: f32 = matches
+        .get_one::<String>("SIZE")
+        .map(|s| s.as_str())
+        .unwrap()
+        .parse()
+        .unwrap();
 
-    let (canvas_format, rasterization_options) = if matches.is_present("bilevel") {
+    let (canvas_format, rasterization_options) = if matches.get_flag("bilevel") {
         (Format::A8, RasterizationOptions::Bilevel)
-    } else if matches.is_present("subpixel") {
+    } else if matches.get_flag("subpixel") {
         (Format::Rgb24, RasterizationOptions::SubpixelAa)
     } else {
         (Format::A8, RasterizationOptions::GrayscaleAa)
     };
 
     let mut transform = Transform2F::default();
-    if let Some(values) = matches.values_of("transform") {
+    if let Some(values) = matches.get_many::<String>("transform") {
         if let [Ok(a), Ok(b), Ok(c), Ok(d)] = values.map(|x| x.parse()).collect::<Vec<_>>()[..] {
             transform = Transform2F::row_major(a, b, c, d, 0.0, 0.0)
         }
     }
 
-    let hinting_options = match matches.value_of("hinting") {
+    let hinting_options = match matches.get_one::<String>("hinting").map(|s| s.as_str()) {
         Some("vertical") => HintingOptions::Vertical(size),
         Some("full") => HintingOptions::Full(size),
         _ => HintingOptions::None,
