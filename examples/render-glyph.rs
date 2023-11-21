@@ -26,7 +26,7 @@ static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "ArialMT";
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
 static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "DejaVuSans";
 
-fn get_args() -> ArgMatches<'static> {
+fn get_args() -> ArgMatches {
     let postscript_name_arg = Arg::with_name("POSTSCRIPT-NAME")
         .help("PostScript name of the font")
         .default_value(SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME)
@@ -44,15 +44,15 @@ fn get_args() -> ArgMatches<'static> {
         .help("Use grayscale antialiasing (default)");
     let bilevel_arg = Arg::with_name("bilevel")
         .help("Use bilevel (black & white) rasterization")
-        .short("b")
+        .short('b')
         .long("bilevel");
     let subpixel_arg = Arg::with_name("subpixel")
         .help("Use subpixel (LCD) rasterization")
-        .short("s")
+        .short('s')
         .long("subpixel");
     let hinting_arg = Arg::with_name("hinting")
         .help("Select hinting type")
-        .short("H")
+        .short('H')
         .long("hinting")
         .takes_value(true)
         .possible_value("none")

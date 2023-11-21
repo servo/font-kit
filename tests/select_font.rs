@@ -19,6 +19,7 @@ use std::ffi::OsStr;
 #[cfg(feature = "source")]
 use font_kit::source::SystemSource;
 
+#[cfg(all(feature = "source", any(target_os = "windows", target_os = "macos")))]
 macro_rules! match_handle {
     ($handle:expr, $path:expr, $index:expr) => {
         match $handle {
@@ -246,7 +247,7 @@ mod test {
         let family = SystemSource::new()
             .select_family_by_name("DejaVu Sans")
             .unwrap();
-        let mut filenames: Vec<String> = family
+        let filenames: Vec<String> = family
             .fonts()
             .iter()
             .map(|handle| match *handle {
