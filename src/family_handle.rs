@@ -18,6 +18,12 @@ pub struct FamilyHandle {
     pub(crate) fonts: Vec<Handle>,
 }
 
+impl Default for FamilyHandle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FamilyHandle {
     /// Creates an empty set of family handles.
     #[inline]

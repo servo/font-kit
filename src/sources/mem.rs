@@ -106,7 +106,7 @@ impl MemSource {
     pub fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
         let mut first_family_index = self
             .families
-            .binary_search_by(|family| (&*family.family_name).cmp(family_name))
+            .binary_search_by(|family| (*family.family_name).cmp(family_name))
             .map_err(|_| SelectionError::NotFound)?;
 
         while first_family_index > 0
@@ -191,7 +191,7 @@ fn add_font(handle: Handle, families: &mut Vec<FamilyEntry>) -> Result<Font, Fon
     if let Some(postscript_name) = font.postscript_name() {
         families.push(FamilyEntry {
             family_name: font.family_name(),
-            postscript_name: postscript_name,
+            postscript_name,
             font: handle,
         })
     }

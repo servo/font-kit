@@ -78,12 +78,11 @@ pub fn find_best_match(
     };
     let matching_style = *style_preference
         .iter()
-        .filter(|&query_style| {
+        .find(|&query_style| {
             matching_set
                 .iter()
                 .any(|&index| candidates[index].style == *query_style)
         })
-        .next()
         .unwrap();
     matching_set.retain(|&index| candidates[index].style == matching_style);
 

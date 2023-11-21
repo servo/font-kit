@@ -19,7 +19,7 @@ use font_kit::source::SystemSource;
 #[cfg(any(target_family = "windows", target_os = "macos"))]
 static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "ArialMT";
 #[cfg(not(any(target_family = "windows", target_os = "macos")))]
-static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &'static str = "DejaVuSans";
+static SANS_SERIF_FONT_REGULAR_POSTSCRIPT_NAME: &str = "DejaVuSans";
 
 fn get_args() -> ArgMatches {
     let postscript_name_arg = Arg::with_name("POSTSCRIPT-NAME")
@@ -48,7 +48,7 @@ fn main() {
     let text = matches.value_of("TEXT").unwrap();
     let locale = matches.value_of("LOCALE").unwrap();
     let font = SystemSource::new()
-        .select_by_postscript_name(&postscript_name)
+        .select_by_postscript_name(postscript_name)
         .expect("Font not found")
         .load()
         .unwrap();

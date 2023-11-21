@@ -28,7 +28,7 @@ pub use crate::loaders::freetype as default;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub mod core_text;
 
-#[cfg(all(target_family = "windows"))]
+#[cfg(target_family = "windows")]
 pub mod directwrite;
 
 #[cfg(any(

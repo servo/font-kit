@@ -62,20 +62,15 @@ impl Properties {
 }
 
 /// Allows italic or oblique faces to be selected.
-#[derive(Clone, Copy, PartialEq, Debug, Hash)]
+#[derive(Clone, Copy, PartialEq, Debug, Hash, Default)]
 pub enum Style {
     /// A face that is neither italic not obliqued.
+    #[default]
     Normal,
     /// A form that is generally cursive in nature.
     Italic,
     /// A typically-sloped version of the regular face.
     Oblique,
-}
-
-impl Default for Style {
-    fn default() -> Style {
-        Style::Normal
-    }
 }
 
 impl Display for Style {

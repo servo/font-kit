@@ -71,6 +71,12 @@ pub struct OutlineBuilder {
     current_contour: Contour,
 }
 
+impl Default for Outline {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Outline {
     /// Creates a new empty outline.
     #[inline]
@@ -86,6 +92,12 @@ impl Outline {
         for contour in &self.contours {
             contour.copy_to(sink);
         }
+    }
+}
+
+impl Default for Contour {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -118,24 +130,30 @@ impl Contour {
         sink.move_to(self.positions[0]);
 
         let mut iter = self.positions[1..].iter().zip(self.flags[1..].iter());
-        while let Some((&position_0, ref flags_0)) = iter.next() {
+        while let Some((&position_0, flags_0)) = iter.next() {
             if flags_0.is_empty() {
                 sink.line_to(position_0);
                 continue;
             }
 
-            let (&position_1, ref flags_1) = iter.next().expect("Invalid outline!");
+            let (&position_1, flags_1) = iter.next().expect("Invalid outline!");
             if flags_1.is_empty() {
                 sink.quadratic_curve_to(position_0, position_1);
                 continue;
             }
 
-            let (&position_2, ref flags_2) = iter.next().expect("Invalid outline!");
+            let (&position_2, flags_2) = iter.next().expect("Invalid outline!");
             debug_assert!(flags_2.is_empty());
             sink.cubic_curve_to(LineSegment2F::new(position_0, position_1), position_2);
         }
 
         sink.close();
+    }
+}
+
+impl Default for OutlineBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
