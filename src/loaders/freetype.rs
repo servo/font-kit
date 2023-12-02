@@ -112,7 +112,9 @@ struct FtLibrary(FT_Library);
 impl Drop for FtLibrary {
     fn drop(&mut self) {
         unsafe {
-            FT_Done_FreeType(self.0);
+            let mut library = ptr::null_mut();
+            mem::swap(&mut library, &mut self.0);
+            FT_Done_FreeType(library);
         }
     }
 }
@@ -987,11 +989,14 @@ impl Clone for Font {
 
 impl Drop for Font {
     fn drop(&mut self) {
-        unsafe {
-            if !self.freetype_face.is_null() {
+        // The AccessError can be ignored, as it means FREETYPE_LIBRARY has already been
+        // destroyed, and it already destroys all FreeType resources.
+        // https://freetype.org/freetype2/docs/reference/ft2-module_management.html#ft_done_library
+        let _ = FREETYPE_LIBRARY.try_with(|freetype_library| unsafe {
+            if !freetype_library.0.is_null() && !self.freetype_face.is_null() {
                 assert_eq!(FT_Done_Face(self.freetype_face), 0);
             }
-        }
+        });
     }
 }
 
