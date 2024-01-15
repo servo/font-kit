@@ -183,7 +183,7 @@ pub trait Loader: Clone + Sized {
 
     /// Returns true if and only if the font loader can perform hinting in the requested way.
     ///
-    /// Some APIs support only rasterizing glyphs with hinting, not retriving hinted outlines. If
+    /// Some APIs support only rasterizing glyphs with hinting, not retrieving hinted outlines. If
     /// `for_rasterization` is false, this function returns true if and only if the loader supports
     /// retrieval of hinted *outlines*. If `for_rasterization` is true, this function returns true
     /// if and only if the loader supports *rasterizing* hinted glyphs.

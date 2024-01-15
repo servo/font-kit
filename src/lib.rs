@@ -103,7 +103,7 @@
 //! * Looking up glyph advances and origins.
 //!
 //! * Rasterizing glyphs using the native rasterizer, optionally using hinting. (Custom
-//!   rasterizers, such as Pathfinder, can be used in conjuction with the outline API.)
+//!   rasterizers, such as Pathfinder, can be used in conjunction with the outline API.)
 //!
 //! * Looking up all fonts on the system.
 //!
