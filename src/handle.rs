@@ -85,7 +85,7 @@ impl Handle {
     /// Retrieves a handle to the font object.
     ///
     /// May return None if inner object is not of type `T` or if this handle does not contain a native font object.
-    pub fn native_as<T: 'static>(&self) -> Option<&T> {
+    pub fn as_native<T: 'static>(&self) -> Option<&T> {
         if let Self::Native { inner } = self {
             inner.downcast_ref()
         } else {

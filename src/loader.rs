@@ -74,7 +74,7 @@ pub trait Loader: Clone + Sized {
             #[cfg(target_arch = "wasm32")]
             Handle::Path { .. } => Err(FontLoadingError::NoFilesystem),
             Handle::Native { .. } => {
-                if let Some(native) = handle.native_as::<Self::NativeFont>() {
+                if let Some(native) = handle.as_native::<Self::NativeFont>() {
                     unsafe { Ok(Self::from_native_font(native)) }
                 } else {
                     Err(FontLoadingError::UnknownFormat)
