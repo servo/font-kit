@@ -70,7 +70,10 @@ pub trait Loader: Clone + Sized {
         match handle {
             Handle::Memory { bytes, font_index } => Self::from_bytes((*bytes).clone(), *font_index),
             #[cfg(not(target_arch = "wasm32"))]
-            Handle::Path { path, font_index } => Self::from_path(path, *font_index),
+            Handle::Path {
+                ref path,
+                font_index,
+            } => Self::from_path(path, *font_index),
             #[cfg(target_arch = "wasm32")]
             Handle::Path { .. } => Err(FontLoadingError::NoFilesystem),
             Handle::Native { .. } => {
