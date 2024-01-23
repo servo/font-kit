@@ -144,5 +144,5 @@ pub mod source;
 #[cfg(feature = "source")]
 pub mod sources;
 
-pub mod matching;
+mod matching;
 mod utils;
