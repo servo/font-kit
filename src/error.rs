@@ -13,6 +13,7 @@
 use std::convert::From;
 use std::error::Error;
 use std::io;
+use std::borrow::Cow;
 
 macro_rules! impl_display {
     ($enum:ident, {$($variant:pat => $fmt_string:expr),+$(,)* }) => {
@@ -91,12 +92,14 @@ impl From<winapi::um::winnt::HRESULT> for GlyphLoadingError {
 }
 
 /// Reasons why a source might fail to look up a font or fonts.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum SelectionError {
     /// No font matching the given query was found.
     NotFound,
     /// The source was inaccessible because of an I/O or similar error.
     CannotAccessSource,
+    /// Could not load the font.
+    LoadError(Cow<'static, str>),
 }
 
 impl Error for SelectionError {}
@@ -104,5 +107,6 @@ impl Error for SelectionError {}
 impl_display! { SelectionError, {
         NotFound => "no font found",
         CannotAccessSource => "failed to access source",
+        LoadError(cow) => &cow,
     }
 }

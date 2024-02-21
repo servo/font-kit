@@ -255,7 +255,7 @@ fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Result<Handle
             Err(SelectionError::NotFound)
         }
         Ok(FileType::Single) => Ok(Handle::from_memory(font_data, 0)),
-        Err(_) => Err(SelectionError::CannotAccessSource),
+        Err(e) => Err(SelectionError::LoadError(format!("{:?} error on path {:?}", e, font_path).into())),
     }
 }
 
