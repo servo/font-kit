@@ -97,16 +97,16 @@ pub enum SelectionError {
     /// No font matching the given query was found.
     NotFound,
     /// The source was inaccessible because of an I/O or similar error.
-    CannotAccessSource,
-    /// Could not load the font.
-    LoadError(Cow<'static, str>),
+    CannotAccessSource {
+        /// Additional diagnostic information may include file name
+        reason: Option<Cow<'static, str>>
+    },
 }
 
 impl Error for SelectionError {}
 
 impl_display! { SelectionError, {
         NotFound => "no font found",
-        CannotAccessSource => "failed to access source",
-        LoadError(cow) => &cow,
+        CannotAccessSource { reason: ref maybe_cow } => maybe_cow.as_deref().unwrap_or("failed to access source")
     }
 }
