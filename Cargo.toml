@@ -1,6 +1,6 @@
 [package]
 name = "font-kit"
-version = "0.12.0"
+version = "0.13.0"
 authors = ["Patrick Walton <pcwalton@mimiga.net>"]
 description = "A cross-platform font loading library"
 license = "MIT OR Apache-2.0"
@@ -52,8 +52,8 @@ features = ["dwrite", "minwindef", "sysinfoapi", "winbase", "winnt"]
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 core-foundation = "0.9"
-core-graphics = "0.22"
-core-text = "19.1.0"
+core-graphics = "0.23"
+core-text = "20.1.0"
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))'.dependencies]
 freetype = "0.7"
