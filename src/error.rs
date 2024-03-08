@@ -10,10 +10,10 @@
 
 //! Various types of errors that `font-kit` can return.
 
+use std::borrow::Cow;
 use std::convert::From;
 use std::error::Error;
 use std::io;
-use std::borrow::Cow;
 
 macro_rules! impl_display {
     ($enum:ident, {$($variant:pat => $fmt_string:expr),+$(,)* }) => {
@@ -99,7 +99,7 @@ pub enum SelectionError {
     /// The source was inaccessible because of an I/O or similar error.
     CannotAccessSource {
         /// Additional diagnostic information may include file name
-        reason: Option<Cow<'static, str>>
+        reason: Option<Cow<'static, str>>,
     },
 }
 
