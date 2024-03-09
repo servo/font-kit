@@ -10,6 +10,7 @@
 
 //! Various types of errors that `font-kit` can return.
 
+use std::borrow::Cow;
 use std::convert::From;
 use std::error::Error;
 use std::io;
@@ -91,18 +92,21 @@ impl From<winapi::um::winnt::HRESULT> for GlyphLoadingError {
 }
 
 /// Reasons why a source might fail to look up a font or fonts.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum SelectionError {
     /// No font matching the given query was found.
     NotFound,
     /// The source was inaccessible because of an I/O or similar error.
-    CannotAccessSource,
+    CannotAccessSource {
+        /// Additional diagnostic information may include file name
+        reason: Option<Cow<'static, str>>,
+    },
 }
 
 impl Error for SelectionError {}
 
 impl_display! { SelectionError, {
         NotFound => "no font found",
-        CannotAccessSource => "failed to access source",
+        CannotAccessSource { reason: ref maybe_cow } => maybe_cow.as_deref().unwrap_or("failed to access source")
     }
 }

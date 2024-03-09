@@ -230,13 +230,13 @@ fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Result<Handle
     let mut file = if let Ok(file) = File::open(&font_path) {
         file
     } else {
-        return Err(SelectionError::CannotAccessSource);
+        return Err(SelectionError::CannotAccessSource { reason: None });
     };
 
     let font_data = if let Ok(font_data) = utils::slurp_file(&mut file) {
         Arc::new(font_data)
     } else {
-        return Err(SelectionError::CannotAccessSource);
+        return Err(SelectionError::CannotAccessSource { reason: None });
     };
 
     match Font::analyze_bytes(Arc::clone(&font_data)) {
@@ -255,7 +255,9 @@ fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Result<Handle
             Err(SelectionError::NotFound)
         }
         Ok(FileType::Single) => Ok(Handle::from_memory(font_data, 0)),
-        Err(_) => Err(SelectionError::CannotAccessSource),
+        Err(e) => Err(SelectionError::CannotAccessSource {
+            reason: Some(format!("{:?} error on path {:?}", e, font_path).into()),
+        }),
     }
 }
 
