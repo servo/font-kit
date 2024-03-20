@@ -197,9 +197,10 @@ impl Font {
     }
 
     /// Creates a font from a native API handle.
-    pub unsafe fn from_native_font(freetype_face: NativeFont) -> Font {
+    pub unsafe fn from_native_font(freetype_face: &NativeFont) -> Font {
         // We make an in-memory copy of the underlying font data. This is because the native font
         // does not necessarily hold a strong reference to the memory backing it.
+        let freetype_face = *freetype_face;
         const CHUNK_SIZE: usize = 4096;
         let mut font_data = vec![];
         loop {
@@ -1036,7 +1037,7 @@ impl Loader for Font {
     }
 
     #[inline]
-    unsafe fn from_native_font(native_font: Self::NativeFont) -> Self {
+    unsafe fn from_native_font(native_font: &Self::NativeFont) -> Self {
         Font::from_native_font(native_font)
     }
 
