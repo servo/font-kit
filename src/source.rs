@@ -27,18 +27,24 @@ use std::any::Any;
 pub use crate::sources::core_text::CoreTextSource as SystemSource;
 #[cfg(all(target_family = "windows", not(feature = "source-fontconfig-default")))]
 pub use crate::sources::directwrite::DirectWriteSource as SystemSource;
-#[cfg(any(
-    not(any(
-        target_os = "android",
-        target_os = "macos",
-        target_os = "ios",
-        target_family = "windows",
-        target_arch = "wasm32"
-    )),
-    feature = "source-fontconfig-default"
+#[cfg(all(
+    any(
+        not(any(
+            target_os = "android",
+            target_os = "macos",
+            target_os = "ios",
+            target_family = "windows",
+            target_arch = "wasm32",
+        )),
+        feature = "source-fontconfig-default"
+    ),
+    not(target_env = "ohos")
 ))]
 pub use crate::sources::fontconfig::FontconfigSource as SystemSource;
 #[cfg(all(target_os = "android", not(feature = "source-fontconfig-default")))]
+pub use crate::sources::fs::FsSource as SystemSource;
+
+#[cfg(target_env = "ohos")]
 pub use crate::sources::fs::FsSource as SystemSource;
 
 // FIXME(pcwalton): These could expand to multiple fonts, and they could be language-specific.

@@ -69,7 +69,7 @@
 //!   API to query and match fonts.
 //!
 //! * Filesystem (cross-platform): A simple source that reads fonts from a path on disk. This is
-//!   the default on Android.
+//!   the default on Android and OpenHarmony.
 //!
 //! * Memory (cross-platform): A source that reads from a fixed set of fonts in memory.
 //!
