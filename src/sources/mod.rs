@@ -25,7 +25,8 @@ pub mod directwrite;
         target_os = "macos",
         target_os = "ios",
         target_family = "windows",
-        target_arch = "wasm32"
+        target_arch = "wasm32",
+        target_env = "ohos",
     )),
     feature = "source-fontconfig"
 ))]

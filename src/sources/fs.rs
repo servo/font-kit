@@ -12,14 +12,14 @@
 //!
 //! This source uses the WalkDir abstraction from the `walkdir` crate to locate fonts.
 //!
-//! This is the native source on Android.
+//! This is the native source on Android and OpenHarmony.
 
 use std::any::Any;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
-#[cfg(not(any(target_os = "android", target_family = "windows")))]
+#[cfg(not(any(target_os = "android", target_family = "windows", target_env = "ohos")))]
 use dirs_next;
 #[cfg(target_family = "windows")]
 use std::ffi::OsString;
@@ -44,7 +44,7 @@ use crate::sources::mem::MemSource;
 ///
 /// This source uses the WalkDir abstraction from the `walkdir` crate to locate fonts.
 ///
-/// This is the native source on Android.
+/// This is the native source on Android and OpenHarmony.
 #[allow(missing_debug_implementations)]
 pub struct FsSource {
     mem_source: MemSource,
@@ -59,9 +59,9 @@ impl Default for FsSource {
 impl FsSource {
     /// Opens the default set of directories on this platform and indexes the fonts found within.
     ///
-    /// Do not rely on this function for systems other than Android. It makes a best effort to
-    /// locate fonts in the typical platform directories, but it is too simple to pick up fonts
-    /// that are stored in unusual locations but nevertheless properly installed.
+    /// Do not rely on this function for systems other than Android or OpenHarmony. It makes a best
+    /// effort to locate fonts in the typical platform directories, but it is too simple to pick up
+    /// fonts that are stored in unusual locations but nevertheless properly installed.
     pub fn new() -> FsSource {
         let mut fonts = vec![];
         for font_directory in default_font_directories() {
@@ -177,7 +177,7 @@ impl Source for FsSource {
     }
 }
 
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", target_env = "ohos"))]
 fn default_font_directories() -> Vec<PathBuf> {
     vec![PathBuf::from("/system/fonts")]
 }
@@ -211,7 +211,12 @@ fn default_font_directories() -> Vec<PathBuf> {
     directories
 }
 
-#[cfg(not(any(target_os = "android", target_family = "windows", target_os = "macos")))]
+#[cfg(not(any(
+    target_os = "android",
+    target_family = "windows",
+    target_os = "macos",
+    target_env = "ohos"
+)))]
 fn default_font_directories() -> Vec<PathBuf> {
     let mut directories = vec![
         PathBuf::from("/usr/share/fonts"),
