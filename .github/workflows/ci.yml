@@ -20,15 +20,11 @@ jobs:
     name: Linux
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          override: true
+        uses: dtolnay/rust-toolchain@stable
       - name: Install
         run: |
           echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections;
@@ -42,17 +38,13 @@ jobs:
 
   ci-macos:
     name: macOS
-    runs-on: macos-12
+    runs-on: macos-14
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          override: true
+        uses: dtolnay/rust-toolchain@stable
       - name: Build
         run: cargo build
       - name: Tests
@@ -60,17 +52,13 @@ jobs:
 
   ci-win:
     name: Windows
-    runs-on: windows-2019
+    runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          override: true
+        uses: dtolnay/rust-toolchain@stable
       - name: Build
         run: cargo build
       - name: Tests
