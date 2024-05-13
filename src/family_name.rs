@@ -13,7 +13,7 @@
 /// A possible value for the `font-family` CSS property.
 ///
 /// These descriptions are taken from CSS Fonts Level 3 § 3.1:
-/// https://drafts.csswg.org/css-fonts-3/#font-family-prop.
+/// <https://drafts.csswg.org/css-fonts-3/#font-family-prop>.
 ///
 /// TODO(pcwalton): `system-ui`, `emoji`, `math`, `fangsong`
 #[derive(Clone, Debug, PartialEq, Hash)]
