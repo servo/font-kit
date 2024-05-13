@@ -463,6 +463,9 @@ impl Font {
             }
 
             let outline = &(*(*self.freetype_face).glyph).outline;
+            if outline.n_contours == 0 {
+                return Ok(());
+            }
             let contours = slice::from_raw_parts(outline.contours, outline.n_contours as usize);
             let point_positions = slice::from_raw_parts(outline.points, outline.n_points as usize);
             let point_tags = slice::from_raw_parts(outline.tags, outline.n_points as usize);
