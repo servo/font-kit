@@ -11,7 +11,7 @@
 //! Properties that specify which font in a family to use: e.g. style, weight, and stretchiness.
 //!
 //! Much of the documentation in this modules comes from the CSS 3 Fonts specification:
-//! https://drafts.csswg.org/css-fonts-3/
+//! <https://drafts.csswg.org/css-fonts-3/>
 
 use std::fmt::{self, Debug, Display, Formatter};
 
