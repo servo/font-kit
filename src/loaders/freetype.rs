@@ -865,26 +865,32 @@ impl Font {
                     bitmap_length, 0,
                     "bitmap length should be 0 when bitmap_buffer is nullptr"
                 );
-                return Ok(());
-            }
-            let buffer = slice::from_raw_parts(bitmap_buffer, bitmap_length);
-            let dst_point = Vector2I::new(
-                (*(*self.freetype_face).glyph).bitmap_left,
-                -(*(*self.freetype_face).glyph).bitmap_top,
-            );
+            } else {
+                let buffer = slice::from_raw_parts(bitmap_buffer, bitmap_length);
+                let dst_point = Vector2I::new(
+                    (*(*self.freetype_face).glyph).bitmap_left,
+                    -(*(*self.freetype_face).glyph).bitmap_top,
+                );
 
-            // FIXME(pcwalton): This function should return a Result instead.
-            match bitmap.pixel_mode {
-                FT_PIXEL_MODE_GRAY => {
-                    canvas.blit_from(dst_point, buffer, bitmap_size, bitmap_stride, Format::A8);
+                // FIXME(pcwalton): This function should return a Result instead.
+                match bitmap.pixel_mode {
+                    FT_PIXEL_MODE_GRAY => {
+                        canvas.blit_from(dst_point, buffer, bitmap_size, bitmap_stride, Format::A8);
+                    }
+                    FT_PIXEL_MODE_LCD | FT_PIXEL_MODE_LCD_V => {
+                        canvas.blit_from(
+                            dst_point,
+                            buffer,
+                            bitmap_size,
+                            bitmap_stride,
+                            Format::Rgb24,
+                        );
+                    }
+                    FT_PIXEL_MODE_MONO => {
+                        canvas.blit_from_bitmap_1bpp(dst_point, buffer, bitmap_size, bitmap_stride);
+                    }
+                    _ => panic!("Unexpected FreeType pixel mode!"),
                 }
-                FT_PIXEL_MODE_LCD | FT_PIXEL_MODE_LCD_V => {
-                    canvas.blit_from(dst_point, buffer, bitmap_size, bitmap_stride, Format::Rgb24);
-                }
-                FT_PIXEL_MODE_MONO => {
-                    canvas.blit_from_bitmap_1bpp(dst_point, buffer, bitmap_size, bitmap_stride);
-                }
-                _ => panic!("Unexpected FreeType pixel mode!"),
             }
 
             FT_Set_Transform(self.freetype_face, ptr::null_mut(), ptr::null_mut());
