@@ -1,6 +1,6 @@
 [package]
 name = "font-kit"
-version = "0.13.1"
+version = "0.13.2"
 authors = ["Patrick Walton <pcwalton@mimiga.net>"]
 description = "A cross-platform font loading library"
 license = "MIT OR Apache-2.0"
@@ -56,7 +56,7 @@ core-graphics = "0.23"
 core-text = "20.1.0"
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))'.dependencies]
-freetype = "0.7"
+freetype-sys = "0.20"
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32", target_env = "ohos")))'.dependencies]
 yeslogic-fontconfig-sys = "5.0"
