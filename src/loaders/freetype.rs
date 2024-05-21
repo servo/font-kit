@@ -14,19 +14,17 @@
 //! loader by default.
 
 use byteorder::{BigEndian, ReadBytesExt};
-use freetype::freetype::{FT_Byte, FT_Done_Face, FT_Error, FT_Face, FT_FACE_FLAG_FIXED_WIDTH};
-use freetype::freetype::{
-    FT_Done_FreeType, FT_Get_Sfnt_Table, FT_Init_FreeType, FT_LcdFilter, FT_Library,
+use freetype_sys::{
+    ft_sfnt_os2, FT_Byte, FT_Done_Face, FT_Done_FreeType, FT_Error, FT_Face, FT_Fixed,
+    FT_Get_Char_Index, FT_Get_Name_Index, FT_Get_Postscript_Name, FT_Get_Sfnt_Name,
+    FT_Get_Sfnt_Name_Count, FT_Get_Sfnt_Table, FT_Init_FreeType, FT_Library,
+    FT_Library_SetLcdFilter, FT_Load_Glyph, FT_Long, FT_Matrix, FT_New_Memory_Face, FT_Pos,
+    FT_Reference_Face, FT_Set_Char_Size, FT_Set_Transform, FT_UInt, FT_ULong, FT_Vector,
+    FT_FACE_FLAG_FIXED_WIDTH, FT_LCD_FILTER_DEFAULT, FT_LOAD_DEFAULT, FT_LOAD_MONOCHROME,
+    FT_LOAD_NO_HINTING, FT_LOAD_RENDER, FT_LOAD_TARGET_LCD, FT_LOAD_TARGET_LIGHT,
+    FT_LOAD_TARGET_MONO, FT_LOAD_TARGET_NORMAL, FT_PIXEL_MODE_GRAY, FT_PIXEL_MODE_LCD,
+    FT_PIXEL_MODE_LCD_V, FT_PIXEL_MODE_MONO, FT_STYLE_FLAG_ITALIC, TT_OS2,
 };
-use freetype::freetype::{
-    FT_Fixed, FT_Get_Char_Index, FT_Get_Name_Index, FT_Get_Postscript_Name, FT_Pos,
-};
-use freetype::freetype::{FT_Library_SetLcdFilter, FT_Load_Glyph, FT_LOAD_DEFAULT};
-use freetype::freetype::{FT_Load_Sfnt_Table, FT_Long, FT_Matrix, FT_New_Memory_Face};
-use freetype::freetype::{FT_Reference_Face, FT_Set_Char_Size, FT_Set_Transform, FT_Sfnt_Tag};
-use freetype::freetype::{FT_UInt, FT_ULong, FT_UShort, FT_Vector, FT_STYLE_FLAG_ITALIC};
-use freetype::freetype::{FT_LOAD_MONOCHROME, FT_LOAD_NO_HINTING, FT_LOAD_RENDER};
-use freetype::tt_os2::TT_OS2;
 use log::warn;
 use pathfinder_geometry::line_segment::LineSegment2F;
 use pathfinder_geometry::rect::{RectF, RectI};
@@ -68,21 +66,6 @@ const TT_PLATFORM_APPLE_UNICODE: u16 = 0;
 const FT_POINT_TAG_ON_CURVE: c_char = 0x01;
 const FT_POINT_TAG_CUBIC_CONTROL: c_char = 0x02;
 
-const FT_RENDER_MODE_NORMAL: u32 = 0;
-const FT_RENDER_MODE_LIGHT: u32 = 1;
-const FT_RENDER_MODE_MONO: u32 = 2;
-const FT_RENDER_MODE_LCD: u32 = 3;
-
-const FT_LOAD_TARGET_LIGHT: u32 = (FT_RENDER_MODE_LIGHT & 15) << 16;
-const FT_LOAD_TARGET_LCD: u32 = (FT_RENDER_MODE_LCD & 15) << 16;
-const FT_LOAD_TARGET_MONO: u32 = (FT_RENDER_MODE_MONO & 15) << 16;
-const FT_LOAD_TARGET_NORMAL: u32 = (FT_RENDER_MODE_NORMAL & 15) << 16;
-
-const FT_PIXEL_MODE_MONO: u8 = 1;
-const FT_PIXEL_MODE_GRAY: u8 = 2;
-const FT_PIXEL_MODE_LCD: u8 = 5;
-const FT_PIXEL_MODE_LCD_V: u8 = 6;
-
 const OS2_FS_SELECTION_OBLIQUE: u16 = 1 << 9;
 
 // Not in our FreeType bindings, so we define these ourselves.
@@ -100,7 +83,7 @@ thread_local! {
         unsafe {
             let mut library = ptr::null_mut();
             assert_eq!(FT_Init_FreeType(&mut library), 0);
-            FT_Library_SetLcdFilter(library, FT_LcdFilter::FT_LCD_FILTER_DEFAULT);
+            FT_Library_SetLcdFilter(library, FT_LCD_FILTER_DEFAULT);
             FtLibrary(library)
         }
     };
@@ -205,7 +188,7 @@ impl Font {
         loop {
             font_data.extend(iter::repeat(0).take(CHUNK_SIZE));
             let freetype_stream = (*freetype_face).stream;
-            let n_read = ((*freetype_stream).read.unwrap())(
+            let n_read = ((*freetype_stream).read)(
                 freetype_stream,
                 font_data.len() as FT_ULong,
                 font_data.as_mut_ptr(),
@@ -458,7 +441,7 @@ impl Font {
                 );
             }
 
-            if FT_Load_Glyph(self.freetype_face, glyph_id, load_flags as i32) != 0 {
+            if FT_Load_Glyph(self.freetype_face, glyph_id, load_flags) != 0 {
                 return Err(GlyphLoadingError::NoSuchGlyph);
             }
 
@@ -607,7 +590,7 @@ impl Font {
             if FT_Load_Glyph(
                 self.freetype_face,
                 glyph_id,
-                (FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING) as i32,
+                FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING,
             ) != 0
             {
                 return Err(GlyphLoadingError::NoSuchGlyph);
@@ -632,7 +615,7 @@ impl Font {
             if FT_Load_Glyph(
                 self.freetype_face,
                 glyph_id,
-                (FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING) as i32,
+                FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING,
             ) != 0
             {
                 return Err(GlyphLoadingError::NoSuchGlyph);
@@ -763,7 +746,7 @@ impl Font {
 
     fn get_os2_table(&self) -> Option<*const TT_OS2> {
         unsafe {
-            let table = FT_Get_Sfnt_Table(self.freetype_face, FT_Sfnt_Tag::FT_SFNT_OS2);
+            let table = FT_Get_Sfnt_Table(self.freetype_face, ft_sfnt_os2);
             if table.is_null() {
                 None
             } else {
@@ -846,7 +829,7 @@ impl Font {
                 hinting_options,
                 rasterization_options,
             );
-            if FT_Load_Glyph(self.freetype_face, glyph_id, load_flags as i32) != 0 {
+            if FT_Load_Glyph(self.freetype_face, glyph_id, load_flags) != 0 {
                 return Err(GlyphLoadingError::NoSuchGlyph);
             }
 
@@ -855,8 +838,8 @@ impl Font {
             // that mode.
             let bitmap = &(*(*self.freetype_face).glyph).bitmap;
             let bitmap_stride = bitmap.pitch as usize;
-            let bitmap_width = bitmap.width as i32;
-            let bitmap_height = bitmap.rows as i32;
+            let bitmap_width = bitmap.width;
+            let bitmap_height = bitmap.rows;
             let bitmap_size = Vector2I::new(bitmap_width, bitmap_height);
             let bitmap_buffer = bitmap.buffer as *const i8 as *const u8;
             let bitmap_length = bitmap_stride * bitmap_height as usize;
@@ -873,7 +856,7 @@ impl Font {
                 );
 
                 // FIXME(pcwalton): This function should return a Result instead.
-                match bitmap.pixel_mode {
+                match bitmap.pixel_mode as u32 {
                     FT_PIXEL_MODE_GRAY => {
                         canvas.blit_from(dst_point, buffer, bitmap_size, bitmap_stride, Format::A8);
                     }
@@ -903,7 +886,7 @@ impl Font {
         &self,
         hinting: HintingOptions,
         rasterization: RasterizationOptions,
-    ) -> u32 {
+    ) -> i32 {
         let mut options = match (hinting, rasterization) {
             (HintingOptions::VerticalSubpixel(_), _) | (_, RasterizationOptions::SubpixelAa) => {
                 FT_LOAD_TARGET_LCD
@@ -1182,16 +1165,6 @@ unsafe fn reset_freetype_face_char_size(face: FT_Face) {
     }
 }
 
-#[repr(C)]
-struct FT_SfntName {
-    platform_id: FT_UShort,
-    encoding_id: FT_UShort,
-    language_id: FT_UShort,
-    name_id: FT_UShort,
-    string: *mut FT_Byte,
-    string_len: FT_UInt,
-}
-
 trait F32ToFtFixed {
     type Output;
     fn f32_to_ft_fixed_26_6(self) -> Self::Output;
@@ -1248,8 +1221,13 @@ extern "C" {
         value: *mut c_void,
         value_len: FT_Long,
     ) -> FT_Long;
-    fn FT_Get_Sfnt_Name(face: FT_Face, idx: FT_UInt, aname: *mut FT_SfntName) -> FT_Error;
-    fn FT_Get_Sfnt_Name_Count(face: FT_Face) -> FT_UInt;
+    fn FT_Load_Sfnt_Table(
+        face: FT_Face,
+        tag: FT_ULong,
+        offset: FT_Long,
+        buffer: *mut FT_Byte,
+        length: *mut FT_ULong,
+    ) -> FT_Error;
 }
 
 #[cfg(test)]
