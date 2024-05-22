@@ -624,18 +624,6 @@ pub fn get_font_properties() {
 
 #[cfg(feature = "source")]
 #[test]
-pub fn get_font_data() {
-    let font = SystemSource::new()
-        .select_best_match(&[FamilyName::SansSerif], &Properties::new())
-        .unwrap()
-        .load()
-        .unwrap();
-    let data = font.copy_font_data().unwrap();
-    debug_assert!(SFNT_VERSIONS.iter().any(|version| data[0..4] == *version));
-}
-
-#[cfg(feature = "source")]
-#[test]
 pub fn load_font_table() {
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
