@@ -1,6 +1,6 @@
 [package]
 name = "font-kit"
-version = "0.14.0"
+version = "0.14.1"
 authors = ["Patrick Walton <pcwalton@mimiga.net>"]
 description = "A cross-platform font loading library"
 license = "MIT OR Apache-2.0"
@@ -63,7 +63,7 @@ freetype-sys = "0.20"
 yeslogic-fontconfig-sys = "6.0"
 
 [target.'cfg(not(any(target_arch = "wasm32", target_family = "windows", target_os = "android", target_env = "ohos")))'.dependencies]
-dirs-next = "2.0"
+dirs = "5.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 walkdir = "2.1"
