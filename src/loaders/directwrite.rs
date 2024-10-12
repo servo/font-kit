@@ -532,7 +532,8 @@ impl Font {
         } else {
             Format::Rgb24
         };
-        let texture_bytes_per_pixel = texture_format.bytes_per_pixel();
+        let texture_bits_per_pixel = texture_format.bits_per_pixel();
+        let texture_bytes_per_pixel = texture_bits_per_pixel as usize / 8;
         let texture_size = Vector2I::new(texture_width, texture_height);
         let texture_stride = texture_width as usize * texture_bytes_per_pixel;
 

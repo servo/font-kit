@@ -56,7 +56,7 @@ impl Canvas {
     pub fn new(size: Vector2I, format: Format) -> Canvas {
         Canvas::with_stride(
             size,
-            size.x() as usize * format.bytes_per_pixel(),
+            size.x() as usize * format.bytes_per_pixel() as usize,
             format,
         )
     }
@@ -157,7 +157,7 @@ impl Canvas {
 
         let size = dst_rect.size();
 
-        let dest_bytes_per_pixel = self.format.bytes_per_pixel();
+        let dest_bytes_per_pixel = self.format.bytes_per_pixel() as usize;
         let dest_row_stride = size.x() as usize * dest_bytes_per_pixel;
         let src_row_stride = utils::div_round_up(size.x() as usize, 8);
 
@@ -191,8 +191,8 @@ impl Canvas {
         src_stride: usize,
         src_format: Format,
     ) {
-        let src_bytes_per_pixel = src_format.bytes_per_pixel();
-        let dest_bytes_per_pixel = self.format.bytes_per_pixel();
+        let src_bytes_per_pixel = src_format.bytes_per_pixel() as usize;
+        let dest_bytes_per_pixel = self.format.bytes_per_pixel() as usize;
 
         for y in 0..rect.height() {
             let (dest_row_start, src_row_start) = (
@@ -234,7 +234,7 @@ pub enum Format {
 impl Format {
     /// Returns the number of bits per pixel that this image format corresponds to.
     #[inline]
-    pub fn bits_per_pixel(self) -> usize {
+    pub fn bits_per_pixel(self) -> u8 {
         match self {
             Format::Rgba32 => 32,
             Format::Rgb24 => 24,
@@ -244,7 +244,7 @@ impl Format {
 
     /// Returns the number of color channels per pixel that this image format corresponds to.
     #[inline]
-    pub fn components_per_pixel(self) -> usize{
+    pub fn components_per_pixel(self) -> u8 {
         match self {
             Format::Rgba32 => 4,
             Format::Rgb24 => 3,
@@ -254,13 +254,13 @@ impl Format {
 
     /// Returns the number of bits per color channel that this image format contains.
     #[inline]
-    pub fn bits_per_component(self) -> usize {
+    pub fn bits_per_component(self) -> u8 {
         self.bits_per_pixel() / self.components_per_pixel()
     }
 
     /// Returns the number of bytes per pixel that this image format corresponds to.
     #[inline]
-    pub fn bytes_per_pixel(self) -> usize {
+    pub fn bytes_per_pixel(self) -> u8 {
         self.bits_per_pixel() / 8
     }
 }
