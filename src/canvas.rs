@@ -104,7 +104,7 @@ impl Canvas {
             "Number of pixels in src_bytes does not match stride and size."
         );
         assert!(
-            src_stride >= src_size.x() as usize * src_format.bytes_per_pixel(),
+            src_stride >= src_size.x() as usize * src_format.bytes_per_pixel() as usize,
             "src_stride must be >= than src_size.x()"
         );
         
