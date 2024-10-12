@@ -838,9 +838,9 @@ impl Font {
             // that mode.
             let bitmap = &(*(*self.freetype_face).glyph).bitmap;
             let bitmap_stride = bitmap.pitch as usize;
+            // bitmap_width is given in bytes.
             let bitmap_width = bitmap.width;
             let bitmap_height = bitmap.rows;
-            let bitmap_size = Vector2I::new(bitmap_width, bitmap_height);
             let bitmap_buffer = bitmap.buffer as *const i8 as *const u8;
             let bitmap_length = bitmap_stride * bitmap_height as usize;
             if bitmap_buffer.is_null() {
@@ -858,9 +858,12 @@ impl Font {
                 // FIXME(pcwalton): This function should return a Result instead.
                 match bitmap.pixel_mode as u32 {
                     FT_PIXEL_MODE_GRAY => {
+                        let bitmap_size = Vector2I::new(bitmap_width, bitmap_height);
                         canvas.blit_from(dst_point, buffer, bitmap_size, bitmap_stride, Format::A8);
                     }
                     FT_PIXEL_MODE_LCD | FT_PIXEL_MODE_LCD_V => {
+                        // Three bytes per pixel for Rgb24 format
+                        let bitmap_size = Vector2I::new(bitmap_width / 3, bitmap_height);
                         canvas.blit_from(
                             dst_point,
                             buffer,
@@ -870,6 +873,7 @@ impl Font {
                         );
                     }
                     FT_PIXEL_MODE_MONO => {
+                        let bitmap_size = Vector2I::new(bitmap_width, bitmap_height);
                         canvas.blit_from_bitmap_1bpp(dst_point, buffer, bitmap_size, bitmap_stride);
                     }
                     _ => panic!("Unexpected FreeType pixel mode!"),
