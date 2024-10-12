@@ -511,7 +511,7 @@ impl Font {
             Some(canvas.pixels.as_mut_ptr() as *mut _),
             canvas.size.x() as usize,
             canvas.size.y() as usize,
-            canvas.format.bits_per_component() as usize,
+            canvas.format.bits_per_component(),
             canvas.stride,
             &cg_color_space,
             cg_image_format,
