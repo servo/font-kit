@@ -107,7 +107,7 @@ impl Canvas {
             src_stride >= src_size.x() as usize * src_format.bytes_per_pixel() as usize,
             "src_stride must be >= than src_size.x()"
         );
-        
+
 
         let dst_rect = RectI::new(dst_point, src_size);
         let dst_rect = dst_rect.intersection(RectI::new(Vector2I::default(), self.size));

@@ -847,7 +847,7 @@ pub fn rasterize_glyph_with_full_hinting_subpixel() {
     )
     .unwrap();
     check_L_shape(&canvas);
-    
+
     // Test with larger canvas
     let mut canvas = Canvas::new(Vector2I::new(100, 100), Format::Rgb24);
     font.rasterize_glyph(
@@ -861,7 +861,6 @@ pub fn rasterize_glyph_with_full_hinting_subpixel() {
     .unwrap();
     check_L_shape(&canvas);
 }
-
 
 #[cfg(all(feature = "source", target_family = "windows"))]
 #[test]
@@ -942,7 +941,6 @@ pub fn rasterize_empty_glyph_on_empty_canvas() {
     )
     .unwrap();
 }
-
 
 #[cfg(feature = "source")]
 #[test]
