@@ -85,6 +85,10 @@ impl Canvas {
         )
     }
 
+    /// Blits to a rectangle with origin at `dst_point` and size according to `src_size`.
+    /// If the target area overlaps the boundaries of the canvas, only the drawable region is blitted.
+    /// `dst_point` and `src_size` are specified in pixels. `src_stride` is specified in bytes.
+    /// `src_stride` must be equal or larger than the actual data length.
     #[allow(dead_code)]
     pub(crate) fn blit_from(
         &mut self,
@@ -94,6 +98,17 @@ impl Canvas {
         src_stride: usize,
         src_format: Format,
     ) {
+        assert_eq!(
+            src_stride * src_size.y() as usize,
+            src_bytes.len(),
+            "Number of pixels in src_bytes does not match stride and size."
+        );
+        assert!(
+            src_stride >= src_size.x() as usize * src_format.bytes_per_pixel() as usize,
+            "src_stride must be >= than src_size.x()"
+        );
+        
+
         let dst_rect = RectI::new(dst_point, src_size);
         let dst_rect = dst_rect.intersection(RectI::new(Vector2I::default(), self.size));
         let dst_rect = match dst_rect {
@@ -166,6 +181,9 @@ impl Canvas {
         }
     }
 
+    /// Blits to area `rect` using the data given in the buffer `src_bytes`.
+    /// `src_stride` must be specified in bytes.
+    /// The dimensions of `rect` must be in pixels.
     fn blit_from_with<B: Blit>(
         &mut self,
         rect: RectI,
