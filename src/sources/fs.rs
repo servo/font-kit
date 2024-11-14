@@ -221,7 +221,6 @@ fn default_font_directories() -> Vec<PathBuf> {
     let mut directories = vec![
         PathBuf::from("/usr/share/fonts"),
         PathBuf::from("/usr/local/share/fonts"),
-
         // Flatpak specific
         PathBuf::from("/run/host/fonts"),
         PathBuf::from("/run/host/local-fonts"),
