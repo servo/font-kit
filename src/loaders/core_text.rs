@@ -806,7 +806,7 @@ fn core_text_to_css_font_weight(core_text_weight: f32) -> Weight {
 
 fn core_text_width_to_css_stretchiness(core_text_width: f32) -> Stretch {
     Stretch(piecewise_linear_lookup(
-        (core_text_width + 1.0) * 4.0,
+        ((core_text_width + 0.4) * 10.0).clamp(0.0, 8.0),
         &Stretch::MAPPING,
     ))
 }
@@ -970,13 +970,21 @@ mod test {
             Stretch(0.5)
         );
         assert_eq!(
+            super::core_text_width_to_css_stretchiness(-0.5),
+            Stretch(0.5)
+        );
+        assert_eq!(
+            super::core_text_width_to_css_stretchiness(0.5),
+            Stretch(2.0)
+        );
+        assert_eq!(
             super::core_text_width_to_css_stretchiness(1.0),
             Stretch(2.0)
         );
 
         // Linear interpolation
         assert_eq!(
-            super::core_text_width_to_css_stretchiness(0.85),
+            super::core_text_width_to_css_stretchiness(0.34),
             Stretch(1.7)
         );
     }
