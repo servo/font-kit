@@ -122,29 +122,14 @@ impl Font {
     }
 
     /// Creates a font from a native API handle.
-    pub unsafe fn from_native_font(core_text_font: NativeFont) -> Font {
-        Font::from_core_text_font(core_text_font)
+    pub unsafe fn from_native_font(core_text_font: &NativeFont) -> Font {
+        Font::from_core_text_font_no_path(core_text_font.clone())
     }
-
-    unsafe fn from_core_text_font(core_text_font: NativeFont) -> Font {
-        let mut font_data = FontData::Unavailable;
-        match core_text_font.url() {
-            None => warn!("No URL found for Core Text font!"),
-            Some(url) => match url.to_path() {
-                Some(path) => match File::open(path) {
-                    Ok(ref mut file) => match utils::slurp_file(file) {
-                        Ok(data) => font_data = FontData::Memory(Arc::new(data)),
-                        Err(_) => warn!("Couldn't read file data for Core Text font!"),
-                    },
-                    Err(_) => warn!("Could not open file for Core Text font!"),
-                },
-                None => warn!("Could not convert URL from Core Text font to path!"),
-            },
-        }
-
+    /// Creates a font from a native API handle, without performing a lookup on the disk.
+    pub unsafe fn from_core_text_font_no_path(core_text_font: NativeFont) -> Font {
         Font {
             core_text_font,
-            font_data,
+            font_data: FontData::Unavailable,
         }
     }
 
@@ -153,7 +138,10 @@ impl Font {
     /// This function is only available on the Core Text backend.
     pub fn from_core_graphics_font(core_graphics_font: CGFont) -> Font {
         unsafe {
-            Font::from_core_text_font(core_text::font::new_from_CGFont(&core_graphics_font, 16.0))
+            Font::from_core_text_font_no_path(core_text::font::new_from_CGFont(
+                &core_graphics_font,
+                16.0,
+            ))
         }
     }
 
@@ -628,7 +616,7 @@ impl Loader for Font {
     }
 
     #[inline]
-    unsafe fn from_native_font(native_font: Self::NativeFont) -> Self {
+    unsafe fn from_native_font(native_font: &Self::NativeFont) -> Self {
         Font::from_native_font(native_font)
     }
 
