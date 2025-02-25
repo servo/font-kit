@@ -41,7 +41,9 @@ impl DirectWriteSource {
 
         for dwrite_family in self.system_font_collection.families_iter() {
             for font_index in 0..dwrite_family.get_font_count() {
-                let dwrite_font = dwrite_family.get_font(font_index);
+                let Ok(dwrite_font) = dwrite_family.font(font_index) else {
+                    continue;
+                };
                 handles.push(self.create_handle_from_dwrite_font(dwrite_font))
             }
         }
@@ -54,7 +56,7 @@ impl DirectWriteSource {
         Ok(self
             .system_font_collection
             .families_iter()
-            .map(|dwrite_family| dwrite_family.name())
+            .filter_map(|dwrite_family| dwrite_family.family_name().ok())
             .collect())
     }
 
@@ -71,8 +73,10 @@ impl DirectWriteSource {
             None => return Err(SelectionError::NotFound),
         };
         for font_index in 0..dwrite_family.get_font_count() {
-            let dwrite_font = dwrite_family.get_font(font_index);
-            family.push(self.create_handle_from_dwrite_font(dwrite_font))
+            let Ok(dwrite_font) = dwrite_family.font(font_index) else {
+                continue;
+            };
+            family.push(self.create_handle_from_dwrite_font(dwrite_font));
         }
         Ok(family)
     }

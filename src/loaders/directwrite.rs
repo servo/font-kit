@@ -105,7 +105,9 @@ impl Font {
                     font_index -= 1;
                     continue;
                 }
-                let dwrite_font = family.get_font(family_font_index);
+                let Ok(dwrite_font) = family.font(family_font_index) else {
+                    continue;
+                };
                 let dwrite_font_face = dwrite_font.create_font_face();
                 return Ok(Font {
                     dwrite_font,
