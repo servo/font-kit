@@ -63,7 +63,7 @@ freetype-sys = "0.20"
 yeslogic-fontconfig-sys = "6.0"
 
 [target.'cfg(not(any(target_arch = "wasm32", target_family = "windows", target_os = "android", target_env = "ohos")))'.dependencies]
-dirs = "5.0"
+dirs = "6.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 walkdir = "2.1"
