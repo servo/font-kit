@@ -45,7 +45,7 @@ pbr = "1.0"
 prettytable-rs = "0.10"
 
 [target.'cfg(target_family = "windows")'.dependencies]
-dwrote = { git = "https://github.com/servo/dwrote-rs", rev = "dbce1fbdaf98d0903637fca33ddf25f5c6627269", default-features = false }
+dwrote = { version = "^0.11.3", default-features = false }
 
 [target.'cfg(target_family = "windows")'.dependencies.winapi]
 version = "0.3"
