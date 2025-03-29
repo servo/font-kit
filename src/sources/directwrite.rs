@@ -65,12 +65,9 @@ impl DirectWriteSource {
     /// TODO(pcwalton): Case-insensitivity.
     pub fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
         let mut family = FamilyHandle::new();
-        let dwrite_family = match self
-            .system_font_collection
-            .get_font_family_by_name(family_name)
-        {
-            Some(dwrite_family) => dwrite_family,
-            None => return Err(SelectionError::NotFound),
+        let dwrite_family = match self.system_font_collection.font_family_by_name(family_name) {
+            Ok(Some(dwrite_family)) => dwrite_family,
+            Err(_) | Ok(None) => return Err(SelectionError::NotFound),
         };
         for font_index in 0..dwrite_family.get_font_count() {
             let Ok(dwrite_font) = dwrite_family.font(font_index) else {
