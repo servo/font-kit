@@ -28,7 +28,7 @@ libc = "0.2"
 log = "0.4.4"
 pathfinder_geometry = "0.5"
 pathfinder_simd = "0.5.5"
-freetype-sys = {version = "0.23", optional = true}
+freetype-sys = { version = "0.23", optional = true }
 
 [dependencies.yeslogic-fontconfig-sys]
 version = "6.0"
@@ -48,9 +48,35 @@ version = "0.3"
 features = ["dwrite", "minwindef", "sysinfoapi", "winbase", "winnt"]
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
-core-foundation = "0.9"
-core-graphics = "0.23"
-core-text = "20.1.0"
+objc2-core-foundation = { git = "https://github.com/madsmtm/objc2.git", rev = "0dc236c0e186ed29991798d2a6ff5cdc595b2ffa", default-features = false, features = [
+    "std",
+    "CFArray",
+    "CFCGTypes",
+    "CFData",
+    "CFDictionary",
+    "CFNumber",
+    "CFString",
+    "CFURL",
+] }
+objc2-core-graphics = { git = "https://github.com/madsmtm/objc2.git", rev = "0dc236c0e186ed29991798d2a6ff5cdc595b2ffa", default-features = false, features = [
+    "std",
+    "CGAffineTransform",
+    "CGBitmapContext",
+    "CGColorSpace",
+    "CGContext",
+    "CGFont",
+    "CGImage",
+    "CGPath",
+] }
+objc2-core-text = { git = "https://github.com/madsmtm/objc2.git", rev = "0dc236c0e186ed29991798d2a6ff5cdc595b2ffa", default-features = false, features = [
+    "std",
+    "objc2-core-graphics",
+    "CTFont",
+    "CTFontCollection",
+    "CTFontDescriptor",
+    "CTFontManager",
+    "CTFontTraits",
+] }
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))'.dependencies]
 freetype-sys = "0.23"
