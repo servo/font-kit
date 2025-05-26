@@ -1,6 +1,6 @@
 [package]
 name = "font-kit"
-version = "0.14.2"
+version = "0.14.3"
 authors = ["Patrick Walton <pcwalton@mimiga.net>"]
 description = "A cross-platform font loading library"
 license = "MIT OR Apache-2.0"
@@ -28,7 +28,7 @@ lazy_static = "1.1"
 libc = "0.2"
 log = "0.4.4"
 pathfinder_geometry = "0.5"
-pathfinder_simd = "0.5.4"
+pathfinder_simd = "0.5.5"
 
 [dependencies.freetype]
 version = "0.7"
