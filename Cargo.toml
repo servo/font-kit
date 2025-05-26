@@ -1,6 +1,6 @@
 [package]
 name = "font-kit"
-version = "0.14.2"
+version = "0.14.3"
 authors = ["Patrick Walton <pcwalton@mimiga.net>"]
 description = "A cross-platform font loading library"
 license = "MIT OR Apache-2.0"
