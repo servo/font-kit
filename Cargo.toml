@@ -24,7 +24,6 @@ source = []
 bitflags = "2.4"
 byteorder = "1.2"
 float-ord = "0.3"
-lazy_static = "1.1"
 libc = "0.2"
 log = "0.4.4"
 pathfinder_geometry = "0.5"
