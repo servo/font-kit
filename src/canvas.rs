@@ -10,7 +10,6 @@
 
 //! An in-memory bitmap surface for glyph rasterization.
 
-use lazy_static::lazy_static;
 use pathfinder_geometry::rect::RectI;
 use pathfinder_geometry::vector::Vector2I;
 use std::cmp;
@@ -18,21 +17,26 @@ use std::fmt;
 
 use crate::utils;
 
-lazy_static! {
-    static ref BITMAP_1BPP_TO_8BPP_LUT: [[u8; 8]; 256] = {
-        let mut lut = [[0; 8]; 256];
-        for byte in 0..0x100 {
-            let mut value = [0; 8];
-            for bit in 0..8 {
-                if (byte & (0x80 >> bit)) != 0 {
-                    value[bit] = 0xff;
-                }
+static BITMAP_1BPP_TO_8BPP_LUT: [[u8; 8]; 256] = {
+    let mut lut = [[0; 8]; 256];
+
+    let mut byte = 0;
+    while byte < 0x100 {
+        let mut value = [0; 8];
+
+        let mut bit = 0;
+        while bit < 8 {
+            if (byte & (0x80 >> bit)) != 0 {
+                value[bit] = 0xff;
             }
-            lut[byte] = value
+            bit += 1;
         }
-        lut
-    };
-}
+
+        lut[byte] = value;
+        byte += 1;
+    }
+    lut
+};
 
 /// An in-memory bitmap surface for glyph rasterization.
 pub struct Canvas {
