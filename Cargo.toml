@@ -13,7 +13,7 @@ rust-version = "1.77"
 
 [features]
 default = ["source"]
-loader-freetype = ["freetype"]
+loader-freetype = ["freetype-sys"]
 loader-freetype-default = ["loader-freetype"]
 source-fontconfig = ["yeslogic-fontconfig-sys"]
 source-fontconfig-dlopen = ["yeslogic-fontconfig-sys/dlopen"]
@@ -28,10 +28,7 @@ libc = "0.2"
 log = "0.4.4"
 pathfinder_geometry = "0.5"
 pathfinder_simd = "0.5.5"
-
-[dependencies.freetype]
-version = "0.7"
-optional = true
+freetype-sys = {version = "0.23", optional = true}
 
 [dependencies.yeslogic-fontconfig-sys]
 version = "6.0"
@@ -56,7 +53,7 @@ core-graphics = "0.23"
 core-text = "20.1.0"
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios")))'.dependencies]
-freetype-sys = "0.20"
+freetype-sys = "0.23"
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32", target_env = "ohos")))'.dependencies]
 yeslogic-fontconfig-sys = "6.0"
