@@ -315,7 +315,7 @@ impl Font {
             Err(_) => {
                 // This will happen if the path is empty (rdar://42832439). To distinguish this
                 // case from the case in which the glyph does not exist, call another API.
-                drop(self.typographic_bounds(glyph_id)?);
+                let _ = self.typographic_bounds(glyph_id)?; // drop
                 return Ok(());
             }
         };
