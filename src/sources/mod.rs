@@ -24,6 +24,7 @@ pub mod directwrite;
     not(any(
         target_os = "macos",
         target_os = "ios",
+        target_os = "android",
         target_family = "windows",
         target_arch = "wasm32",
         target_env = "ohos",
