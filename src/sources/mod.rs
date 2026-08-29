@@ -22,6 +22,7 @@ pub mod directwrite;
 
 #[cfg(any(
     not(any(
+        target_os = "android",
         target_os = "macos",
         target_os = "ios",
         target_family = "windows",
