@@ -534,7 +534,7 @@ pub fn get_glyph_advance_and_origin() {
         .unwrap();
     let glyph = font.glyph_for_char('a').expect("No glyph for char!");
     assert_eq!(font.advance(glyph), Ok(Vector2F::new(1139.0, 0.0)));
-    assert_eq!(font.origin(glyph), Ok(Vector2F::default()));
+    assert_eq!(font.origin(glyph), Ok(Vector2F::new(-569.0, -1491.0)));
 }
 
 #[cfg(all(

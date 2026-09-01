@@ -11,31 +11,36 @@
 //! A loader that uses Apple's Core Text API to load and rasterize fonts.
 
 use byteorder::{BigEndian, ReadBytesExt};
-use core_graphics::base::{kCGImageAlphaPremultipliedLast, CGFloat};
-use core_graphics::color_space::CGColorSpace;
-use core_graphics::context::{CGContext, CGTextDrawingMode};
-use core_graphics::font::{CGFont, CGGlyph};
-use core_graphics::geometry::{CGAffineTransform, CGPoint, CGRect, CGSize};
-use core_graphics::geometry::{CG_AFFINE_TRANSFORM_IDENTITY, CG_ZERO_POINT, CG_ZERO_SIZE};
-use core_graphics::path::CGPathElementType;
-use core_text;
-use core_text::font::CTFont;
-use core_text::font_descriptor::kCTFontDefaultOrientation;
-use core_text::font_descriptor::{SymbolicTraitAccessors, TraitAccessors};
+use core::slice;
 use log::warn;
+use objc2_core_foundation::{
+    CFBoolean, CFData, CFDictionary, CFNumber, CFRetained, CFString, CFType, CGAffineTransform,
+    CGFloat, CGPoint, CGRect, CGSize, CFURL,
+};
+use objc2_core_graphics::{
+    CGAffineTransformIdentity, CGBitmapContextCreate, CGBitmapInfo, CGColorSpace, CGFont, CGGlyph,
+    CGImageAlphaInfo, CGPath, CGPathElement, CGPathElementType, CGTextDrawingMode,
+};
+use objc2_core_text::{
+    kCTFontSlantTrait, kCTFontStyleNameKey, kCTFontURLAttribute, kCTFontWeightTrait,
+    kCTFontWidthTrait, CTFont, CTFontManagerCreateFontDescriptorFromData, CTFontOrientation,
+    CTFontSymbolicTraits, CTFontTableOptions,
+};
 use pathfinder_geometry::line_segment::LineSegment2F;
 use pathfinder_geometry::rect::{RectF, RectI};
 use pathfinder_geometry::transform2d::Transform2F;
 use pathfinder_geometry::vector::Vector2F;
 use pathfinder_simd::default::F32x4;
 use std::cmp::Ordering;
-use std::f32;
+use std::ffi::c_void;
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
 use std::io::{Seek, SeekFrom};
 use std::ops::Deref;
 use std::path::Path;
+use std::ptr::NonNull;
 use std::sync::Arc;
+use std::{f32, ptr};
 
 use crate::canvas::{Canvas, Format, RasterizationOptions};
 use crate::error::{FontLoadingError, GlyphLoadingError};
@@ -55,18 +60,15 @@ const TRUE_HEX: u32 = 0x74727565; // 'true'
 const TYP1_HEX: u32 = 0x74797031; // 'typ1'
 const SFNT_HEX: u32 = 0x73666e74; // 'sfnt'
 
-#[allow(non_upper_case_globals)]
-const kCGImageAlphaOnly: u32 = 7;
-
 pub(crate) static FONT_WEIGHT_MAPPING: [f32; 9] = [-0.7, -0.5, -0.23, 0.0, 0.2, 0.3, 0.4, 0.6, 0.8];
 
 /// Core Text's representation of a font.
-pub type NativeFont = CTFont;
+pub type NativeFont = CFRetained<CTFont>;
 
 /// A loader that uses Apple's Core Text API to load and rasterize fonts.
 #[derive(Clone)]
 pub struct Font {
-    core_text_font: CTFont,
+    core_text_font: CFRetained<CTFont>,
     font_data: FontData,
 }
 
@@ -91,9 +93,9 @@ impl Font {
             font_data = Arc::new(new_font_data);
         }
 
-        let core_text_font = match core_text::font::new_from_buffer(&*font_data) {
-            Ok(ct_font) => ct_font,
-            Err(_) => return Err(FontLoadingError::Parse),
+        let core_text_font = match from_buffer(&*font_data) {
+            Some(ct_font) => ct_font,
+            None => return Err(FontLoadingError::Parse),
         };
 
         Ok(Font {
@@ -128,9 +130,12 @@ impl Font {
 
     unsafe fn from_core_text_font(core_text_font: NativeFont) -> Font {
         let mut font_data = FontData::Unavailable;
-        match core_text_font.url() {
+        match core_text_font
+            .attribute(unsafe { kCTFontURLAttribute })
+            .and_then(|url| url.downcast::<CFURL>().ok())
+        {
             None => warn!("No URL found for Core Text font!"),
-            Some(url) => match url.to_path() {
+            Some(url) => match url.to_file_path() {
                 Some(path) => match File::open(path) {
                     Ok(ref mut file) => match utils::slurp_file(file) {
                         Ok(data) => font_data = FontData::Memory(Arc::new(data)),
@@ -151,9 +156,14 @@ impl Font {
     /// Creates a font from a Core Graphics font handle.
     ///
     /// This function is only available on the Core Text backend.
-    pub fn from_core_graphics_font(core_graphics_font: CGFont) -> Font {
+    pub fn from_core_graphics_font(core_graphics_font: &CGFont) -> Font {
         unsafe {
-            Font::from_core_text_font(core_text::font::new_from_CGFont(&core_graphics_font, 16.0))
+            Font::from_core_text_font(CTFont::with_graphics_font(
+                &core_graphics_font,
+                16.0,
+                None,
+                None,
+            ))
         }
     }
 
@@ -168,9 +178,9 @@ impl Font {
         if let Ok(font_count) = read_number_of_fonts_from_otc_header(&font_data) {
             return Ok(FileType::Collection(font_count));
         }
-        match core_text::font::new_from_buffer(&*font_data) {
-            Ok(_) => Ok(FileType::Single),
-            Err(_) => Err(FontLoadingError::Parse),
+        match from_buffer(&*font_data) {
+            Some(_) => Ok(FileType::Single),
+            None => Err(FontLoadingError::Parse),
         }
     }
 
@@ -183,9 +193,9 @@ impl Font {
             return Ok(FileType::Collection(font_count));
         }
 
-        match core_text::font::new_from_buffer(&*font_data) {
-            Ok(_) => Ok(FileType::Single),
-            Err(_) => Err(FontLoadingError::Parse),
+        match from_buffer(&*font_data) {
+            Some(_) => Ok(FileType::Single),
+            None => Err(FontLoadingError::Parse),
         }
     }
 
@@ -204,19 +214,19 @@ impl Font {
     /// Returns the PostScript name of the font. This should be globally unique.
     #[inline]
     pub fn postscript_name(&self) -> Option<String> {
-        Some(self.core_text_font.postscript_name())
+        Some(self.core_text_font.post_script_name().to_string())
     }
 
     /// Returns the full name of the font (also known as "display name" on macOS).
     #[inline]
     pub fn full_name(&self) -> String {
-        self.core_text_font.display_name()
+        self.core_text_font.display_name().to_string()
     }
 
     /// Returns the name of the font family.
     #[inline]
     pub fn family_name(&self) -> String {
-        self.core_text_font.family_name()
+        self.core_text_font.family_name().to_string()
     }
 
     /// Returns the name of the font style, according to Core Text.
@@ -224,30 +234,40 @@ impl Font {
     /// NB: This function is only available on the Core Text backend.
     #[inline]
     pub fn style_name(&self) -> String {
-        self.core_text_font.style_name()
+        self.core_text_font
+            .name(unsafe { kCTFontStyleNameKey })
+            .expect("a font must have a non-null style name")
+            .to_string()
     }
 
     /// Returns true if and only if the font is monospace (fixed-width).
     #[inline]
     pub fn is_monospace(&self) -> bool {
-        self.core_text_font.symbolic_traits().is_monospace()
+        self.core_text_font
+            .symbolic_traits()
+            .contains(CTFontSymbolicTraits::MonoSpaceTrait)
     }
 
     /// Returns the values of various font properties, corresponding to those defined in CSS.
     pub fn properties(&self) -> Properties {
         let symbolic_traits = self.core_text_font.symbolic_traits();
-        let all_traits = self.core_text_font.all_traits();
+        let all_traits = self.core_text_font.traits();
 
-        let style = if symbolic_traits.is_italic() {
+        let style = if symbolic_traits.contains(CTFontSymbolicTraits::ItalicTrait) {
             Style::Italic
-        } else if all_traits.normalized_slant() > 0.0 {
+        } else if extract_f64_for_key(&all_traits, unsafe { kCTFontSlantTrait }) > 0.0 {
             Style::Oblique
         } else {
             Style::Normal
         };
 
-        let weight = core_text_to_css_font_weight(all_traits.normalized_weight() as f32);
-        let stretch = core_text_width_to_css_stretchiness(all_traits.normalized_width() as f32);
+        let weight = core_text_to_css_font_weight(extract_f64_for_key(&all_traits, unsafe {
+            kCTFontWeightTrait
+        }) as f32);
+        let stretch =
+            core_text_width_to_css_stretchiness(extract_f64_for_key(&all_traits, unsafe {
+                kCTFontWidthTrait
+            }) as f32);
 
         Properties {
             style,
@@ -272,8 +292,11 @@ impl Font {
         unsafe {
             let (mut dest, mut src) = ([0, 0], [0, 0]);
             let src = character.encode_utf16(&mut src);
-            self.core_text_font
-                .get_glyphs_for_characters(src.as_ptr(), dest.as_mut_ptr(), 2);
+            self.core_text_font.glyphs_for_characters(
+                NonNull::new(src.as_ptr().cast_mut()).unwrap(),
+                NonNull::new(dest.as_mut_ptr()).unwrap(),
+                2,
+            );
 
             let id = dest[0] as u32;
             if id != 0 {
@@ -287,7 +310,9 @@ impl Font {
     /// Returns the glyph ID for the specified glyph name.
     #[inline]
     pub fn glyph_by_name(&self, name: &str) -> Option<u32> {
-        let code = self.core_text_font.get_glyph_with_name(name);
+        let code = self
+            .core_text_font
+            .glyph_with_name(&CFString::from_str(name));
 
         Some(u32::from(code))
     }
@@ -309,47 +334,56 @@ impl Font {
     {
         let path = match self
             .core_text_font
-            .create_path_for_glyph(glyph_id as u16, &CG_AFFINE_TRANSFORM_IDENTITY)
+            .path_for_glyph(glyph_id as u16, Some(&unsafe { CGAffineTransformIdentity }))
         {
-            Ok(path) => path,
-            Err(_) => {
+            Some(path) => path,
+            None => {
                 // This will happen if the path is empty (rdar://42832439). To distinguish this
                 // case from the case in which the glyph does not exist, call another API.
-                drop(self.typographic_bounds(glyph_id)?);
+                let _rect = self.typographic_bounds(glyph_id)?;
                 return Ok(());
             }
         };
 
         let units_per_point = self.units_per_point() as f32;
-        path.apply(&|element| {
-            let points = element.points();
-            match element.element_type {
-                CGPathElementType::MoveToPoint => {
-                    sink.move_to(points[0].to_vector() * units_per_point)
-                }
-                CGPathElementType::AddLineToPoint => {
-                    sink.line_to(points[0].to_vector() * units_per_point)
-                }
-                CGPathElementType::AddQuadCurveToPoint => sink.quadratic_curve_to(
+        path_apply(&path, |element| match element.r#type {
+            CGPathElementType::MoveToPoint => {
+                let points = unsafe { slice::from_raw_parts(element.points.as_ptr(), 1) };
+                sink.move_to(points[0].to_vector() * units_per_point)
+            }
+            CGPathElementType::AddLineToPoint => {
+                let points = unsafe { slice::from_raw_parts(element.points.as_ptr(), 1) };
+                sink.line_to(points[0].to_vector() * units_per_point)
+            }
+            CGPathElementType::AddQuadCurveToPoint => {
+                let points = unsafe { slice::from_raw_parts(element.points.as_ptr(), 2) };
+                sink.quadratic_curve_to(
                     points[0].to_vector() * units_per_point,
                     points[1].to_vector() * units_per_point,
-                ),
-                CGPathElementType::AddCurveToPoint => {
-                    let ctrl = LineSegment2F::new(points[0].to_vector(), points[1].to_vector())
-                        * units_per_point;
-                    sink.cubic_curve_to(ctrl, points[2].to_vector() * units_per_point)
-                }
-                CGPathElementType::CloseSubpath => sink.close(),
+                )
             }
+            CGPathElementType::AddCurveToPoint => {
+                let points = unsafe { slice::from_raw_parts(element.points.as_ptr(), 3) };
+                let ctrl = LineSegment2F::new(points[0].to_vector(), points[1].to_vector())
+                    * units_per_point;
+                sink.cubic_curve_to(ctrl, points[2].to_vector() * units_per_point)
+            }
+            CGPathElementType::CloseSubpath => sink.close(),
+            _ => {}
         });
         Ok(())
     }
 
     /// Returns the boundaries of a glyph in font units.
     pub fn typographic_bounds(&self, glyph_id: u32) -> Result<RectF, GlyphLoadingError> {
-        let rect = self
-            .core_text_font
-            .get_bounding_rects_for_glyphs(kCTFontDefaultOrientation, &[glyph_id as u16]);
+        let rect = unsafe {
+            self.core_text_font.bounding_rects_for_glyphs(
+                CTFontOrientation::Default,
+                NonNull::from(&(glyph_id as CGGlyph)),
+                ptr::null_mut(),
+                1,
+            )
+        };
         let rect = RectF::new(
             Vector2F::new(rect.origin.x as f32, rect.origin.y as f32),
             Vector2F::new(rect.size.width as f32, rect.size.height as f32),
@@ -362,10 +396,10 @@ impl Font {
     pub fn advance(&self, glyph_id: u32) -> Result<Vector2F, GlyphLoadingError> {
         // FIXME(pcwalton): Apple's docs don't say what happens when the glyph is out of range!
         unsafe {
-            let (glyph_id, mut advance) = (glyph_id as u16, CG_ZERO_SIZE);
-            self.core_text_font.get_advances_for_glyphs(
-                kCTFontDefaultOrientation,
-                &glyph_id,
+            let (glyph_id, mut advance) = (glyph_id as CGGlyph, CGSize::ZERO);
+            self.core_text_font.advances_for_glyphs(
+                CTFontOrientation::Default,
+                NonNull::from(&glyph_id),
                 &mut advance,
                 1,
             );
@@ -378,11 +412,10 @@ impl Font {
     pub fn origin(&self, glyph_id: u32) -> Result<Vector2F, GlyphLoadingError> {
         unsafe {
             // FIXME(pcwalton): Apple's docs don't say what happens when the glyph is out of range!
-            let (glyph_id, mut translation) = (glyph_id as u16, CG_ZERO_SIZE);
-            self.core_text_font.get_vertical_translations_for_glyphs(
-                kCTFontDefaultOrientation,
-                &glyph_id,
-                &mut translation,
+            let (glyph_id, mut translation) = (glyph_id as CGGlyph, CGSize::ZERO);
+            self.core_text_font.vertical_translations_for_glyphs(
+                NonNull::from(&glyph_id),
+                NonNull::from(&mut translation),
                 1,
             );
             let translation = Vector2F::new(translation.width as f32, translation.height as f32);
@@ -393,7 +426,7 @@ impl Font {
     /// Retrieves various metrics that apply to the entire font.
     pub fn metrics(&self) -> Metrics {
         let units_per_em = self.core_text_font.units_per_em();
-        let units_per_point = (units_per_em as f64) / self.core_text_font.pt_size();
+        let units_per_point = (units_per_em as f64) / self.core_text_font.size();
 
         let bounding_box = self.core_text_font.bounding_box();
         let bounding_box = RectF::new(
@@ -507,15 +540,18 @@ impl Font {
                 Some(cg_color_space_and_format) => cg_color_space_and_format,
             };
 
-        let core_graphics_context = CGContext::create_bitmap_context(
-            Some(canvas.pixels.as_mut_ptr() as *mut _),
-            canvas.size.x() as usize,
-            canvas.size.y() as usize,
-            canvas.format.bits_per_component() as usize,
-            canvas.stride,
-            &cg_color_space,
-            cg_image_format,
-        );
+        let core_graphics_context = unsafe {
+            CGBitmapContextCreate(
+                canvas.pixels.as_mut_ptr() as *mut _,
+                canvas.size.x() as usize,
+                canvas.size.y() as usize,
+                canvas.format.bits_per_component() as usize,
+                canvas.stride,
+                Some(&cg_color_space),
+                CGBitmapInfo(cg_image_format.0),
+            )
+        }
+        .unwrap();
 
         match canvas.format {
             Format::Rgba32 | Format::Rgb24 => {
@@ -525,7 +561,7 @@ impl Font {
         }
 
         let core_graphics_size = CGSize::new(canvas.size.x() as f64, canvas.size.y() as f64);
-        core_graphics_context.fill_rect(CGRect::new(&CG_ZERO_POINT, &core_graphics_size));
+        core_graphics_context.fill_rect(CGRect::new(CGPoint::ZERO, core_graphics_size));
 
         match rasterization_options {
             RasterizationOptions::Bilevel => {
@@ -549,12 +585,12 @@ impl Font {
         }
 
         // CoreGraphics origin is in the bottom left. This makes behavior consistent.
-        core_graphics_context.translate(0.0, canvas.size.y() as CGFloat);
-        core_graphics_context.set_font(&self.core_text_font.copy_to_CGFont());
+        core_graphics_context.translate_ctm(0.0, canvas.size.y() as CGFloat);
+        core_graphics_context.set_font(unsafe { &self.core_text_font.graphics_font(None) });
         core_graphics_context.set_font_size(point_size as CGFloat);
-        core_graphics_context.set_text_drawing_mode(CGTextDrawingMode::CGTextFill);
+        core_graphics_context.set_text_drawing_mode(CGTextDrawingMode::Fill);
         let matrix = transform.matrix.0 * F32x4::new(1.0, -1.0, -1.0, 1.0);
-        core_graphics_context.set_text_matrix(&CGAffineTransform {
+        core_graphics_context.set_text_matrix(CGAffineTransform {
             a: matrix.x() as CGFloat,
             b: matrix.y() as CGFloat,
             c: matrix.z() as CGFloat,
@@ -563,7 +599,13 @@ impl Font {
             ty: -transform.vector.y() as CGFloat,
         });
         let origin = CGPoint::new(0.0, 0.0);
-        core_graphics_context.show_glyphs_at_positions(&[glyph_id as CGGlyph], &[origin]);
+        unsafe {
+            core_graphics_context.show_glyphs_at_positions(
+                NonNull::from(&(glyph_id as CGGlyph)),
+                NonNull::from(&origin),
+                1,
+            )
+        };
 
         Ok(())
     }
@@ -598,7 +640,7 @@ impl Font {
 
     #[inline]
     fn units_per_point(&self) -> f64 {
-        (self.core_text_font.units_per_em() as f64) / self.core_text_font.pt_size()
+        (self.core_text_font.units_per_em() as f64) / self.core_text_font.size()
     }
 
     /// Returns the raw contents of the OpenType table with the given tag.
@@ -607,11 +649,17 @@ impl Font {
     ///
     /// [OpenType specification]: https://docs.microsoft.com/en-us/typography/opentype/spec/
     #[inline]
+    #[allow(deprecated)]
     pub fn load_font_table(&self, table_tag: u32) -> Option<Box<[u8]>> {
         self.core_text_font
-            .get_font_table(table_tag)
-            .map(|data| data.bytes().into())
+            .table(table_tag, CTFontTableOptions::ExcludeSynthetic)
+            .map(|data| data.to_vec().into())
     }
+}
+
+fn from_buffer(font_data: &[u8]) -> Option<CFRetained<CTFont>> {
+    let desc = CTFontManagerCreateFontDescriptorFromData(&CFData::from_bytes(font_data))?;
+    Some(CTFont::with_font_descriptor(&desc, 16.0, None))
 }
 
 impl Loader for Font {
@@ -851,17 +899,19 @@ fn unpack_otc_font(data: &mut [u8], font_index: u32) -> Result<(), FontLoadingEr
 }
 
 // NB: This assumes little-endian, but that's true for all extant Apple hardware.
-fn format_to_cg_color_space_and_image_format(format: Format) -> Option<(CGColorSpace, u32)> {
+fn format_to_cg_color_space_and_image_format(
+    format: Format,
+) -> Option<(CFRetained<CGColorSpace>, CGImageAlphaInfo)> {
     match format {
         Format::Rgb24 => {
             // Unsupported by Core Graphics.
             None
         }
         Format::Rgba32 => Some((
-            CGColorSpace::create_device_rgb(),
-            kCGImageAlphaPremultipliedLast,
+            CGColorSpace::new_device_rgb(),
+            CGImageAlphaInfo::PremultipliedLast,
         )),
-        Format::A8 => Some((CGColorSpace::create_device_gray(), kCGImageAlphaOnly)),
+        Format::A8 => Some((CGColorSpace::new_device_gray(), CGImageAlphaInfo::Only)),
     }
 }
 
@@ -941,8 +991,8 @@ mod test {
             .load()
             .unwrap();
         let core_text_font = font0.native_font();
-        let core_graphics_font = core_text_font.copy_to_CGFont();
-        let font1 = Font::from_core_graphics_font(core_graphics_font);
+        let core_graphics_font = unsafe { core_text_font.graphics_font(None) };
+        let font1 = Font::from_core_graphics_font(&core_graphics_font);
         assert_eq!(font1.postscript_name().unwrap(), TEST_FONT_POSTSCRIPT_NAME);
     }
 
@@ -1010,4 +1060,47 @@ pub(crate) fn piecewise_linear_find_index(query_value: f32, mapping: &[f32]) -> 
     let (upper_value, lower_value) = (mapping[upper_index], mapping[lower_index]);
     let t = (query_value - lower_value) / (upper_value - lower_value);
     lower_index as f32 + t
+}
+
+fn extract_f64_for_key(traits: &CFDictionary<CFString, CFType>, key: &CFString) -> f64 {
+    let cftype = traits.get(key).unwrap();
+    match cftype.downcast::<CFNumber>() {
+        Ok(number) => number.as_f64().unwrap(),
+        Err(cftype) => {
+            // The value was not able to be converted to a CFNumber, this violates the Core
+            // Foundation's docs (see https://developer.apple.com/documentation/coretext/kctfontsymbolictrait)
+            // but can occur in practice with certain fonts in MacOS 13 (Ventura). When this
+            // does occur in Ventura, the value returned is always a CFBoolean, so we attempt to
+            // convert into a boolean and create a number from there.
+            let value_as_bool = cftype
+                .downcast::<CFBoolean>()
+                .expect("Should be able to convert value into CFBoolean");
+            if value_as_bool.value() {
+                1.0
+            } else {
+                0.0
+            }
+        }
+    }
+}
+
+fn path_apply<F: FnMut(&CGPathElement)>(path: &CGPath, mut closure: F) {
+    unsafe extern "C-unwind" fn applier<F: FnMut(&CGPathElement)>(
+        info: *mut c_void,
+        element: NonNull<CGPathElement>,
+    ) {
+        let element = unsafe { element.as_ref() };
+
+        let f: *mut F = info.cast();
+        let f = unsafe { &mut *f };
+        (f)(element)
+    }
+
+    let info = &mut closure as *mut F as *mut c_void;
+
+    // SAFETY: The info pointer and applier function is valid.
+    //
+    // Note that `CGPathApply` only executes the closure within this context,
+    // so it's fine that the closure is non-`'static`.
+    unsafe { path.apply(info, Some(applier::<F>)) };
 }

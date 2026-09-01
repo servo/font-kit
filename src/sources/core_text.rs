@@ -10,13 +10,11 @@
 
 //! A source that contains the installed fonts on macOS.
 
-use core_foundation::array::CFArray;
-use core_foundation::base::{CFType, TCFType};
-use core_foundation::dictionary::CFDictionary;
-use core_foundation::string::CFString;
-use core_text::font_collection::{self, CTFontCollection};
-use core_text::font_descriptor::{self, CTFontDescriptor};
-use core_text::font_manager;
+use objc2_core_foundation::{CFArray, CFDictionary, CFNumber, CFString, CFType, CFURL};
+use objc2_core_text::{
+    kCTFontCollectionRemoveDuplicatesOption, kCTFontNameAttribute, kCTFontURLAttribute,
+    CTFontCollection, CTFontDescriptor, CTFontManagerCopyAvailableFontFamilyNames,
+};
 use std::any::Any;
 use std::collections::HashMap;
 use std::f32;
@@ -52,15 +50,18 @@ impl CoreTextSource {
 
     /// Returns paths of all fonts installed on the system.
     pub fn all_fonts(&self) -> Result<Vec<Handle>, SelectionError> {
-        let collection = font_collection::create_for_all_families();
-        create_handles_from_core_text_collection(collection)
+        let key = unsafe { kCTFontCollectionRemoveDuplicatesOption };
+        let value = CFNumber::new_i64(1);
+        let options = CFDictionary::from_slices(&[key], &[&**value]);
+        let collection = unsafe { CTFontCollection::from_available_fonts(Some(&options)) };
+        create_handles_from_core_text_collection(&collection)
     }
 
     /// Returns the names of all families installed on the system.
     pub fn all_families(&self) -> Result<Vec<String>, SelectionError> {
-        let core_text_family_names = font_manager::copy_available_font_family_names();
+        let core_text_family_names = CTFontManagerCopyAvailableFontFamilyNames();
         let mut families = Vec::with_capacity(core_text_family_names.len() as usize);
-        for core_text_family_name in core_text_family_names.iter() {
+        for core_text_family_name in core_text_family_names {
             families.push(core_text_family_name.to_string())
         }
         Ok(families)
@@ -68,15 +69,20 @@ impl CoreTextSource {
 
     /// Looks up a font family by name and returns the handles of all the fonts in that family.
     pub fn select_family_by_name(&self, family_name: &str) -> Result<FamilyHandle, SelectionError> {
-        let attributes: CFDictionary<CFString, CFType> = CFDictionary::from_CFType_pairs(&[(
-            CFString::new("NSFontFamilyAttribute"),
-            CFString::new(family_name).as_CFType(),
-        )]);
+        let attributes = CFDictionary::from_slices(
+            &[&*CFString::from_static_str("NSFontFamilyAttribute")],
+            &[&**CFString::from_str(family_name)],
+        );
 
-        let descriptor = font_descriptor::new_from_attributes(&attributes);
-        let descriptors = CFArray::from_CFTypes(&[descriptor]);
-        let collection = font_collection::new_from_descriptors(&descriptors);
-        let handles = create_handles_from_core_text_collection(collection)?;
+        let descriptor = unsafe { CTFontDescriptor::with_attributes(&attributes) };
+        let descriptors = CFArray::from_objects(&[&*descriptor]);
+        let options = CFDictionary::from_slices(
+            &[unsafe { kCTFontCollectionRemoveDuplicatesOption }],
+            &[&**CFNumber::new_i64(1)],
+        );
+        let collection =
+            unsafe { CTFontCollection::with_font_descriptors(Some(&descriptors), Some(&options)) };
+        let handles = create_handles_from_core_text_collection(&collection)?;
         Ok(FamilyHandle::from_font_handles(handles.into_iter()))
     }
 
@@ -85,15 +91,20 @@ impl CoreTextSource {
         &self,
         postscript_name: &str,
     ) -> Result<Handle, SelectionError> {
-        let attributes: CFDictionary<CFString, CFType> = CFDictionary::from_CFType_pairs(&[(
-            CFString::new("NSFontNameAttribute"),
-            CFString::new(postscript_name).as_CFType(),
-        )]);
+        let attributes = CFDictionary::<CFString, CFType>::from_slices(
+            &[&*CFString::from_static_str("NSFontNameAttribute")],
+            &[&**CFString::from_str(postscript_name)],
+        );
 
-        let descriptor = font_descriptor::new_from_attributes(&attributes);
-        let descriptors = CFArray::from_CFTypes(&[descriptor]);
-        let collection = font_collection::new_from_descriptors(&descriptors);
-        match collection.get_descriptors() {
+        let descriptor = unsafe { CTFontDescriptor::with_attributes(&attributes) };
+        let descriptors = CFArray::from_objects(&[&*descriptor]);
+        let options = CFDictionary::from_slices(
+            &[unsafe { kCTFontCollectionRemoveDuplicatesOption }],
+            &[&**CFNumber::new_i64(1)],
+        );
+        let collection =
+            unsafe { CTFontCollection::with_font_descriptors(Some(&descriptors), Some(&options)) };
+        match collection.matching_font_descriptors() {
             None => Err(SelectionError::NotFound),
             Some(descriptors) => create_handle_from_descriptor(&*descriptors.get(0).unwrap()),
         }
@@ -160,15 +171,20 @@ struct FontDataInfo {
 }
 
 fn create_handles_from_core_text_collection(
-    collection: CTFontCollection,
+    collection: &CTFontCollection,
 ) -> Result<Vec<Handle>, SelectionError> {
     let mut fonts = vec![];
-    if let Some(descriptors) = collection.get_descriptors() {
+    if let Some(descriptors) = collection.matching_font_descriptors() {
         let mut font_data_info_cache: HashMap<PathBuf, FontDataInfo> = HashMap::new();
 
-        'outer: for index in 0..descriptors.len() {
-            let descriptor = descriptors.get(index).unwrap();
-            let font_path = descriptor.font_path().unwrap();
+        'outer: for descriptor in descriptors {
+            let font_path = descriptor
+                .attribute(unsafe { kCTFontURLAttribute })
+                .unwrap()
+                .downcast::<CFURL>()
+                .unwrap()
+                .to_file_path()
+                .unwrap();
 
             let data_info = if let Some(data_info) = font_data_info_cache.get(&font_path) {
                 data_info.clone()
@@ -198,12 +214,16 @@ fn create_handles_from_core_text_collection(
 
             match data_info.file_type {
                 FileType::Collection(font_count) => {
-                    let postscript_name = descriptor.font_name();
+                    let postscript_name = descriptor
+                        .attribute(unsafe { kCTFontNameAttribute })
+                        .unwrap()
+                        .downcast::<CFString>()
+                        .unwrap();
                     for font_index in 0..font_count {
                         if let Ok(font) = Font::from_bytes(Arc::clone(&data_info.data), font_index)
                         {
                             if let Some(font_postscript_name) = font.postscript_name() {
-                                if postscript_name == font_postscript_name {
+                                if postscript_name.to_string() == font_postscript_name {
                                     fonts.push(Handle::from_memory(data_info.data, font_index));
                                     continue 'outer;
                                 }
@@ -225,7 +245,13 @@ fn create_handles_from_core_text_collection(
 }
 
 fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Result<Handle, SelectionError> {
-    let font_path = descriptor.font_path().unwrap();
+    let font_path = descriptor
+        .attribute(unsafe { kCTFontURLAttribute })
+        .unwrap()
+        .downcast::<CFURL>()
+        .unwrap()
+        .to_file_path()
+        .unwrap();
 
     let mut file = if let Ok(file) = File::open(&font_path) {
         file
@@ -241,11 +267,15 @@ fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Result<Handle
 
     match Font::analyze_bytes(Arc::clone(&font_data)) {
         Ok(FileType::Collection(font_count)) => {
-            let postscript_name = descriptor.font_name();
+            let postscript_name = descriptor
+                .attribute(unsafe { kCTFontNameAttribute })
+                .unwrap()
+                .downcast::<CFString>()
+                .unwrap();
             for font_index in 0..font_count {
                 if let Ok(font) = Font::from_bytes(Arc::clone(&font_data), font_index) {
                     if let Some(font_postscript_name) = font.postscript_name() {
-                        if postscript_name == font_postscript_name {
+                        if postscript_name.to_string() == font_postscript_name {
                             return Ok(Handle::from_memory(font_data, font_index));
                         }
                     }
