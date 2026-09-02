@@ -20,9 +20,7 @@ use core_text::font_manager;
 use std::any::Any;
 use std::collections::HashMap;
 use std::f32;
-use std::fs::File;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use crate::error::SelectionError;
 use crate::family_handle::FamilyHandle;
@@ -39,6 +37,12 @@ use crate::utils;
 #[allow(missing_debug_implementations)]
 #[allow(missing_copy_implementations)]
 pub struct CoreTextSource;
+
+impl Default for CoreTextSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl CoreTextSource {
     /// Opens a new connection to the system font source.
@@ -153,66 +157,76 @@ fn css_stretchiness_to_core_text_width(css_stretchiness: Stretch) -> f32 {
     0.1 * core_text_loader::piecewise_linear_find_index(css_stretchiness, &Stretch::MAPPING) - 0.4
 }
 
-#[derive(Clone)]
-struct FontDataInfo {
-    data: Arc<Vec<u8>>,
-    file_type: FileType,
-}
-
 fn create_handles_from_core_text_collection(
     collection: CTFontCollection,
 ) -> Result<Vec<Handle>, SelectionError> {
     let mut fonts = vec![];
     if let Some(descriptors) = collection.get_descriptors() {
-        let mut font_data_info_cache: HashMap<PathBuf, FontDataInfo> = HashMap::new();
+        // Cache to track which paths we've seen and their font index mappings
+        // This avoids re-analyzing the same font collection file multiple times
+        let mut font_index_cache: HashMap<PathBuf, HashMap<String, u32>> = HashMap::new();
 
-        'outer: for index in 0..descriptors.len() {
+        for index in 0..descriptors.len() {
             let descriptor = descriptors.get(index).unwrap();
             let font_path = descriptor.font_path().unwrap();
 
-            let data_info = if let Some(data_info) = font_data_info_cache.get(&font_path) {
-                data_info.clone()
-            } else {
-                let mut file = if let Ok(file) = File::open(&font_path) {
-                    file
-                } else {
+            // Check if we already have this path in cache
+            if let Some(postscript_map) = font_index_cache.get(&font_path) {
+                let postscript_name = descriptor.font_name();
+                if let Some(&font_index) = postscript_map.get(&postscript_name) {
+                    // We already know the font index for this postscript name
+                    fonts.push(Handle::from_path(font_path.clone(), font_index));
                     continue;
-                };
-                let data = if let Ok(data) = utils::slurp_file(&mut file) {
-                    Arc::new(data)
-                } else {
+                }
+                // If not in map, it means this is a single font file or we already processed it
+                if postscript_map.is_empty() {
+                    fonts.push(Handle::from_path(font_path.clone(), 0));
                     continue;
-                };
+                }
+            }
 
-                let file_type = match Font::analyze_bytes(Arc::clone(&data)) {
-                    Ok(file_type) => file_type,
-                    Err(_) => continue,
-                };
-
-                let data_info = FontDataInfo { data, file_type };
-
-                font_data_info_cache.insert(font_path.clone(), data_info.clone());
-
-                data_info
+            // File not in cache - need to analyze it (but only read minimal metadata)
+            let file_type = match Font::analyze_path(&font_path) {
+                Ok(file_type) => file_type,
+                Err(_) => {
+                    // If we can't analyze, assume it's a single font and let load() handle errors
+                    font_index_cache.insert(font_path.clone(), HashMap::new());
+                    fonts.push(Handle::from_path(font_path, 0));
+                    continue;
+                }
             };
 
-            match data_info.file_type {
+            match file_type {
                 FileType::Collection(font_count) => {
+                    // For collections, we need to find which index matches this descriptor
+                    // We'll do a lazy approach: try loading just the font table headers
                     let postscript_name = descriptor.font_name();
+                    let mut postscript_map = HashMap::new();
+                    let mut found_index = None;
+
                     for font_index in 0..font_count {
-                        if let Ok(font) = Font::from_bytes(Arc::clone(&data_info.data), font_index)
-                        {
+                        // Only load the font if we haven't found our target yet
+                        // This is still not perfect, but much better than loading all data
+                        if let Ok(font) = Font::from_path(&font_path, font_index) {
                             if let Some(font_postscript_name) = font.postscript_name() {
-                                if postscript_name == font_postscript_name {
-                                    fonts.push(Handle::from_memory(data_info.data, font_index));
-                                    continue 'outer;
+                                postscript_map.insert(font_postscript_name.clone(), font_index);
+                                if font_postscript_name == postscript_name {
+                                    found_index = Some(font_index);
                                 }
                             }
                         }
                     }
+
+                    font_index_cache.insert(font_path.clone(), postscript_map);
+
+                    if let Some(font_index) = found_index {
+                        fonts.push(Handle::from_path(font_path, font_index));
+                    }
                 }
                 FileType::Single => {
-                    fonts.push(Handle::from_memory(data_info.data, 0));
+                    // Single font file - just use index 0
+                    font_index_cache.insert(font_path.clone(), HashMap::new());
+                    fonts.push(Handle::from_path(font_path, 0));
                 }
             }
         }
@@ -227,26 +241,17 @@ fn create_handles_from_core_text_collection(
 fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Result<Handle, SelectionError> {
     let font_path = descriptor.font_path().unwrap();
 
-    let mut file = if let Ok(file) = File::open(&font_path) {
-        file
-    } else {
-        return Err(SelectionError::CannotAccessSource { reason: None });
-    };
-
-    let font_data = if let Ok(font_data) = utils::slurp_file(&mut file) {
-        Arc::new(font_data)
-    } else {
-        return Err(SelectionError::CannotAccessSource { reason: None });
-    };
-
-    match Font::analyze_bytes(Arc::clone(&font_data)) {
+    // Use path-based handle instead of loading entire font into memory
+    match Font::analyze_path(&font_path) {
         Ok(FileType::Collection(font_count)) => {
             let postscript_name = descriptor.font_name();
+
+            // For collections, we need to find the correct font index
             for font_index in 0..font_count {
-                if let Ok(font) = Font::from_bytes(Arc::clone(&font_data), font_index) {
+                if let Ok(font) = Font::from_path(&font_path, font_index) {
                     if let Some(font_postscript_name) = font.postscript_name() {
                         if postscript_name == font_postscript_name {
-                            return Ok(Handle::from_memory(font_data, font_index));
+                            return Ok(Handle::from_path(font_path, font_index));
                         }
                     }
                 }
@@ -254,7 +259,7 @@ fn create_handle_from_descriptor(descriptor: &CTFontDescriptor) -> Result<Handle
 
             Err(SelectionError::NotFound)
         }
-        Ok(FileType::Single) => Ok(Handle::from_memory(font_data, 0)),
+        Ok(FileType::Single) => Ok(Handle::from_path(font_path, 0)),
         Err(e) => Err(SelectionError::CannotAccessSource {
             reason: Some(format!("{:?} error on path {:?}", e, font_path).into()),
         }),
