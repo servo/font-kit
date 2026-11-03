@@ -17,13 +17,13 @@ use byteorder::{BigEndian, ReadBytesExt};
 use freetype_sys::{
     ft_sfnt_os2, FT_Byte, FT_Done_Face, FT_Done_FreeType, FT_Error, FT_Face, FT_Fixed,
     FT_Get_Char_Index, FT_Get_Name_Index, FT_Get_Postscript_Name, FT_Get_Sfnt_Name,
-    FT_Get_Sfnt_Name_Count, FT_Get_Sfnt_Table, FT_Init_FreeType, FT_Library,
+    FT_Get_Sfnt_Name_Count, FT_Get_Sfnt_Table, FT_Init_FreeType, FT_Int, FT_Library,
     FT_Library_SetLcdFilter, FT_Load_Glyph, FT_Long, FT_Matrix, FT_New_Memory_Face, FT_Pos,
-    FT_Reference_Face, FT_Set_Char_Size, FT_Set_Transform, FT_UInt, FT_ULong, FT_Vector,
-    FT_FACE_FLAG_FIXED_WIDTH, FT_LCD_FILTER_DEFAULT, FT_LOAD_DEFAULT, FT_LOAD_MONOCHROME,
-    FT_LOAD_NO_HINTING, FT_LOAD_RENDER, FT_LOAD_TARGET_LCD, FT_LOAD_TARGET_LIGHT,
-    FT_LOAD_TARGET_MONO, FT_LOAD_TARGET_NORMAL, FT_PIXEL_MODE_GRAY, FT_PIXEL_MODE_LCD,
-    FT_PIXEL_MODE_LCD_V, FT_PIXEL_MODE_MONO, FT_STYLE_FLAG_ITALIC, TT_OS2,
+    FT_Reference_Face, FT_Select_Size, FT_Set_Char_Size, FT_Set_Transform, FT_UInt, FT_ULong,
+    FT_Vector, FT_FACE_FLAG_FIXED_WIDTH, FT_FACE_FLAG_SCALABLE, FT_LCD_FILTER_DEFAULT,
+    FT_LOAD_DEFAULT, FT_LOAD_MONOCHROME, FT_LOAD_NO_HINTING, FT_LOAD_RENDER, FT_LOAD_TARGET_LCD,
+    FT_LOAD_TARGET_LIGHT, FT_LOAD_TARGET_MONO, FT_LOAD_TARGET_NORMAL, FT_PIXEL_MODE_GRAY,
+    FT_PIXEL_MODE_LCD, FT_PIXEL_MODE_LCD_V, FT_PIXEL_MODE_MONO, FT_STYLE_FLAG_ITALIC, TT_OS2,
 };
 use log::warn;
 use pathfinder_geometry::line_segment::LineSegment2F;
@@ -433,7 +433,14 @@ impl Font {
                 .hinting_and_rasterization_options_to_load_flags(hinting, rasterization_options);
 
             let units_per_em = (*self.freetype_face).units_per_EM;
-            let grid_fitting_size = hinting.grid_fitting_size();
+            // Bitmap-only faces have no hinted outlines, and they reject size
+            // requests that don't match one of their bitmap strikes, so don't
+            // try to grid-fit them.
+            let grid_fitting_size = if is_freetype_face_scalable(self.freetype_face) {
+                hinting.grid_fitting_size()
+            } else {
+                None
+            };
             if let Some(size) = grid_fitting_size {
                 assert_eq!(
                     FT_Set_Char_Size(self.freetype_face, size.f32_to_ft_fixed_26_6(), 0, 0, 0),
@@ -766,6 +773,20 @@ impl Font {
         hinting_options: HintingOptions,
         rasterization_options: RasterizationOptions,
     ) -> Result<RectI, GlyphLoadingError> {
+        unsafe {
+            // The default implementation scales the typographic bounds by
+            // `point_size / units_per_EM`, which is meaningless for faces that have no scalable
+            // outlines (`units_per_EM` is 0 for those, so the result would be garbage).
+            if !is_freetype_face_scalable(self.freetype_face) {
+                return self.bitmap_raster_bounds(
+                    glyph_id,
+                    point_size,
+                    transform,
+                    rasterization_options,
+                );
+            }
+        }
+
         <Self as Loader>::raster_bounds(
             self,
             glyph_id,
@@ -774,6 +795,46 @@ impl Font {
             hinting_options,
             rasterization_options,
         )
+    }
+
+    /// Returns the boundaries of a glyph bitmap, for faces that have no scalable outlines.
+    ///
+    /// `point_size` only selects the closest bitmap strike, since bitmap glyphs can't be scaled.
+    /// Of the transform only the translation is applied — matrices can't affect a bitmap — which
+    /// is exactly what `rasterize_glyph` does for those faces.
+    fn bitmap_raster_bounds(
+        &self,
+        glyph_id: u32,
+        point_size: f32,
+        transform: Transform2F,
+        rasterization_options: RasterizationOptions,
+    ) -> Result<RectI, GlyphLoadingError> {
+        unsafe {
+            let strike_index = closest_bitmap_strike(self.freetype_face, point_size)
+                .ok_or(GlyphLoadingError::PlatformError)?;
+            if FT_Select_Size(self.freetype_face, strike_index) != 0 {
+                return Err(GlyphLoadingError::PlatformError);
+            }
+
+            let mut load_flags = FT_LOAD_DEFAULT | FT_LOAD_RENDER;
+            load_flags |= self.hinting_and_rasterization_options_to_load_flags(
+                HintingOptions::None,
+                rasterization_options,
+            );
+            if FT_Load_Glyph(self.freetype_face, glyph_id, load_flags) != 0 {
+                return Err(GlyphLoadingError::NoSuchGlyph);
+            }
+
+            let glyph = &*(*self.freetype_face).glyph;
+            let translation =
+                Vector2I::new(transform.vector.x() as i32, transform.vector.y() as i32);
+            let bitmap_origin = Vector2I::new(glyph.bitmap_left, -glyph.bitmap_top) + translation;
+            let bitmap_size = Vector2I::new(glyph.bitmap.width, glyph.bitmap.rows);
+            Ok(RectI::from_points(
+                bitmap_origin,
+                bitmap_origin + bitmap_size,
+            ))
+        }
     }
 
     /// Rasterizes a glyph to a canvas with the given size and origin.
@@ -813,16 +874,27 @@ impl Font {
             };
             FT_Set_Transform(self.freetype_face, &mut ft_shape, &mut delta);
 
-            assert_eq!(
-                FT_Set_Char_Size(
-                    self.freetype_face,
-                    point_size.f32_to_ft_fixed_26_6(),
-                    0,
-                    0,
+            if is_freetype_face_scalable(self.freetype_face) {
+                assert_eq!(
+                    FT_Set_Char_Size(
+                        self.freetype_face,
+                        point_size.f32_to_ft_fixed_26_6(),
+                        0,
+                        0,
+                        0
+                    ),
                     0
-                ),
-                0
-            );
+                );
+            } else {
+                // Bitmap-only faces (e.g. Apple Color Emoji) accept a size request only if it
+                // matches one of their built-in bitmap strikes, so select the closest strike
+                // instead of setting a size.
+                let strike_index = closest_bitmap_strike(self.freetype_face, point_size)
+                    .ok_or(GlyphLoadingError::PlatformError)?;
+                if FT_Select_Size(self.freetype_face, strike_index) != 0 {
+                    return Err(GlyphLoadingError::PlatformError);
+                }
+            }
 
             let mut load_flags = FT_LOAD_DEFAULT | FT_LOAD_RENDER;
             load_flags |= self.hinting_and_rasterization_options_to_load_flags(
@@ -850,10 +922,19 @@ impl Font {
                 );
             } else {
                 let buffer = slice::from_raw_parts(bitmap_buffer, bitmap_length);
-                let dst_point = Vector2I::new(
+                let mut dst_point = Vector2I::new(
                     (*(*self.freetype_face).glyph).bitmap_left,
                     -(*(*self.freetype_face).glyph).bitmap_top,
                 );
+                if !is_freetype_face_scalable(self.freetype_face) {
+                    // FreeType ignores the transform for embedded bitmap glyphs: neither the
+                    // matrix nor the delta changes `bitmap_left`/`bitmap_top`. Apply the
+                    // translation ourselves, since callers allocate a canvas covering the origin
+                    // returned by `raster_bounds` and expect the glyph to be moved by the
+                    // transform they pass in.
+                    dst_point +=
+                        Vector2I::new(transform.vector.x() as i32, transform.vector.y() as i32);
+                }
 
                 // FIXME(pcwalton): This function should return a Result instead.
                 match bitmap.pixel_mode as u32 {
@@ -1159,6 +1240,13 @@ unsafe fn setup_freetype_face(face: FT_Face) {
 }
 
 unsafe fn reset_freetype_face_char_size(face: FT_Face) {
+    // Faces without scalable outlines have no notion of an "unscaled" size:
+    // FreeType rejects any size request that doesn't match one of their
+    // built-in bitmap strikes with `FT_Err_Invalid_Pixel_Size`.
+    if !is_freetype_face_scalable(face) {
+        return;
+    }
+
     // Apple Color Emoji has 0 units per em. Whee!
     let units_per_em = (*face).units_per_EM as i64;
     if units_per_em > 0 {
@@ -1167,6 +1255,44 @@ unsafe fn reset_freetype_face_char_size(face: FT_Face) {
             0
         );
     }
+}
+
+/// Returns true if and only if the face has scalable outlines.
+///
+/// Faces without them (bitmap-only fonts) reject any size request that doesn't match
+/// one of their built-in bitmap strikes with `FT_Err_Invalid_Pixel_Size`; sizes for
+/// those faces must be chosen with `FT_Select_Size` instead.
+#[inline]
+unsafe fn is_freetype_face_scalable(face: FT_Face) -> bool {
+    (*face).face_flags & FT_FACE_FLAG_SCALABLE != 0
+}
+
+/// Returns the index of the bitmap strike whose vertical resolution is closest to
+/// `requested_ppem`, which is given in 26.6 format.
+///
+/// Ties go to the smaller strike, which avoids upscaling.
+fn closest_strike_index(strike_ppems: &[FT_Long], requested_ppem: FT_Long) -> Option<FT_Int> {
+    let mut best_strike = None;
+    let mut best_distance = FT_Long::MAX;
+    for (index, &strike_ppem) in strike_ppems.iter().enumerate() {
+        // Compare against the vertical size, as FreeType's own size matching does.
+        let distance = (strike_ppem - requested_ppem).abs();
+        if distance < best_distance {
+            best_distance = distance;
+            best_strike = Some(index as FT_Int);
+        }
+    }
+    best_strike
+}
+
+/// Returns the index of the bitmap strike that best matches the given point size.
+///
+/// This is only meaningful for faces that have no scalable outlines, as per `is_freetype_face_scalable`.
+unsafe fn closest_bitmap_strike(face: FT_Face, point_size: f32) -> Option<FT_Int> {
+    let strike_ppems = (0..(*face).num_fixed_sizes as usize)
+        .map(|index| (*(*face).available_sizes.offset(index as isize)).y_ppem as FT_Long)
+        .collect::<Vec<_>>();
+    closest_strike_index(&strike_ppems, point_size.f32_to_ft_fixed_26_6() as FT_Long)
 }
 
 trait F32ToFtFixed {
